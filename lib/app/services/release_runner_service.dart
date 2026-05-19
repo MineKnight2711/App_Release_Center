@@ -2,9 +2,11 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:app_release_center/app/models/release_fastlane_lane.dart';
 import 'package:app_release_center/app/models/release_project.dart';
 import 'package:app_release_center/app/models/release_script.dart';
 import 'package:get/get.dart';
+import 'package:path/path.dart' as p;
 
 class ReleaseRunnerService extends GetxService {
   final isRunning = false.obs;
@@ -36,14 +38,111 @@ class ReleaseRunnerService extends GetxService {
       this.clearLog();
     }
 
-    final plan = _commandPlan(script, args);
+    return _runPlan(
+      plan: _commandPlan(script, args),
+      workingDirectory: project.autoDirectory.path,
+      statusLabel: script.fileName,
+      activePath: script.path,
+      environment: environment,
+      clearLog: clearLog,
+    );
+  }
+
+  Future<int> runFastlaneLane({
+    required ReleaseProject project,
+    required ReleaseFastlaneLane lane,
+    List<String> args = const [],
+    Map<String, String> environment = const {},
+    bool clearLog = false,
+  }) async {
+    if (!project.androidDirectory.existsSync()) {
+      _append('Project does not contain an android folder.');
+      return -1;
+    }
+
+    final gemfile = File(
+      p.join(project.androidDirectory.path, 'fastlane', 'Gemfile'),
+    );
+    final bundleExecutable = gemfile.existsSync() ? _bundleExecutable() : null;
+    final fastlaneEnvironment = Map<String, String>.from(environment);
+    if (bundleExecutable != null) {
+      fastlaneEnvironment['BUNDLE_GEMFILE'] = gemfile.path;
+    }
+
+    return _runPlan(
+      plan: _fastlaneCommandPlan(
+        lane,
+        args,
+        bundleExecutable: bundleExecutable,
+      ),
+      workingDirectory: project.androidDirectory.path,
+      statusLabel: lane.name,
+      activePath: lane.key,
+      environment: fastlaneEnvironment,
+      clearLog: clearLog,
+    );
+  }
+
+  Future<int> runCommand({
+    required String workingDirectory,
+    required String statusLabel,
+    required String activePath,
+    required String executable,
+    List<String> arguments = const [],
+    List<String>? displayArguments,
+    Map<String, String> environment = const {},
+    bool clearLog = false,
+  }) {
+    return _runPlan(
+      plan: CommandPlan(
+        executable: executable,
+        arguments: arguments,
+        displayArguments: displayArguments,
+      ),
+      workingDirectory: workingDirectory,
+      statusLabel: statusLabel,
+      activePath: activePath,
+      environment: environment,
+      clearLog: clearLog,
+    );
+  }
+
+  String resolveFastlaneExecutable() {
+    return _fastlaneExecutable();
+  }
+
+  String resolveGemExecutable() {
+    return _gemExecutable();
+  }
+
+  void appendSystemLog(String message) {
+    _append(message);
+  }
+
+  Future<int> _runPlan({
+    required CommandPlan plan,
+    required String workingDirectory,
+    required String statusLabel,
+    required String activePath,
+    required Map<String, String> environment,
+    required bool clearLog,
+  }) async {
+    if (isRunning.value) {
+      _append('A script is already running.');
+      return -1;
+    }
+
+    if (clearLog) {
+      this.clearLog();
+    }
+
     final mergedEnvironment = Map<String, String>.from(Platform.environment)
       ..addAll(_plainLogEnvironment)
       ..addAll(environment);
 
     isRunning.value = true;
-    status.value = 'Running ${script.fileName}';
-    activeScriptPath.value = script.path;
+    status.value = 'Running $statusLabel';
+    activeScriptPath.value = activePath;
     exitCode.value = null;
     _append('\$ ${plan.display}');
 
@@ -51,7 +150,7 @@ class ReleaseRunnerService extends GetxService {
       final process = await Process.start(
         plan.executable,
         plan.arguments,
-        workingDirectory: project.autoDirectory.path,
+        workingDirectory: workingDirectory,
         environment: mergedEnvironment,
         runInShell: false,
       );
@@ -75,7 +174,7 @@ class ReleaseRunnerService extends GetxService {
     } on ProcessException catch (error) {
       exitCode.value = -1;
       status.value = 'Failed to start';
-      _append('Failed to start ${script.fileName}: ${error.message}');
+      _append('Failed to start $statusLabel: ${error.message}');
       return -1;
     } finally {
       _process = null;
@@ -140,8 +239,9 @@ class ReleaseRunnerService extends GetxService {
     }
 
     if (script.isDartTool) {
+      final executable = _dartExecutable();
       return CommandPlan(
-        executable: 'dart',
+        executable: executable,
         arguments: [script.fileName, ...args],
       );
     }
@@ -154,6 +254,27 @@ class ReleaseRunnerService extends GetxService {
     }
 
     return CommandPlan(executable: './${script.fileName}', arguments: args);
+  }
+
+  CommandPlan _fastlaneCommandPlan(
+    ReleaseFastlaneLane lane,
+    List<String> args, {
+    String? bundleExecutable,
+  }) {
+    final target = [
+      if (lane.platform != null) lane.platform!,
+      lane.name,
+      ...args,
+    ];
+
+    if (bundleExecutable != null) {
+      return CommandPlan(
+        executable: bundleExecutable,
+        arguments: ['exec', 'fastlane', ...target],
+      );
+    }
+
+    return CommandPlan(executable: _fastlaneExecutable(), arguments: target);
   }
 
   String _bashExecutable() {
@@ -170,6 +291,129 @@ class ReleaseRunnerService extends GetxService {
     }
 
     return 'bash';
+  }
+
+  String _dartExecutable() {
+    if (!Platform.isWindows) return 'dart';
+
+    final fromPath = _resolveFromPath('dart');
+    if (fromPath != null) return fromPath;
+
+    final candidates = [
+      _candidateFromEnv('DART_SDK', ['bin', 'dart.exe']),
+      _candidateFromEnv('DART_SDK', ['bin', 'dart.bat']),
+      _candidateFromEnv('FLUTTER_ROOT', [
+        'bin',
+        'cache',
+        'dart-sdk',
+        'bin',
+        'dart.exe',
+      ]),
+      _candidateFromEnv('FLUTTER_ROOT', ['bin', 'dart.bat']),
+      r'C:\flutter\bin\cache\dart-sdk\bin\dart.exe',
+      r'C:\flutter\bin\dart.bat',
+      r'C:\src\flutter\bin\cache\dart-sdk\bin\dart.exe',
+      r'C:\src\flutter\bin\dart.bat',
+    ];
+
+    for (final candidate in candidates) {
+      if (candidate.isEmpty) continue;
+      if (File(candidate).existsSync()) return candidate;
+    }
+
+    // Keep as final fallback for environments where PATH resolution works.
+    return 'dart';
+  }
+
+  String _fastlaneExecutable() {
+    if (!Platform.isWindows) return 'fastlane';
+
+    final fromPath = _resolveFromPath('fastlane');
+    if (fromPath != null) return fromPath;
+
+    final candidates = [
+      _candidateFromEnv('GEM_HOME', ['bin', 'fastlane.bat']),
+      _candidateFromEnv('GEM_HOME', ['bin', 'fastlane.cmd']),
+    ];
+
+    for (final candidate in candidates) {
+      if (candidate.isEmpty) continue;
+      if (File(candidate).existsSync()) return candidate;
+    }
+
+    return 'fastlane';
+  }
+
+  String _gemExecutable() {
+    if (!Platform.isWindows) return 'gem';
+
+    final fromPath = _resolveFromPath('gem');
+    if (fromPath != null) return fromPath;
+
+    final candidates = [
+      _candidateFromEnv('GEM_HOME', ['bin', 'gem.bat']),
+      _candidateFromEnv('GEM_HOME', ['bin', 'gem.cmd']),
+    ];
+
+    for (final candidate in candidates) {
+      if (candidate.isEmpty) continue;
+      if (File(candidate).existsSync()) return candidate;
+    }
+
+    return 'gem';
+  }
+
+  String? _bundleExecutable() {
+    if (!Platform.isWindows) return 'bundle';
+
+    final fromPath = _resolveFromPath('bundle');
+    if (fromPath != null) return fromPath;
+
+    return null;
+  }
+
+  String _candidateFromEnv(String key, List<String> childSegments) {
+    final rawRoot = Platform.environment[key]?.trim();
+    if (rawRoot == null || rawRoot.isEmpty) return '';
+    final root = rawRoot.replaceAll('"', '');
+    return p.joinAll([root, ...childSegments]);
+  }
+
+  String? _resolveFromPath(String executable) {
+    final rawPath = Platform.environment['PATH'];
+    if (rawPath == null || rawPath.trim().isEmpty) return null;
+
+    final pathDirs = rawPath
+        .split(';')
+        .map((entry) => entry.trim())
+        .where((entry) => entry.isNotEmpty)
+        .map((entry) => entry.replaceAll('"', ''));
+
+    final rawPathExt = Platform.environment['PATHEXT'] ?? '.COM;.EXE;.BAT;.CMD';
+    final extensions = rawPathExt
+        .split(';')
+        .map((ext) => ext.trim())
+        .where((ext) => ext.isNotEmpty)
+        .toList();
+
+    final executableLower = executable.toLowerCase();
+    final hasExtension = extensions.any(
+      (ext) => executableLower.endsWith(ext.toLowerCase()),
+    );
+    final namesToTry = hasExtension
+        ? <String>[executable]
+        : extensions.map((ext) => '$executable$ext').toList();
+
+    for (final dir in pathDirs) {
+      for (final name in namesToTry) {
+        final fullPath = p.join(dir, name);
+        if (File(fullPath).existsSync()) {
+          return fullPath;
+        }
+      }
+    }
+
+    return null;
   }
 
   void _append(String line) {
@@ -266,6 +510,8 @@ class CommandPlan {
 }
 
 const _promptShim = r'''
+exec 9<&0
+
 read() {
   local prompt=""
   local args=()
@@ -284,10 +530,11 @@ read() {
   done
 
   if [[ -n "$prompt" ]]; then
-    printf "%s" "$prompt"
+    printf "%s" "$prompt" >&2
+    builtin read "${args[@]}" <&9
+  else
+    builtin read "${args[@]}"
   fi
-
-  builtin read "${args[@]}"
 }
 
 export -f read

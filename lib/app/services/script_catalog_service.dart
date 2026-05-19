@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:app_release_center/app/models/release_fastlane_lane.dart';
 import 'package:app_release_center/app/models/release_project.dart';
 import 'package:app_release_center/app/models/release_script.dart';
 import 'package:get/get.dart';
@@ -36,13 +37,20 @@ class ScriptCatalogService extends GetxService {
           ..sort(_sortScripts);
 
     final deployScript = File(p.join(autoDirectory.path, 'deploy.sh'));
+    final deployScriptSource = _readFile(deployScript);
+    final executableDeployScript = _stripCommentOnlyLines(deployScriptSource);
+    final hasFirebaseDeployTools =
+        executableDeployScript.contains('deploy_firebase_dis') ||
+        executableDeployScript.contains('firebase appdistribution');
     final hasPlayReleaseTools =
-        _fileContains(deployScript, 'upload_to_chplay') ||
+        executableDeployScript.contains('upload_to_chplay') ||
         File(p.join(autoDirectory.path, 'check_play_images.dart')).existsSync();
 
     return ReleaseProject(
       path: root.path,
       scripts: scripts,
+      fastlaneLanes: _readFastlaneLanes(root.path),
+      hasFirebaseDeployTools: hasFirebaseDeployTools,
       hasPlayReleaseTools: hasPlayReleaseTools,
       pubspecVersion: _readPubspecVersion(root.path),
     );
@@ -81,9 +89,80 @@ class ScriptCatalogService extends GetxService {
     return a.fileName.compareTo(b.fileName);
   }
 
-  bool _fileContains(File file, String text) {
-    if (!file.existsSync()) return false;
-    return file.readAsStringSync().contains(text);
+  String _readFile(File file) {
+    if (!file.existsSync()) return '';
+    return file.readAsStringSync();
+  }
+
+  String _stripCommentOnlyLines(String source) {
+    return source
+        .split('\n')
+        .map((line) => line.trimLeft())
+        .where((line) => line.isNotEmpty && !line.startsWith('#'))
+        .join('\n');
+  }
+
+  List<ReleaseFastlaneLane> _readFastlaneLanes(String projectPath) {
+    final fastfile = File(
+      p.join(projectPath, 'android', 'fastlane', 'Fastfile'),
+    );
+    if (!fastfile.existsSync()) return const [];
+
+    final lanes = <ReleaseFastlaneLane>[];
+    final seen = <String>{};
+    final lanePattern = RegExp(r'^\s*lane\s+:([A-Za-z0-9_]+)\s+do\b');
+    final descPattern = RegExp(r'''^\s*desc\s+["'](.+)["']\s*$''');
+    final platformPattern = RegExp(r'^\s*platform\s+:([A-Za-z0-9_]+)\s+do\b');
+    final defaultPlatformPattern = RegExp(
+      r'^\s*default_platform\(\s*:([A-Za-z0-9_]+)\s*\)',
+    );
+
+    String? currentPlatform;
+    String? defaultPlatform;
+    String? pendingDescription;
+
+    for (final line in fastfile.readAsLinesSync()) {
+      final defaultMatch = defaultPlatformPattern.firstMatch(line);
+      if (defaultMatch != null) {
+        defaultPlatform = defaultMatch.group(1);
+        continue;
+      }
+
+      final platformMatch = platformPattern.firstMatch(line);
+      if (platformMatch != null) {
+        currentPlatform = platformMatch.group(1);
+        continue;
+      }
+
+      final descMatch = descPattern.firstMatch(line);
+      if (descMatch != null) {
+        pendingDescription = descMatch.group(1);
+        continue;
+      }
+
+      final laneMatch = lanePattern.firstMatch(line);
+      if (laneMatch == null) continue;
+
+      final name = laneMatch.group(1)!;
+      final platform = currentPlatform ?? defaultPlatform;
+      final key = '${platform ?? 'default'}:$name';
+      if (!seen.add(key)) {
+        pendingDescription = null;
+        continue;
+      }
+
+      lanes.add(
+        ReleaseFastlaneLane(
+          name: name,
+          platform: platform,
+          description: pendingDescription,
+        ),
+      );
+      pendingDescription = null;
+    }
+
+    lanes.sort((a, b) => a.name.compareTo(b.name));
+    return lanes;
   }
 
   String? _readPubspecVersion(String projectPath) {

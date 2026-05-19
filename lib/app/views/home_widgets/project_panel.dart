@@ -9,13 +9,13 @@ class _ProjectPanel extends GetView<HomeController> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _PanelTitle(icon: Icons.folder_open, title: 'Project'),
+          const _PanelTitle(icon: Icons.folder_open_outlined, title: 'Project'),
           const SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
               onPressed: controller.pickProjectDirectory,
-              icon: const Icon(Icons.drive_folder_upload),
+              icon: const Icon(Icons.drive_folder_upload_outlined),
               label: const Text('Choose directory'),
             ),
           ),
@@ -42,7 +42,7 @@ class _ProjectPanel extends GetView<HomeController> {
             return _ProjectSummary(project: project);
           }),
           const SizedBox(height: 20),
-          const _PanelTitle(icon: Icons.history, title: 'Recent'),
+          const _PanelTitle(icon: Icons.history_outlined, title: 'Recent'),
           const SizedBox(height: 8),
           SizedBox(
             height: 260,
@@ -74,16 +74,7 @@ class _ProjectSummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
-        border: Border.all(color: colorScheme.outlineVariant),
-        borderRadius: BorderRadius.circular(8),
-      ),
+    return _HudCardShell(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -98,7 +89,10 @@ class _ProjectSummary extends StatelessWidget {
             project.path,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.bodySmall,
+            style: AppCyberTheme.dataTextStyle(
+              size: 11.2,
+              color: AppCyberTheme.textMuted,
+            ),
           ),
           const SizedBox(height: 10),
           Wrap(
@@ -106,13 +100,21 @@ class _ProjectSummary extends StatelessWidget {
             runSpacing: 8,
             children: [
               _MetaChip(
-                icon: Icons.terminal,
+                icon: Icons.terminal_outlined,
                 label: '${project.scripts.length} auto tools',
               ),
+              if (project.fastlaneLanes.isNotEmpty)
+                _MetaChip(
+                  icon: Icons.alt_route_outlined,
+                  label: '${project.fastlaneLanes.length} fastlane lanes',
+                ),
               if (project.pubspecVersion != null)
-                _MetaChip(icon: Icons.sell, label: project.pubspecVersion!),
+                _MetaChip(
+                  icon: Icons.sell_outlined,
+                  label: project.pubspecVersion!,
+                ),
               if (project.hasPlayReleaseTools)
-                const _MetaChip(icon: Icons.android, label: 'CH Play'),
+                const _MetaChip(icon: Icons.android_outlined, label: 'CH Play'),
             ],
           ),
         ],
@@ -133,23 +135,20 @@ class _RecentProjectTile extends GetView<HomeController> {
           controller.project.value?.path.toLowerCase() == path.toLowerCase();
 
       return Material(
-        color: selected
-            ? Theme.of(context).colorScheme.primaryContainer
-            : Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(8),
+        color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(8),
           onTap: () => controller.loadProject(path),
-          child: Padding(
-            padding: const EdgeInsets.all(10),
+          child: _HudCardShell(
+            active: selected,
             child: Row(
               children: [
                 Icon(
                   selected ? Icons.check_circle : Icons.folder,
                   size: 20,
                   color: selected
-                      ? Theme.of(context).colorScheme.primary
-                      : Theme.of(context).colorScheme.onSurfaceVariant,
+                      ? AppCyberTheme.neonGreen
+                      : AppCyberTheme.electricBlue.withValues(alpha: 0.82),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -166,7 +165,10 @@ class _RecentProjectTile extends GetView<HomeController> {
                         path,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodySmall,
+                        style: AppCyberTheme.dataTextStyle(
+                          size: 10.8,
+                          color: AppCyberTheme.textMuted,
+                        ),
                       ),
                     ],
                   ),

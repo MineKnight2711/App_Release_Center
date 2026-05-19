@@ -1,11 +1,17 @@
+import 'dart:ui' show ImageFilter;
+
 import 'package:app_release_center/app/controllers/home_controller.dart';
+import 'package:app_release_center/app/models/release_fastlane_lane.dart';
 import 'package:app_release_center/app/models/release_project.dart';
 import 'package:app_release_center/app/models/release_script.dart';
+import 'package:app_release_center/app/services/theme_service.dart';
+import 'package:app_release_center/app/theme/cyber_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:path/path.dart' as p;
 
 part 'home_widgets/flow_panel.dart';
+part 'home_widgets/fastlane_panel.dart';
 part 'home_widgets/log_panel.dart';
 part 'home_widgets/main_panel.dart';
 part 'home_widgets/options_panel.dart';
@@ -16,54 +22,202 @@ class HomeView extends GetView<HomeController> {
   const HomeView({super.key});
 
   @override
+  Widget build(BuildContext context) => const _HomeScaffold();
+}
+
+class _HomeScaffold extends StatefulWidget {
+  const _HomeScaffold();
+
+  @override
+  State<_HomeScaffold> createState() => _HomeScaffoldState();
+}
+
+class _HomeScaffoldState extends State<_HomeScaffold> {
+  static const double _outerPadding = 16;
+  static const double _desktopBreakpoint = 1180;
+  static const double _minSidePanelWidth = 280;
+  static const double _maxSidePanelWidth = 460;
+  static const double _minMainPanelWidth = 540;
+  static const double _defaultSidePanelWidth = 340;
+  static const double _splitterThickness = 14;
+
+  double _leftPanelWidth = _defaultSidePanelWidth;
+  double _rightPanelWidth = _defaultSidePanelWidth;
+
+  HomeController get controller => Get.find<HomeController>();
+
+  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('App Release Center'),
-        centerTitle: false,
-        actions: [
-          Obx(
-            () => Padding(
-              padding: const EdgeInsets.only(right: 16),
-              child: _StatusPill(
-                label: controller.runner.status.value,
-                running: controller.runner.isRunning.value,
-              ),
+    final themeService = Get.find<ThemeService>();
+
+    return Obx(() {
+      final themeChoice = themeService.choice.value;
+
+      return Scaffold(
+        key: ValueKey(themeChoice),
+        appBar: AppBar(
+          title: const Text('App Release Center'),
+          centerTitle: false,
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(1),
+            child: Container(
+              height: 1,
+              color: AppCyberTheme.isCyber
+                  ? AppCyberTheme.electricBlue.withValues(alpha: 0.25)
+                  : AppCyberTheme.lineBlue,
             ),
           ),
-        ],
-      ),
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final isWide = constraints.maxWidth >= 1180;
-            final content = isWide
-                ? Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const SizedBox(width: 340, child: _ProjectPanel()),
-                      const SizedBox(width: 16),
-                      const Expanded(child: _MainPanel()),
-                      const SizedBox(width: 16),
-                      const SizedBox(width: 340, child: _OptionsPanel()),
-                    ],
-                  )
-                : const SingleChildScrollView(
-                    child: Column(
-                      children: [
-                        _ProjectPanel(),
-                        SizedBox(height: 16),
-                        SizedBox(height: 520, child: _MainPanel()),
-                        SizedBox(height: 16),
-                        _OptionsPanel(),
-                      ],
-                    ),
-                  );
-
-            return Padding(padding: const EdgeInsets.all(16), child: content);
-          },
+          actions: [
+            const _ThemeSwitchMenu(),
+            const SizedBox(width: 8),
+            Obx(
+              () => Padding(
+                padding: const EdgeInsets.only(right: 16),
+                child: _StatusPill(
+                  label: controller.runner.status.value,
+                  running: controller.runner.isRunning.value,
+                ),
+              ),
+            ),
+          ],
         ),
-      ),
+        body: Stack(
+          children: [
+            Positioned.fill(child: _HudBackdrop()),
+            SafeArea(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final usableWidth =
+                      constraints.maxWidth - (_outerPadding * 2);
+                  final isWide = usableWidth >= _desktopBreakpoint;
+                  final content = isWide
+                      ? _WideHomeLayout(
+                          leftPanelWidth: _leftPanelWidth,
+                          rightPanelWidth: _rightPanelWidth,
+                          splitterThickness: _splitterThickness,
+                          onLeftResize: (delta) =>
+                              _resizeLeft(delta, usableWidth),
+                          onRightResize: (delta) =>
+                              _resizeRight(delta, usableWidth),
+                        )
+                      : SingleChildScrollView(
+                          child: Column(
+                            children: const [
+                              _ProjectPanel(),
+                              SizedBox(height: 16),
+                              SizedBox(height: 520, child: _MainPanel()),
+                              SizedBox(height: 16),
+                              _OptionsPanel(),
+                            ],
+                          ),
+                        );
+
+                  return Padding(
+                    padding: const EdgeInsets.all(_outerPadding),
+                    child: content,
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      );
+    });
+  }
+
+  void _resizeLeft(double delta, double usableWidth) {
+    final clamped = (_leftPanelWidth + delta).clamp(
+      _minSidePanelWidth,
+      _maxSidePanelWidth,
+    );
+    final nextLeft = _enforceMainWidth(
+      usableWidth: usableWidth,
+      nextLeft: clamped.toDouble(),
+      nextRight: _rightPanelWidth,
+      fallbackCurrent: _leftPanelWidth,
+    );
+    if (nextLeft == _leftPanelWidth) return;
+    setState(() {
+      _leftPanelWidth = nextLeft;
+    });
+  }
+
+  void _resizeRight(double delta, double usableWidth) {
+    final clamped = (_rightPanelWidth - delta).clamp(
+      _minSidePanelWidth,
+      _maxSidePanelWidth,
+    );
+    final nextRight = _enforceMainWidth(
+      usableWidth: usableWidth,
+      nextLeft: _leftPanelWidth,
+      nextRight: clamped.toDouble(),
+      fallbackCurrent: _rightPanelWidth,
+      resizingRight: true,
+    );
+    if (nextRight == _rightPanelWidth) return;
+    setState(() {
+      _rightPanelWidth = nextRight;
+    });
+  }
+
+  double _enforceMainWidth({
+    required double usableWidth,
+    required double nextLeft,
+    required double nextRight,
+    required double fallbackCurrent,
+    bool resizingRight = false,
+  }) {
+    final reserved = nextLeft + nextRight + (_splitterThickness * 2);
+    final minNeeded = reserved + _minMainPanelWidth;
+    if (usableWidth >= minNeeded) {
+      return resizingRight ? nextRight : nextLeft;
+    }
+
+    final maxSide =
+        usableWidth -
+        _minMainPanelWidth -
+        _splitterThickness * 2 -
+        (resizingRight ? nextLeft : nextRight);
+    final adjusted = maxSide.clamp(_minSidePanelWidth, _maxSidePanelWidth);
+    if (adjusted.isNaN || adjusted.isInfinite) {
+      return fallbackCurrent;
+    }
+    return adjusted.toDouble();
+  }
+}
+
+class _WideHomeLayout extends StatelessWidget {
+  const _WideHomeLayout({
+    required this.leftPanelWidth,
+    required this.rightPanelWidth,
+    required this.splitterThickness,
+    required this.onLeftResize,
+    required this.onRightResize,
+  });
+
+  final double leftPanelWidth;
+  final double rightPanelWidth;
+  final double splitterThickness;
+  final ValueChanged<double> onLeftResize;
+  final ValueChanged<double> onRightResize;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SizedBox(width: leftPanelWidth, child: const _ProjectPanel()),
+        SizedBox(
+          width: splitterThickness,
+          child: _PanelSplitter(axis: Axis.horizontal, onDelta: onLeftResize),
+        ),
+        const Expanded(child: _MainPanel()),
+        SizedBox(
+          width: splitterThickness,
+          child: _PanelSplitter(axis: Axis.horizontal, onDelta: onRightResize),
+        ),
+        SizedBox(width: rightPanelWidth, child: const _OptionsPanel()),
+      ],
     );
   }
 }

@@ -1,44 +1,372 @@
 part of '../home_view.dart';
 
+enum _ExtendedAction { pullRemoteBranch, updateFastlaneWithGem }
+
+class _PullRemoteBranchInput {
+  const _PullRemoteBranchInput({required this.remote, required this.branch});
+
+  final String remote;
+  final String branch;
+}
+
 class _FlowPanel extends GetView<HomeController> {
   const _FlowPanel();
 
   @override
   Widget build(BuildContext context) {
-    return _Panel(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const _PanelTitle(icon: Icons.account_tree, title: 'CI/CD Flow'),
-          const SizedBox(height: 12),
-          Expanded(
-            child: Obx(() {
-              final project = controller.project.value;
-              if (project == null) {
-                return const Center(child: Text('Choose a project'));
-              }
-
-              if (project.scripts.isEmpty) {
-                return const Center(child: Text('No auto tools found'));
-              }
-
-              return GridView.builder(
-                itemCount: project.scripts.length,
-                gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                  maxCrossAxisExtent: 240,
-                  mainAxisExtent: 156,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
+    return DefaultTabController(
+      length: 2,
+      child: _Panel(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Expanded(
+                  child: _PanelTitle(
+                    icon: Icons.account_tree_outlined,
+                    title: 'Automation',
+                  ),
                 ),
-                itemBuilder: (context, index) {
-                  return _ScriptCard(script: project.scripts[index]);
-                },
-              );
-            }),
-          ),
-        ],
+                Obx(() {
+                  final isEnabled =
+                      controller.project.value != null &&
+                      !controller.runner.isRunning.value;
+                  return PopupMenuButton<_ExtendedAction>(
+                    enabled: isEnabled,
+                    tooltip: isEnabled
+                        ? 'Extended actions'
+                        : 'Choose a project first',
+                    onSelected: (action) =>
+                        _onExtendedActionSelected(context, action),
+                    position: PopupMenuPosition.under,
+                    offset: const Offset(0, 8),
+                    color: AppCyberTheme.panelBackgroundStrong.withValues(
+                      alpha: 0.96,
+                    ),
+                    surfaceTintColor: Colors.transparent,
+                    constraints: const BoxConstraints(
+                      minWidth: 260,
+                      maxWidth: 340,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      side: BorderSide(
+                        color: AppCyberTheme.isCyber
+                            ? AppCyberTheme.electricBlue.withValues(alpha: 0.42)
+                            : AppCyberTheme.lineBlue,
+                      ),
+                    ),
+                    itemBuilder: (context) => const [
+                      PopupMenuItem(
+                        value: _ExtendedAction.pullRemoteBranch,
+                        child: _ExtendedMenuItem(
+                          icon: Icons.call_received_outlined,
+                          title: 'Pull branch from remote',
+                          subtitle:
+                              'Input remote and branch, then run git pull.',
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: _ExtendedAction.updateFastlaneWithGem,
+                        child: _ExtendedMenuItem(
+                          icon: Icons.system_update_alt_outlined,
+                          title: 'Check and update Fastlane',
+                          subtitle:
+                              'Run fastlane --version then gem update fastlane.',
+                        ),
+                      ),
+                    ],
+                    child: AnimatedOpacity(
+                      duration: const Duration(milliseconds: 140),
+                      opacity: isEnabled ? 1 : 0.55,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: AppCyberTheme.isCyber
+                                ? AppCyberTheme.electricBlue.withValues(
+                                    alpha: 0.44,
+                                  )
+                                : AppCyberTheme.lineBlue,
+                          ),
+                          gradient: LinearGradient(
+                            colors: AppCyberTheme.isCyber
+                                ? [
+                                    AppCyberTheme.electricBlue.withValues(
+                                      alpha: 0.2,
+                                    ),
+                                    AppCyberTheme.electricBlue.withValues(
+                                      alpha: 0.08,
+                                    ),
+                                  ]
+                                : const [Colors.white, Color(0xFFFAFBFC)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 7,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.extension_outlined,
+                                size: 16,
+                                color: AppCyberTheme.isCyber
+                                    ? AppCyberTheme.electricBlue.withValues(
+                                        alpha: 0.95,
+                                      )
+                                    : AppCyberTheme.textMuted,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Extend',
+                                style: AppCyberTheme.dataTextStyle(
+                                  size: 11.5,
+                                  color: AppCyberTheme.textPrimary,
+                                  weight: FontWeight.w700,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Icon(
+                                Icons.expand_more_outlined,
+                                size: 15,
+                                color: AppCyberTheme.textMuted,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }),
+              ],
+            ),
+            const SizedBox(height: 8),
+            const TabBar(
+              tabs: [
+                Tab(icon: Icon(Icons.schema_outlined), text: 'Fastlane Flow'),
+                Tab(
+                  icon: Icon(Icons.alt_route_outlined),
+                  text: 'Fastlane Command',
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            const Expanded(
+              child: TabBarView(children: [_CicdFlowGrid(), _FastlanePanel()]),
+            ),
+          ],
+        ),
       ),
     );
+  }
+
+  Future<void> _onExtendedActionSelected(
+    BuildContext context,
+    _ExtendedAction action,
+  ) async {
+    switch (action) {
+      case _ExtendedAction.pullRemoteBranch:
+        final payload = await _showPullRemoteBranchDialog(context);
+        if (payload == null) return;
+        await controller.pullBranchFromRemote(
+          remote: payload.remote,
+          branch: payload.branch,
+        );
+        break;
+      case _ExtendedAction.updateFastlaneWithGem:
+        await controller.checkFastlaneVersionAndUpdate();
+        break;
+    }
+  }
+
+  Future<_PullRemoteBranchInput?> _showPullRemoteBranchDialog(
+    BuildContext context,
+  ) async {
+    final remoteController = TextEditingController(text: 'origin');
+    final branchController = TextEditingController();
+    String? validationError;
+
+    final result = await showDialog<_PullRemoteBranchInput>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              backgroundColor: AppCyberTheme.panelBackgroundStrong,
+              surfaceTintColor: Colors.transparent,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+                side: BorderSide(
+                  color: AppCyberTheme.isCyber
+                      ? AppCyberTheme.electricBlue.withValues(alpha: 0.4)
+                      : AppCyberTheme.lineBlue,
+                ),
+              ),
+              titlePadding: const EdgeInsets.fromLTRB(20, 16, 20, 6),
+              contentPadding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
+              actionsPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+              title: const _PanelTitle(
+                icon: Icons.call_received_outlined,
+                title: 'Pull Branch',
+              ),
+              content: SizedBox(
+                width: 360,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextField(
+                      controller: remoteController,
+                      decoration: const InputDecoration(
+                        labelText: 'Remote name',
+                        hintText: 'origin',
+                        prefixIcon: Icon(Icons.hub_outlined),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: branchController,
+                      decoration: const InputDecoration(
+                        labelText: 'Branch name',
+                        hintText: 'develop',
+                        prefixIcon: Icon(Icons.alt_route_outlined),
+                      ),
+                    ),
+                    if (validationError != null) ...[
+                      const SizedBox(height: 10),
+                      Text(
+                        validationError!,
+                        style: AppCyberTheme.dataTextStyle(
+                          size: 11,
+                          color: Theme.of(context).colorScheme.error,
+                          weight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              actions: [
+                OutlinedButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton.icon(
+                  onPressed: () {
+                    final remote = remoteController.text.trim();
+                    final branch = branchController.text.trim();
+                    if (remote.isEmpty || branch.isEmpty) {
+                      setState(() {
+                        validationError = 'Remote and branch are required.';
+                      });
+                      return;
+                    }
+
+                    Navigator.of(dialogContext).pop(
+                      _PullRemoteBranchInput(remote: remote, branch: branch),
+                    );
+                  },
+                  icon: const Icon(Icons.sync_alt_outlined),
+                  label: const Text('Pull'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    remoteController.dispose();
+    branchController.dispose();
+    return result;
+  }
+}
+
+class _ExtendedMenuItem extends StatelessWidget {
+  const _ExtendedMenuItem({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 1),
+          child: Icon(icon, size: 18),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                title,
+                style: AppCyberTheme.dataTextStyle(
+                  size: 11.8,
+                  color: AppCyberTheme.textPrimary,
+                  weight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                subtitle,
+                style: AppCyberTheme.dataTextStyle(
+                  size: 10.5,
+                  color: AppCyberTheme.textMuted,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CicdFlowGrid extends GetView<HomeController> {
+  const _CicdFlowGrid();
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final project = controller.project.value;
+      if (project == null) {
+        return const Center(child: Text('Choose a project'));
+      }
+
+      if (project.scripts.isEmpty) {
+        return const Center(child: Text('No auto tools found'));
+      }
+
+      return GridView.builder(
+        padding: EdgeInsets.zero,
+        itemCount: project.scripts.length,
+        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+          maxCrossAxisExtent: 220,
+          mainAxisExtent: 148,
+          crossAxisSpacing: 10,
+          mainAxisSpacing: 10,
+        ),
+        itemBuilder: (context, index) {
+          return _ScriptCard(script: project.scripts[index]);
+        },
+      );
+    });
   }
 }
 
@@ -49,69 +377,69 @@ class _ScriptCard extends GetView<HomeController> {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
     return Obx(() {
       final isRunning = controller.runner.isRunning.value;
       final isActive = controller.runner.activeScriptPath.value == script.path;
 
-      return Card(
-        color: isActive ? colorScheme.tertiaryContainer : colorScheme.surface,
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(_iconFor(script.kind), size: 22),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      script.label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.titleSmall,
+      return _HudCardShell(
+        active: isActive,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(_iconFor(script.kind), size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    script.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              script.description,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const Spacer(),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    script.fileName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppCyberTheme.dataTextStyle(
+                      size: 10.8,
+                      color: AppCyberTheme.textMuted,
+                      weight: FontWeight.w600,
                     ),
                   ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(
-                script.description,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-              const Spacer(),
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      script.fileName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.labelSmall,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  IconButton.filledTonal(
-                    tooltip: 'Run ${script.label}',
-                    onPressed: isRunning
-                        ? null
-                        : () => controller.runScript(script),
-                    icon: isActive
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.play_arrow),
-                  ),
-                ],
-              ),
-            ],
-          ),
+                ),
+                const SizedBox(width: 8),
+                IconButton.filledTonal(
+                  tooltip: 'Run ${script.label}',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: isRunning
+                      ? null
+                      : () => controller.runScript(script),
+                  icon: isActive
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.play_arrow),
+                ),
+              ],
+            ),
+          ],
         ),
       );
     });
@@ -119,15 +447,15 @@ class _ScriptCard extends GetView<HomeController> {
 
   IconData _iconFor(ReleaseScriptKind kind) {
     return switch (kind) {
-      ReleaseScriptKind.release => Icons.rocket_launch,
-      ReleaseScriptKind.versionCode => Icons.pin,
-      ReleaseScriptKind.versionName => Icons.sell,
-      ReleaseScriptKind.commit => Icons.commit,
-      ReleaseScriptKind.merge => Icons.call_merge,
-      ReleaseScriptKind.deploy => Icons.cloud_upload,
-      ReleaseScriptKind.imageValidation => Icons.image_search,
-      ReleaseScriptKind.shell => Icons.terminal,
-      ReleaseScriptKind.dartTool => Icons.data_object,
+      ReleaseScriptKind.release => Icons.rocket_launch_outlined,
+      ReleaseScriptKind.versionCode => Icons.pin_outlined,
+      ReleaseScriptKind.versionName => Icons.sell_outlined,
+      ReleaseScriptKind.commit => Icons.commit_outlined,
+      ReleaseScriptKind.merge => Icons.call_merge_outlined,
+      ReleaseScriptKind.deploy => Icons.cloud_upload_outlined,
+      ReleaseScriptKind.imageValidation => Icons.image_search_outlined,
+      ReleaseScriptKind.shell => Icons.terminal_outlined,
+      ReleaseScriptKind.dartTool => Icons.data_object_outlined,
     };
   }
 }
