@@ -1,6 +1,11 @@
 part of '../home_view.dart';
 
-enum _ExtendedAction { pullRemoteBranch, updateFastlaneWithGem }
+enum _ExtendedAction {
+  cloneAndroidCicd,
+  cloneAndroidCicdFallback,
+  pullRemoteBranch,
+  updateFastlaneWithGem,
+}
 
 class _PullRemoteBranchInput {
   const _PullRemoteBranchInput({required this.remote, required this.branch});
@@ -15,7 +20,7 @@ class _FlowPanel extends GetView<HomeController> {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 2,
+      length: 3,
       child: _Panel(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -59,6 +64,24 @@ class _FlowPanel extends GetView<HomeController> {
                     ),
                     itemBuilder: (context) => const [
                       PopupMenuItem(
+                        value: _ExtendedAction.cloneAndroidCicd,
+                        child: _ExtendedMenuItem(
+                          icon: Icons.android_outlined,
+                          title: 'Clone Android CI/CD',
+                          subtitle:
+                              'Preview and scaffold Fastlane plus auto tools.',
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: _ExtendedAction.cloneAndroidCicdFallback,
+                        child: _ExtendedMenuItem(
+                          icon: Icons.low_priority_outlined,
+                          title: 'Clone Android CI/CD fallback',
+                          subtitle:
+                              'Use generic no-flavor CI/CD without Gradle patching.',
+                        ),
+                      ),
+                      PopupMenuItem(
                         value: _ExtendedAction.pullRemoteBranch,
                         child: _ExtendedMenuItem(
                           icon: Icons.call_received_outlined,
@@ -73,7 +96,7 @@ class _FlowPanel extends GetView<HomeController> {
                           icon: Icons.system_update_alt_outlined,
                           title: 'Check and update Fastlane',
                           subtitle:
-                              'Run fastlane --version then gem update fastlane.',
+                              'Run fastlane --version then a user-scoped gem update.',
                         ),
                       ),
                     ],
@@ -149,6 +172,10 @@ class _FlowPanel extends GetView<HomeController> {
             const SizedBox(height: 8),
             const TabBar(
               tabs: [
+                Tab(
+                  icon: Icon(Icons.shop_two_outlined),
+                  text: 'Store Versions',
+                ),
                 Tab(icon: Icon(Icons.schema_outlined), text: 'Fastlane Flow'),
                 Tab(
                   icon: Icon(Icons.alt_route_outlined),
@@ -158,7 +185,13 @@ class _FlowPanel extends GetView<HomeController> {
             ),
             const SizedBox(height: 10),
             const Expanded(
-              child: TabBarView(children: [_CicdFlowGrid(), _FastlanePanel()]),
+              child: TabBarView(
+                children: [
+                  _StoreVersionsPanel(),
+                  _CicdFlowGrid(),
+                  _FastlanePanel(),
+                ],
+              ),
             ),
           ],
         ),
@@ -171,6 +204,12 @@ class _FlowPanel extends GetView<HomeController> {
     _ExtendedAction action,
   ) async {
     switch (action) {
+      case _ExtendedAction.cloneAndroidCicd:
+        await _runAndroidCicdClone(context, AndroidCicdCloneMode.adaptive);
+        break;
+      case _ExtendedAction.cloneAndroidCicdFallback:
+        await _runAndroidCicdClone(context, AndroidCicdCloneMode.fallback);
+        break;
       case _ExtendedAction.pullRemoteBranch:
         final payload = await _showPullRemoteBranchDialog(context);
         if (payload == null) return;
@@ -183,6 +222,17 @@ class _FlowPanel extends GetView<HomeController> {
         await controller.checkFastlaneVersionAndUpdate();
         break;
     }
+  }
+
+  Future<void> _runAndroidCicdClone(
+    BuildContext context,
+    AndroidCicdCloneMode mode,
+  ) async {
+    final preview = await controller.previewAndroidCicdClone(mode: mode);
+    if (preview == null || !context.mounted) return;
+    final confirmed = await _showAndroidCicdCloneDialog(context, preview);
+    if (confirmed != true) return;
+    await controller.applyAndroidCicdClone(preview);
   }
 
   Future<_PullRemoteBranchInput?> _showPullRemoteBranchDialog(
@@ -285,6 +335,248 @@ class _FlowPanel extends GetView<HomeController> {
     remoteController.dispose();
     branchController.dispose();
     return result;
+  }
+
+  Future<bool?> _showAndroidCicdCloneDialog(
+    BuildContext context,
+    AndroidCicdClonePreview preview,
+  ) {
+    final flavorLabel = preview.hasFlavors
+        ? 'Flavor ${preview.selectedFlavor ?? '-'}'
+        : 'No flavor';
+    final modeLabel = preview.isFallback ? 'Fallback mode' : 'Adaptive mode';
+
+    return showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: AppCyberTheme.panelBackgroundStrong,
+          surfaceTintColor: Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+            side: BorderSide(
+              color: AppCyberTheme.isCyber
+                  ? AppCyberTheme.electricBlue.withValues(alpha: 0.4)
+                  : AppCyberTheme.lineBlue,
+            ),
+          ),
+          titlePadding: const EdgeInsets.fromLTRB(20, 16, 20, 6),
+          contentPadding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
+          actionsPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+          title: const _PanelTitle(
+            icon: Icons.android_outlined,
+            title: 'Clone Android CI/CD',
+          ),
+          content: SizedBox(
+            width: 620,
+            height: 500,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _MetaChip(
+                      icon: Icons.badge_outlined,
+                      label: preview.applicationId ?? 'No app ID',
+                      highlighted: preview.applicationId != null,
+                    ),
+                    _MetaChip(
+                      icon: preview.isFallback
+                          ? Icons.low_priority_outlined
+                          : Icons.auto_awesome_motion_outlined,
+                      label: modeLabel,
+                      highlighted: preview.isFallback,
+                    ),
+                    _MetaChip(icon: Icons.layers_outlined, label: flavorLabel),
+                    _MetaChip(
+                      icon: Icons.description_outlined,
+                      label: preview.gradleFilePath,
+                    ),
+                    _MetaChip(
+                      icon: Icons.add_circle_outline,
+                      label: '${preview.count(AndroidCicdFileAction.add)} add',
+                    ),
+                    _MetaChip(
+                      icon: Icons.edit_outlined,
+                      label:
+                          '${preview.count(AndroidCicdFileAction.overwrite)} overwrite',
+                    ),
+                    _MetaChip(
+                      icon: Icons.remove_circle_outline,
+                      label:
+                          '${preview.count(AndroidCicdFileAction.skip)} skip',
+                    ),
+                  ],
+                ),
+                if (preview.warnings.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  _AndroidCicdWarningList(warnings: preview.warnings),
+                ],
+                const SizedBox(height: 12),
+                Text(
+                  'Files',
+                  style: AppCyberTheme.dataTextStyle(
+                    size: 11.8,
+                    color: AppCyberTheme.textPrimary,
+                    weight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Expanded(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: AppCyberTheme.isCyber
+                          ? AppCyberTheme.panelBackgroundStrong.withValues(
+                              alpha: 0.7,
+                            )
+                          : const Color(0xFFFAFBFC),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: AppCyberTheme.isCyber
+                            ? AppCyberTheme.electricBlue.withValues(alpha: 0.28)
+                            : AppCyberTheme.lineBlue,
+                      ),
+                    ),
+                    child: ListView.separated(
+                      padding: const EdgeInsets.all(8),
+                      itemCount: preview.changes.length,
+                      separatorBuilder: (context, index) =>
+                          const Divider(height: 10),
+                      itemBuilder: (context, index) {
+                        return _AndroidCicdChangeRow(
+                          change: preview.changes[index],
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            OutlinedButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton.icon(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              icon: const Icon(Icons.content_copy_outlined),
+              label: const Text('Clone'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _AndroidCicdWarningList extends StatelessWidget {
+  const _AndroidCicdWarningList({required this.warnings});
+
+  final List<String> warnings;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: warnings.map((warning) {
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 4),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                Icons.warning_amber_outlined,
+                size: 15,
+                color: Theme.of(context).colorScheme.error,
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  warning,
+                  style: AppCyberTheme.dataTextStyle(
+                    size: 10.8,
+                    color: AppCyberTheme.textMuted,
+                    weight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+}
+
+class _AndroidCicdChangeRow extends StatelessWidget {
+  const _AndroidCicdChangeRow({required this.change});
+
+  final AndroidCicdFileChange change;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _actionColor(context, change.action);
+
+    return Row(
+      children: [
+        Icon(_actionIcon(change.action), size: 16, color: color),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            change.relativePath,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AppCyberTheme.dataTextStyle(
+              size: 11,
+              color: AppCyberTheme.textPrimary,
+              weight: FontWeight.w600,
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          _actionLabel(change.action),
+          style: AppCyberTheme.dataTextStyle(
+            size: 10.5,
+            color: color,
+            weight: FontWeight.w800,
+          ),
+        ),
+      ],
+    );
+  }
+
+  IconData _actionIcon(AndroidCicdFileAction action) {
+    return switch (action) {
+      AndroidCicdFileAction.add => Icons.add_circle_outline,
+      AndroidCicdFileAction.overwrite => Icons.edit_outlined,
+      AndroidCicdFileAction.skip => Icons.remove_circle_outline,
+    };
+  }
+
+  String _actionLabel(AndroidCicdFileAction action) {
+    return switch (action) {
+      AndroidCicdFileAction.add => 'ADD',
+      AndroidCicdFileAction.overwrite => 'OVERWRITE',
+      AndroidCicdFileAction.skip => 'SKIP',
+    };
+  }
+
+  Color _actionColor(BuildContext context, AndroidCicdFileAction action) {
+    return switch (action) {
+      AndroidCicdFileAction.add =>
+        AppCyberTheme.isCyber
+            ? AppCyberTheme.neonGreen
+            : const Color(0xFF039855),
+      AndroidCicdFileAction.overwrite =>
+        AppCyberTheme.isCyber
+            ? AppCyberTheme.electricBlue
+            : const Color(0xFF1570EF),
+      AndroidCicdFileAction.skip => Theme.of(context).colorScheme.error,
+    };
   }
 }
 

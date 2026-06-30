@@ -14,27 +14,23 @@ class ScriptCatalogService extends GetxService {
     }
 
     final autoDirectory = Directory(p.join(root.path, 'auto'));
-    if (!autoDirectory.existsSync()) {
-      throw FileSystemException(
-        'Project does not contain an auto folder.',
-        root.path,
-      );
-    }
-
-    final scripts =
-        autoDirectory
-            .listSync()
-            .whereType<File>()
-            .where((file) {
-              final extension = p.extension(file.path).toLowerCase();
-              return extension == '.sh' || extension == '.dart';
-            })
-            .map(
-              (file) =>
-                  ReleaseScript(path: file.path, kind: _scriptKind(file.path)),
-            )
-            .toList()
-          ..sort(_sortScripts);
+    final scripts = autoDirectory.existsSync()
+        ? autoDirectory
+              .listSync()
+              .whereType<File>()
+              .where((file) {
+                final extension = p.extension(file.path).toLowerCase();
+                return extension == '.sh' || extension == '.dart';
+              })
+              .map(
+                (file) => ReleaseScript(
+                  path: file.path,
+                  kind: _scriptKind(file.path),
+                ),
+              )
+              .toList()
+        : <ReleaseScript>[];
+    scripts.sort(_sortScripts);
 
     final deployScript = File(p.join(autoDirectory.path, 'deploy.sh'));
     final deployScriptSource = _readFile(deployScript);

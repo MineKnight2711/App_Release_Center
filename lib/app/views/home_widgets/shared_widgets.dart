@@ -279,36 +279,66 @@ class _ThemeSwitchMenu extends StatelessWidget {
 }
 
 class _MetaChip extends StatelessWidget {
-  const _MetaChip({required this.icon, required this.label});
+  const _MetaChip({
+    required this.icon,
+    required this.label,
+    this.highlighted = false,
+  });
 
   final IconData icon;
   final String label;
+  final bool highlighted;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-      decoration: BoxDecoration(
-        color: AppCyberTheme.isCyber
-            ? AppCyberTheme.panelBackgroundStrong.withValues(alpha: 0.86)
-            : const Color(0xFFFAFBFC),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(
-          color: AppCyberTheme.isCyber
+    final backgroundColor = highlighted
+        ? (AppCyberTheme.isCyber
+              ? AppCyberTheme.electricBlue.withValues(alpha: 0.16)
+              : const Color(0xFFEFF8FF))
+        : (AppCyberTheme.isCyber
+              ? AppCyberTheme.panelBackgroundStrong.withValues(alpha: 0.86)
+              : const Color(0xFFFAFBFC));
+    final borderColor = highlighted
+        ? (AppCyberTheme.isCyber
+              ? AppCyberTheme.electricBlue.withValues(alpha: 0.9)
+              : const Color(0xFF1570EF))
+        : (AppCyberTheme.isCyber
               ? AppCyberTheme.electricBlue.withValues(alpha: 0.35)
-              : AppCyberTheme.lineBlue,
-        ),
+              : AppCyberTheme.lineBlue);
+    final iconColor = highlighted
+        ? (AppCyberTheme.isCyber
+              ? AppCyberTheme.neonGreen
+              : const Color(0xFF1570EF))
+        : (AppCyberTheme.isCyber
+              ? AppCyberTheme.electricBlue
+              : AppCyberTheme.textMuted);
+    final textColor = highlighted
+        ? AppCyberTheme.textPrimary
+        : AppCyberTheme.textMuted;
+
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: highlighted ? 10 : 8,
+        vertical: highlighted ? 6 : 5,
+      ),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: borderColor),
+        boxShadow: highlighted && AppCyberTheme.isCyber
+            ? [
+                BoxShadow(
+                  color: AppCyberTheme.electricBlue.withValues(alpha: 0.3),
+                  blurRadius: 14,
+                  spreadRadius: -4,
+                ),
+              ]
+            : const [],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            icon,
-            size: 14,
-            color: AppCyberTheme.isCyber
-                ? AppCyberTheme.electricBlue
-                : AppCyberTheme.textMuted,
-          ),
+          Icon(icon, size: 14, color: iconColor),
           const SizedBox(width: 6),
           Flexible(
             child: Text(
@@ -317,8 +347,8 @@ class _MetaChip extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: AppCyberTheme.dataTextStyle(
                 size: 10.8,
-                color: AppCyberTheme.textMuted,
-                weight: FontWeight.w600,
+                color: textColor,
+                weight: highlighted ? FontWeight.w800 : FontWeight.w600,
               ),
             ),
           ),

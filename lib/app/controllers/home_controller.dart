@@ -1,9 +1,22 @@
 import 'dart:io';
 
 import 'package:app_release_center/app/data/release_center_connect.dart';
+import 'package:app_release_center/app/models/app_store_credentials.dart';
+import 'package:app_release_center/app/models/app_store_project.dart';
+import 'package:app_release_center/app/models/app_store_version_snapshot.dart';
+import 'package:app_release_center/app/models/ch_play_credentials.dart';
+import 'package:app_release_center/app/models/ch_play_project.dart';
+import 'package:app_release_center/app/models/ch_play_version_snapshot.dart';
 import 'package:app_release_center/app/models/release_fastlane_lane.dart';
 import 'package:app_release_center/app/models/release_project.dart';
 import 'package:app_release_center/app/models/release_script.dart';
+import 'package:app_release_center/app/services/android_cicd_clone_service.dart';
+import 'package:app_release_center/app/services/app_store_credential_store_service.dart';
+import 'package:app_release_center/app/services/app_store_project_inspector_service.dart';
+import 'package:app_release_center/app/services/app_store_version_check_service.dart';
+import 'package:app_release_center/app/services/ch_play_credential_store_service.dart';
+import 'package:app_release_center/app/services/ch_play_project_inspector_service.dart';
+import 'package:app_release_center/app/services/ch_play_version_check_service.dart';
 import 'package:app_release_center/app/services/project_store_service.dart';
 import 'package:app_release_center/app/services/release_runner_service.dart';
 import 'package:app_release_center/app/services/script_catalog_service.dart';
@@ -18,17 +31,37 @@ class HomeController extends GetxController {
   HomeController({
     required this.store,
     required this.catalog,
+    required this.androidCicdCloner,
     required this.runner,
     required this.connect,
+    required this.chPlayInspector,
+    required this.chPlayCredentialStore,
+    required this.chPlayVersionChecker,
+    required this.appStoreInspector,
+    required this.appStoreCredentialStore,
+    required this.appStoreVersionChecker,
   });
 
   final ProjectStoreService store;
   final ScriptCatalogService catalog;
+  final AndroidCicdCloneService androidCicdCloner;
   final ReleaseRunnerService runner;
   final ReleaseCenterConnect connect;
+  final ChPlayProjectInspectorService chPlayInspector;
+  final ChPlayCredentialStoreService chPlayCredentialStore;
+  final ChPlayVersionCheckService chPlayVersionChecker;
+  final AppStoreProjectInspectorService appStoreInspector;
+  final AppStoreCredentialStoreService appStoreCredentialStore;
+  final AppStoreVersionCheckService appStoreVersionChecker;
 
   final project = Rxn<ReleaseProject>();
   final recentPaths = <String>[].obs;
+  final chPlayProjects = <ChPlayProject>[].obs;
+  final chPlaySnapshots = <String, ChPlayVersionSnapshot>{}.obs;
+  final appStoreProjects = <AppStoreProject>[].obs;
+  final appStoreSnapshots = <String, AppStoreVersionSnapshot>{}.obs;
+  final isRefreshingChPlay = false.obs;
+  final isRefreshingAppStore = false.obs;
   final isLoadingProject = false.obs;
   final projectError = ''.obs;
   final includeFirebaseDeploy = true.obs;
@@ -39,11 +72,14 @@ class HomeController extends GetxController {
   final releaseNotesController = TextEditingController();
   final customArgsController = TextEditingController();
   final stdinController = TextEditingController();
+  final _sessionChPlayCredentials = <String, ChPlayCredentials>{};
+  final _sessionAppStoreCredentials = <String, AppStoreCredentials>{};
 
   @override
   void onInit() {
     super.onInit();
     recentPaths.assignAll(_initialProjectPaths());
+    _loadManagedStoreProjects();
     final savedPath = store.lastProjectPath;
     if (savedPath != null && Directory(savedPath).existsSync()) {
       loadProject(savedPath);
@@ -66,6 +102,274 @@ class HomeController extends GetxController {
 
     if (selectedPath == null) return;
     await loadProject(selectedPath);
+  }
+
+  Future<ChPlayProject?> pickChPlayProjectDraft() async {
+    final selectedPath = await FilePicker.getDirectoryPath(
+      dialogTitle: 'Select CH Play project directory',
+      initialDirectory: _initialDirectory(),
+    );
+
+    if (selectedPath == null) return null;
+
+    final normalizedPath = p.normalize(selectedPath);
+    final existingProject = _chPlayProjectByPath(normalizedPath);
+    final inspection = await chPlayInspector.inspect(normalizedPath);
+
+    return ChPlayProject(
+      id: existingProject?.id ?? _newChPlayProjectId(),
+      path: inspection.path,
+      displayName: existingProject?.displayName ?? inspection.displayName,
+      applicationId:
+          existingProject?.applicationId ?? inspection.applicationId ?? '',
+      track: existingProject?.track ?? 'production',
+      hasSavedGooglePlayJson: existingProject?.hasSavedGooglePlayJson ?? false,
+      hasSavedJksPath: existingProject?.hasSavedJksPath ?? false,
+      hasSavedKeyAlias: existingProject?.hasSavedKeyAlias ?? false,
+      hasSavedStorePassword: existingProject?.hasSavedStorePassword ?? false,
+      hasSavedKeyPassword: existingProject?.hasSavedKeyPassword ?? false,
+    );
+  }
+
+  Future<void> saveChPlayProject(ChPlayProject project) async {
+    final normalizedProject = project.copyWith(
+      path: p.normalize(project.path),
+      displayName: project.displayName.trim(),
+      applicationId: project.applicationId.trim(),
+      track: project.track.trim().isEmpty ? 'production' : project.track.trim(),
+    );
+
+    final projects =
+        chPlayProjects
+            .where(
+              (existing) =>
+                  existing.id != normalizedProject.id &&
+                  existing.path.toLowerCase() !=
+                      normalizedProject.path.toLowerCase(),
+            )
+            .toList()
+          ..add(normalizedProject);
+    projects.sort((a, b) => a.name.compareTo(b.name));
+
+    await store.saveChPlayProjects(projects);
+    chPlayProjects.assignAll(projects);
+    await _loadChPlayLocalSnapshot(normalizedProject);
+  }
+
+  Future<void> deleteChPlayProject(ChPlayProject project) async {
+    final projects = chPlayProjects
+        .where((existing) => existing.id != project.id)
+        .toList();
+    await store.saveChPlayProjects(projects);
+    await chPlayCredentialStore.delete(project.id);
+    _sessionChPlayCredentials.remove(project.id);
+    chPlayProjects.assignAll(projects);
+    chPlaySnapshots.remove(project.id);
+    chPlaySnapshots.refresh();
+  }
+
+  Future<AppStoreProject?> pickAppStoreProjectDraft() async {
+    final selectedPath = await FilePicker.getDirectoryPath(
+      dialogTitle: 'Select App Store project directory',
+      initialDirectory: _initialDirectory(),
+    );
+
+    if (selectedPath == null) return null;
+
+    final normalizedPath = p.normalize(selectedPath);
+    final existingProject = _appStoreProjectByPath(normalizedPath);
+    final inspection = await appStoreInspector.inspect(normalizedPath);
+
+    return AppStoreProject(
+      id: existingProject?.id ?? _newAppStoreProjectId(),
+      path: inspection.path,
+      displayName: existingProject?.displayName ?? inspection.displayName,
+      bundleId: existingProject?.bundleId ?? inspection.bundleId ?? '',
+      hasSavedP8PrivateKey: existingProject?.hasSavedP8PrivateKey ?? false,
+      hasSavedKeyId: existingProject?.hasSavedKeyId ?? false,
+      hasSavedIssuerId: existingProject?.hasSavedIssuerId ?? false,
+      hasSavedTeamId: existingProject?.hasSavedTeamId ?? false,
+      inHouse: existingProject?.inHouse ?? false,
+    );
+  }
+
+  Future<void> saveAppStoreProject(AppStoreProject project) async {
+    final normalizedProject = project.copyWith(
+      path: p.normalize(project.path),
+      displayName: project.displayName.trim(),
+      bundleId: project.bundleId.trim(),
+      platform: 'ios',
+    );
+
+    final projects =
+        appStoreProjects
+            .where(
+              (existing) =>
+                  existing.id != normalizedProject.id &&
+                  existing.path.toLowerCase() !=
+                      normalizedProject.path.toLowerCase(),
+            )
+            .toList()
+          ..add(normalizedProject);
+    projects.sort((a, b) => a.name.compareTo(b.name));
+
+    await store.saveAppStoreProjects(projects);
+    appStoreProjects.assignAll(projects);
+    await _loadAppStoreLocalSnapshot(normalizedProject);
+  }
+
+  Future<void> deleteAppStoreProject(AppStoreProject project) async {
+    final projects = appStoreProjects
+        .where((existing) => existing.id != project.id)
+        .toList();
+    await store.saveAppStoreProjects(projects);
+    await appStoreCredentialStore.delete(project.id);
+    _sessionAppStoreCredentials.remove(project.id);
+    appStoreProjects.assignAll(projects);
+    appStoreSnapshots.remove(project.id);
+    appStoreSnapshots.refresh();
+  }
+
+  Future<String?> pickGooglePlayJsonContent() async {
+    final result = await FilePicker.pickFiles(
+      dialogTitle: 'Select Google Play service-account JSON',
+      type: FileType.custom,
+      allowedExtensions: const ['json'],
+    );
+    final path = result?.files.single.path;
+    if (path == null) return null;
+
+    return File(path).readAsString();
+  }
+
+  Future<String?> pickAppStoreP8Content() async {
+    final result = await FilePicker.pickFiles(
+      dialogTitle: 'Select App Store Connect .p8 key',
+      type: FileType.custom,
+      allowedExtensions: const ['p8'],
+    );
+    final path = result?.files.single.path;
+    if (path == null) return null;
+
+    return File(path).readAsString();
+  }
+
+  Future<String?> pickJksPath() async {
+    final result = await FilePicker.pickFiles(
+      dialogTitle: 'Select Android keystore',
+      type: FileType.custom,
+      allowedExtensions: const ['jks', 'keystore'],
+    );
+    return result?.files.single.path;
+  }
+
+  Future<ChPlayCredentials> readChPlayCredentials(String projectId) async {
+    return _sessionChPlayCredentials[projectId] ??
+        await chPlayCredentialStore.read(projectId);
+  }
+
+  Future<void> saveChPlayCredentials({
+    required ChPlayProject project,
+    required ChPlayCredentials credentials,
+    required bool saveSecurely,
+  }) async {
+    ChPlayProject updatedProject;
+    if (saveSecurely) {
+      await chPlayCredentialStore.save(project.id, credentials);
+      _sessionChPlayCredentials.remove(project.id);
+      final metadata = await chPlayCredentialStore.metadata(project.id);
+      updatedProject = project.withCredentialMetadata(metadata);
+    } else {
+      await chPlayCredentialStore.delete(project.id);
+      _sessionChPlayCredentials[project.id] = credentials;
+      updatedProject = project.withCredentialMetadata(
+        const ChPlayCredentialMetadata(),
+      );
+    }
+
+    await saveChPlayProject(updatedProject);
+  }
+
+  Future<AppStoreCredentials> readAppStoreCredentials(String projectId) async {
+    return _sessionAppStoreCredentials[projectId] ??
+        await appStoreCredentialStore.read(projectId);
+  }
+
+  Future<void> saveAppStoreCredentials({
+    required AppStoreProject project,
+    required AppStoreCredentials credentials,
+    required bool saveSecurely,
+  }) async {
+    AppStoreProject updatedProject;
+    if (saveSecurely) {
+      await appStoreCredentialStore.save(project.id, credentials);
+      _sessionAppStoreCredentials.remove(project.id);
+      final metadata = await appStoreCredentialStore.metadata(project.id);
+      updatedProject = project.withCredentialMetadata(metadata);
+    } else {
+      await appStoreCredentialStore.delete(project.id);
+      _sessionAppStoreCredentials[project.id] = credentials;
+      updatedProject = project.withCredentialMetadata(
+        AppStoreCredentialMetadata(inHouse: credentials.inHouse),
+      );
+    }
+
+    await saveAppStoreProject(updatedProject);
+  }
+
+  Future<void> refreshAllChPlayProjects() async {
+    if (runner.isRunning.value) {
+      runner.appendSystemLog('Wait for the active command before refreshing.');
+      return;
+    }
+
+    isRefreshingChPlay.value = true;
+    try {
+      for (final project in chPlayProjects.toList()) {
+        await _refreshChPlayProject(project);
+      }
+    } finally {
+      isRefreshingChPlay.value = false;
+    }
+  }
+
+  Future<void> refreshAllStoreProjects() async {
+    if (runner.isRunning.value) {
+      runner.appendSystemLog('Wait for the active command before refreshing.');
+      return;
+    }
+
+    isRefreshingChPlay.value = chPlayProjects.isNotEmpty;
+    isRefreshingAppStore.value = appStoreProjects.isNotEmpty;
+    try {
+      for (final project in chPlayProjects.toList()) {
+        await _refreshChPlayProject(project);
+      }
+      for (final project in appStoreProjects.toList()) {
+        await _refreshAppStoreProject(project);
+      }
+    } finally {
+      isRefreshingChPlay.value = false;
+      isRefreshingAppStore.value = false;
+    }
+  }
+
+  Future<void> refreshChPlayProject(ChPlayProject project) async {
+    if (runner.isRunning.value) {
+      runner.appendSystemLog('Wait for the active command before refreshing.');
+      return;
+    }
+
+    await _refreshChPlayProject(project);
+  }
+
+  Future<void> refreshAppStoreProject(AppStoreProject project) async {
+    if (runner.isRunning.value) {
+      runner.appendSystemLog('Wait for the active command before refreshing.');
+      return;
+    }
+
+    await _refreshAppStoreProject(project);
   }
 
   Future<void> loadProject(String path) async {
@@ -191,16 +495,70 @@ class HomeController extends GetxController {
     );
     if (versionExitCode != 0) return;
 
+    final updateArguments = _fastlaneGemUpdateArguments();
     await runner.runCommand(
       workingDirectory: workingDirectory,
-      statusLabel: 'gem update fastlane',
+      statusLabel: 'gem update fastlane --user-install',
       activePath: 'extended:fastlane-update',
       executable: runner.resolveGemExecutable(),
-      arguments: const ['update', 'fastlane'],
+      arguments: updateArguments,
       clearLog: false,
     );
 
     await _refreshProjectSnapshot(currentProject.path);
+  }
+
+  Future<AndroidCicdClonePreview?> previewAndroidCicdClone({
+    AndroidCicdCloneMode mode = AndroidCicdCloneMode.adaptive,
+  }) async {
+    final currentProject = project.value;
+    if (currentProject == null) {
+      runner.appendSystemLog('Select a project before cloning Android CI/CD.');
+      return null;
+    }
+    if (runner.isRunning.value) return null;
+
+    try {
+      return await androidCicdCloner.preview(currentProject.path, mode: mode);
+    } on FileSystemException catch (error) {
+      runner.appendSystemLog(error.message);
+      return null;
+    } catch (error) {
+      runner.appendSystemLog('Failed to prepare Android CI/CD clone: $error');
+      return null;
+    }
+  }
+
+  Future<void> applyAndroidCicdClone(AndroidCicdClonePreview preview) async {
+    if (runner.isRunning.value) return;
+
+    try {
+      runner.clearLog();
+      runner.appendSystemLog(
+        'Cloning Android CI/CD into ${preview.projectPath}',
+      );
+      final result = await androidCicdCloner.apply(preview);
+
+      runner.appendSystemLog(
+        'Android CI/CD clone completed: ${result.writtenFiles.length} written, '
+        '${result.skippedFiles.length} skipped.',
+      );
+      for (final file in result.writtenFiles) {
+        runner.appendSystemLog('Wrote $file');
+      }
+      for (final file in result.skippedFiles) {
+        runner.appendSystemLog('Skipped $file');
+      }
+      for (final warning in preview.warnings) {
+        runner.appendSystemLog('Warning: $warning');
+      }
+
+      await _refreshProjectSnapshot(preview.projectPath);
+    } on FileSystemException catch (error) {
+      runner.appendSystemLog(error.message);
+    } catch (error) {
+      runner.appendSystemLog('Failed to clone Android CI/CD: $error');
+    }
   }
 
   Future<void> validateImages() async {
@@ -234,6 +592,27 @@ class HomeController extends GetxController {
 
   void clearLog() {
     runner.clearLog();
+  }
+
+  List<String> _fastlaneGemUpdateArguments() {
+    final arguments = <String>[
+      'update',
+      'fastlane',
+      '--user-install',
+      '--no-document',
+      '--conservative',
+      '--minimal-deps',
+    ];
+
+    final localAppData = Platform.environment['LOCALAPPDATA']?.trim();
+    if (Platform.isWindows && localAppData != null && localAppData.isNotEmpty) {
+      arguments.addAll([
+        '--bindir',
+        p.join(localAppData, 'Microsoft', 'WindowsApps'),
+      ]);
+    }
+
+    return arguments;
   }
 
   Future<void> stopRun() async {
@@ -370,6 +749,186 @@ class HomeController extends GetxController {
 
   List<String> _customArgs() {
     return _splitArguments(customArgsController.text.trim());
+  }
+
+  Future<void> _loadManagedStoreProjects() async {
+    await _loadManagedChPlayProjects(refreshAfterLoad: false);
+    await _loadManagedAppStoreProjects(refreshAfterLoad: false);
+
+    if (chPlayProjects.isNotEmpty || appStoreProjects.isNotEmpty) {
+      await refreshAllStoreProjects();
+    }
+  }
+
+  Future<void> _loadManagedChPlayProjects({
+    bool refreshAfterLoad = true,
+  }) async {
+    final projects = <ChPlayProject>[];
+    for (final project in store.chPlayProjects) {
+      final metadata = await chPlayCredentialStore.metadata(project.id);
+      projects.add(project.withCredentialMetadata(metadata));
+    }
+
+    await store.saveChPlayProjects(projects);
+    chPlayProjects.assignAll(projects);
+
+    for (final project in projects) {
+      await _loadChPlayLocalSnapshot(project);
+    }
+
+    if (refreshAfterLoad && projects.isNotEmpty) {
+      await refreshAllChPlayProjects();
+    }
+  }
+
+  Future<void> _loadManagedAppStoreProjects({
+    bool refreshAfterLoad = true,
+  }) async {
+    final projects = <AppStoreProject>[];
+    for (final project in store.appStoreProjects) {
+      final metadata = await appStoreCredentialStore.metadata(project.id);
+      projects.add(project.withCredentialMetadata(metadata));
+    }
+
+    await store.saveAppStoreProjects(projects);
+    appStoreProjects.assignAll(projects);
+
+    for (final project in projects) {
+      await _loadAppStoreLocalSnapshot(project);
+    }
+
+    if (refreshAfterLoad && projects.isNotEmpty) {
+      for (final project in projects) {
+        await _refreshAppStoreProject(project);
+      }
+    }
+  }
+
+  Future<void> _loadChPlayLocalSnapshot(ChPlayProject project) async {
+    try {
+      _setChPlaySnapshot(
+        project.id,
+        await chPlayVersionChecker.readLocalSnapshot(project),
+      );
+    } catch (error) {
+      _setChPlaySnapshot(
+        project.id,
+        ChPlayVersionSnapshot(
+          status: ChPlayComparisonStatus.failed,
+          message: error.toString(),
+        ),
+      );
+    }
+  }
+
+  Future<void> _loadAppStoreLocalSnapshot(AppStoreProject project) async {
+    try {
+      _setAppStoreSnapshot(
+        project.id,
+        await appStoreVersionChecker.readLocalSnapshot(project),
+      );
+    } catch (error) {
+      _setAppStoreSnapshot(
+        project.id,
+        AppStoreVersionSnapshot(
+          status: AppStoreComparisonStatus.failed,
+          message: error.toString(),
+        ),
+      );
+    }
+  }
+
+  Future<void> _refreshChPlayProject(ChPlayProject project) async {
+    final currentSnapshot =
+        chPlaySnapshots[project.id] ?? const ChPlayVersionSnapshot();
+    _setChPlaySnapshot(
+      project.id,
+      currentSnapshot.copyWith(isRefreshing: true),
+    );
+
+    try {
+      final credentials = await readChPlayCredentials(project.id);
+      final snapshot = await chPlayVersionChecker.refreshProject(
+        project: project,
+        credentials: credentials,
+      );
+      _setChPlaySnapshot(project.id, snapshot);
+    } catch (error) {
+      _setChPlaySnapshot(
+        project.id,
+        currentSnapshot.copyWith(
+          status: ChPlayComparisonStatus.failed,
+          message: error.toString(),
+          lastCheckedAt: DateTime.now(),
+          isRefreshing: false,
+        ),
+      );
+    }
+  }
+
+  Future<void> _refreshAppStoreProject(AppStoreProject project) async {
+    final currentSnapshot =
+        appStoreSnapshots[project.id] ?? const AppStoreVersionSnapshot();
+    _setAppStoreSnapshot(
+      project.id,
+      currentSnapshot.copyWith(isRefreshing: true),
+    );
+
+    try {
+      final credentials = await readAppStoreCredentials(project.id);
+      final snapshot = await appStoreVersionChecker.refreshProject(
+        project: project,
+        credentials: credentials,
+      );
+      _setAppStoreSnapshot(project.id, snapshot);
+    } catch (error) {
+      _setAppStoreSnapshot(
+        project.id,
+        currentSnapshot.copyWith(
+          status: AppStoreComparisonStatus.failed,
+          message: error.toString(),
+          lastCheckedAt: DateTime.now(),
+          isRefreshing: false,
+        ),
+      );
+    }
+  }
+
+  void _setChPlaySnapshot(String projectId, ChPlayVersionSnapshot snapshot) {
+    chPlaySnapshots[projectId] = snapshot;
+    chPlaySnapshots.refresh();
+  }
+
+  void _setAppStoreSnapshot(
+    String projectId,
+    AppStoreVersionSnapshot snapshot,
+  ) {
+    appStoreSnapshots[projectId] = snapshot;
+    appStoreSnapshots.refresh();
+  }
+
+  ChPlayProject? _chPlayProjectByPath(String path) {
+    final lowerPath = p.normalize(path).toLowerCase();
+    for (final project in chPlayProjects) {
+      if (project.path.toLowerCase() == lowerPath) return project;
+    }
+    return null;
+  }
+
+  AppStoreProject? _appStoreProjectByPath(String path) {
+    final lowerPath = p.normalize(path).toLowerCase();
+    for (final project in appStoreProjects) {
+      if (project.path.toLowerCase() == lowerPath) return project;
+    }
+    return null;
+  }
+
+  String _newChPlayProjectId() {
+    return 'chp_${DateTime.now().microsecondsSinceEpoch}';
+  }
+
+  String _newAppStoreProjectId() {
+    return 'aps_${DateTime.now().microsecondsSinceEpoch}';
   }
 
   Future<void> _refreshProjectSnapshot(String path) async {

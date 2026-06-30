@@ -38,7 +38,7 @@ class ReleaseRunnerService extends GetxService {
       this.clearLog();
     }
 
-    return _runPlan(
+    final result = await _runPlan(
       plan: _commandPlan(script, args),
       workingDirectory: project.autoDirectory.path,
       statusLabel: script.fileName,
@@ -46,6 +46,7 @@ class ReleaseRunnerService extends GetxService {
       environment: environment,
       clearLog: clearLog,
     );
+    return result.exitCode;
   }
 
   Future<int> runFastlaneLane({
@@ -69,7 +70,7 @@ class ReleaseRunnerService extends GetxService {
       fastlaneEnvironment['BUNDLE_GEMFILE'] = gemfile.path;
     }
 
-    return _runPlan(
+    final result = await _runPlan(
       plan: _fastlaneCommandPlan(
         lane,
         args,
@@ -81,9 +82,35 @@ class ReleaseRunnerService extends GetxService {
       environment: fastlaneEnvironment,
       clearLog: clearLog,
     );
+    return result.exitCode;
   }
 
   Future<int> runCommand({
+    required String workingDirectory,
+    required String statusLabel,
+    required String activePath,
+    required String executable,
+    List<String> arguments = const [],
+    List<String>? displayArguments,
+    Map<String, String> environment = const {},
+    bool clearLog = false,
+  }) async {
+    final result = await _runPlan(
+      plan: CommandPlan(
+        executable: executable,
+        arguments: arguments,
+        displayArguments: displayArguments,
+      ),
+      workingDirectory: workingDirectory,
+      statusLabel: statusLabel,
+      activePath: activePath,
+      environment: environment,
+      clearLog: clearLog,
+    );
+    return result.exitCode;
+  }
+
+  Future<CommandRunResult> runCommandWithOutput({
     required String workingDirectory,
     required String statusLabel,
     required String activePath,
@@ -104,6 +131,7 @@ class ReleaseRunnerService extends GetxService {
       activePath: activePath,
       environment: environment,
       clearLog: clearLog,
+      captureOutput: true,
     );
   }
 
@@ -115,21 +143,26 @@ class ReleaseRunnerService extends GetxService {
     return _gemExecutable();
   }
 
+  String? resolveBundleExecutable() {
+    return _bundleExecutable();
+  }
+
   void appendSystemLog(String message) {
     _append(message);
   }
 
-  Future<int> _runPlan({
+  Future<CommandRunResult> _runPlan({
     required CommandPlan plan,
     required String workingDirectory,
     required String statusLabel,
     required String activePath,
     required Map<String, String> environment,
     required bool clearLog,
+    bool captureOutput = false,
   }) async {
     if (isRunning.value) {
       _append('A script is already running.');
-      return -1;
+      return const CommandRunResult(exitCode: -1);
     }
 
     if (clearLog) {
@@ -145,6 +178,7 @@ class ReleaseRunnerService extends GetxService {
     activeScriptPath.value = activePath;
     exitCode.value = null;
     _append('\$ ${plan.display}');
+    final capturedOutput = StringBuffer();
 
     try {
       final process = await Process.start(
@@ -158,10 +192,20 @@ class ReleaseRunnerService extends GetxService {
 
       _stdoutSubscription = process.stdout
           .transform(const Utf8Decoder(allowMalformed: true))
-          .listen(_appendOutput);
+          .listen((chunk) {
+            if (captureOutput) {
+              capturedOutput.write(_sanitizeTerminalOutput(chunk));
+            }
+            _appendOutput(chunk);
+          });
       _stderrSubscription = process.stderr
           .transform(const Utf8Decoder(allowMalformed: true))
-          .listen((chunk) => _appendOutput(chunk, prefix: '[stderr] '));
+          .listen((chunk) {
+            if (captureOutput) {
+              capturedOutput.write(_sanitizeTerminalOutput(chunk));
+            }
+            _appendOutput(chunk, prefix: '[stderr] ');
+          });
 
       final code = await process.exitCode;
       await _stdoutSubscription?.cancel();
@@ -170,12 +214,15 @@ class ReleaseRunnerService extends GetxService {
       exitCode.value = code;
       status.value = code == 0 ? 'Completed' : 'Failed';
       _append('Finished with exit code $code.');
-      return code;
+      return CommandRunResult(
+        exitCode: code,
+        output: capturedOutput.toString(),
+      );
     } on ProcessException catch (error) {
       exitCode.value = -1;
       status.value = 'Failed to start';
       _append('Failed to start $statusLabel: ${error.message}');
-      return -1;
+      return CommandRunResult(exitCode: -1, output: capturedOutput.toString());
     } finally {
       _process = null;
       _stdoutSubscription = null;
@@ -486,6 +533,13 @@ class ReleaseRunnerService extends GetxService {
         .replaceAll('\u0007', '')
         .replaceAll('\u0008', '');
   }
+}
+
+class CommandRunResult {
+  const CommandRunResult({required this.exitCode, this.output = ''});
+
+  final int exitCode;
+  final String output;
 }
 
 class CommandPlan {
