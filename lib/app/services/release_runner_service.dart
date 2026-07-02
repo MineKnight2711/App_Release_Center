@@ -191,6 +191,8 @@ class ReleaseRunnerService extends GetxService {
     activeScriptPath.value = activePath;
     exitCode.value = null;
     _append('\$ ${plan.display}');
+    final notificationLogTail = _NotificationLogTailBuffer();
+    notificationLogTail.addLine('\$ ${plan.display}');
     final capturedOutput = StringBuffer();
     final startedAt = DateTime.now();
     final baseEvent = CommandNotificationEvent(
@@ -217,17 +219,21 @@ class ReleaseRunnerService extends GetxService {
       _stdoutSubscription = process.stdout
           .transform(const Utf8Decoder(allowMalformed: true))
           .listen((chunk) {
+            final sanitizedChunk = _sanitizeTerminalOutput(chunk);
             if (captureOutput) {
-              capturedOutput.write(_sanitizeTerminalOutput(chunk));
+              capturedOutput.write(sanitizedChunk);
             }
+            notificationLogTail.addChunk(sanitizedChunk);
             _appendOutput(chunk);
           });
       _stderrSubscription = process.stderr
           .transform(const Utf8Decoder(allowMalformed: true))
           .listen((chunk) {
+            final sanitizedChunk = _sanitizeTerminalOutput(chunk);
             if (captureOutput) {
-              capturedOutput.write(_sanitizeTerminalOutput(chunk));
+              capturedOutput.write(sanitizedChunk);
             }
+            notificationLogTail.addChunk(sanitizedChunk, prefix: '[stderr] ');
             _appendOutput(chunk, prefix: '[stderr] ');
           });
 
@@ -238,6 +244,7 @@ class ReleaseRunnerService extends GetxService {
       exitCode.value = code;
       status.value = code == 0 ? 'Completed' : 'Failed';
       _append('Finished with exit code $code.');
+      notificationLogTail.addLine('Finished with exit code $code.');
       final finishedAt = DateTime.now();
       unawaited(
         _notifyCommandEvent(
@@ -248,6 +255,7 @@ class ReleaseRunnerService extends GetxService {
             finishedAt: finishedAt,
             durationMs: finishedAt.difference(startedAt).inMilliseconds,
             exitCode: code,
+            logTail: notificationLogTail.lines,
           ),
         ),
       );
@@ -259,6 +267,9 @@ class ReleaseRunnerService extends GetxService {
       exitCode.value = -1;
       status.value = 'Failed to start';
       _append('Failed to start $statusLabel: ${error.message}');
+      notificationLogTail.addLine(
+        'Failed to start $statusLabel: ${error.message}',
+      );
       final finishedAt = DateTime.now();
       unawaited(
         _notifyCommandEvent(
@@ -267,6 +278,7 @@ class ReleaseRunnerService extends GetxService {
             finishedAt: finishedAt,
             durationMs: finishedAt.difference(startedAt).inMilliseconds,
             exitCode: -1,
+            logTail: notificationLogTail.lines,
           ),
         ),
       );
@@ -622,6 +634,63 @@ class CommandPlan {
   }
 }
 
+class _NotificationLogTailBuffer {
+  static const _maxLines = 20;
+  static const _maxChars = 4096;
+  static const _maxLineChars = 700;
+
+  final _lines = <String>[];
+
+  void addChunk(String chunk, {String prefix = ''}) {
+    final normalized = chunk.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+    for (final line in normalized.split('\n')) {
+      if (line.trim().isEmpty) continue;
+      addLine('$prefix$line');
+    }
+  }
+
+  void addLine(String line) {
+    final redacted = _redactNotificationLogLine(line.trimRight());
+    if (redacted.trim().isEmpty) return;
+    _lines.add(_truncateLine(redacted));
+    _trim();
+  }
+
+  List<String> get lines => List.unmodifiable(_lines);
+
+  String _truncateLine(String line) {
+    if (line.length <= _maxLineChars) return line;
+    return '...${line.substring(line.length - _maxLineChars)}';
+  }
+
+  void _trim() {
+    while (_lines.length > _maxLines) {
+      _lines.removeAt(0);
+    }
+
+    while (_lines.length > 1 && _totalChars() > _maxChars) {
+      _lines.removeAt(0);
+    }
+
+    if (_lines.length == 1 && _totalChars() > _maxChars) {
+      _lines[0] = '...${_lines[0].substring(_lines[0].length - _maxChars)}';
+    }
+  }
+
+  int _totalChars() => _lines.fold(0, (total, line) => total + line.length + 1);
+}
+
+String _redactNotificationLogLine(String value) {
+  var result = value;
+  for (final pattern in _notificationSecretPatterns) {
+    result = result.replaceAllMapped(
+      pattern,
+      (match) => '${match.group(1)}[redacted]',
+    );
+  }
+  return result;
+}
+
 const _promptShim = r'''
 exec 9<&0
 
@@ -664,6 +733,19 @@ final _yesNoPromptPattern = RegExp(
   r'(?:^|[\s\[(])(?:y\s*/\s*n|n\s*/\s*y)(?:\]|\))?\s*[:?]?\s*$',
   caseSensitive: false,
 );
+
+final _notificationSecretPatterns = [
+  RegExp(r'(authorization\s*[:=]\s*bearer\s+)([^\s]+)', caseSensitive: false),
+  RegExp(r'(bearer\s+)([A-Za-z0-9._~+/=-]+)', caseSensitive: false),
+  RegExp(
+    r'((?:token|password|secret|api[_-]?key)\s*[:=]\s*)([^\s,;]+)',
+    caseSensitive: false,
+  ),
+  RegExp(
+    r'(--(?:token|password|secret|api-key|api_key)\s+)([^\s]+)',
+    caseSensitive: false,
+  ),
+];
 
 final _ansiEscapePattern = RegExp(r'\x1B\[[0-?]*[ -/]*[@-~]');
 final _ansiOscPattern = RegExp(r'\x1B\][^\x07]*(?:\x07|\x1B\\)');

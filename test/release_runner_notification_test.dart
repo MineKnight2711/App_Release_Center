@@ -31,11 +31,65 @@ void main() {
       isTrue,
     );
   });
+
+  test(
+    'final command notification includes bounded redacted log tail',
+    () async {
+      final sender = _RecordingSender();
+      final runner = ReleaseRunnerService(notificationService: sender);
+      final tempDir = Directory.systemTemp.createTempSync('arc_notify_runner_');
+      addTearDown(() => tempDir.deleteSync(recursive: true));
+
+      final code = await runner.runCommand(
+        workingDirectory: tempDir.path,
+        statusLabel: 'secrets',
+        activePath: 'test:secrets',
+        executable: Platform.isWindows ? 'cmd' : 'sh',
+        arguments: Platform.isWindows
+            ? const [
+                '/c',
+                'echo token=abc123 && echo bearer abc123 && echo done',
+              ]
+            : const ['-c', 'printf "token=abc123\nbearer abc123\ndone\n"'],
+        clearLog: true,
+      );
+
+      await _waitForEvents(sender, 2);
+
+      expect(code, 0);
+      expect(sender.events.first.event, CommandNotificationEventType.started);
+      expect(sender.events.first.logTail, isEmpty);
+
+      final finalEvent = sender.events.last;
+      final joinedTail = finalEvent.logTail.join('\n');
+      expect(finalEvent.event, CommandNotificationEventType.completed);
+      expect(finalEvent.logTail.length, lessThanOrEqualTo(20));
+      expect(joinedTail, contains('token=[redacted]'));
+      expect(joinedTail, contains('bearer [redacted]'));
+      expect(joinedTail, isNot(contains('abc123')));
+    },
+  );
 }
 
 class _FailingSender implements CommandNotificationSender {
   @override
   Future<void> sendCommandEvent(CommandNotificationEvent event) async {
     throw Exception('offline');
+  }
+}
+
+class _RecordingSender implements CommandNotificationSender {
+  final events = <CommandNotificationEvent>[];
+
+  @override
+  Future<void> sendCommandEvent(CommandNotificationEvent event) async {
+    events.add(event);
+  }
+}
+
+Future<void> _waitForEvents(_RecordingSender sender, int count) async {
+  for (var attempt = 0; attempt < 20; attempt++) {
+    if (sender.events.length >= count) return;
+    await Future<void>.delayed(const Duration(milliseconds: 20));
   }
 }

@@ -51,6 +51,7 @@ void main() {
       finishedAt: finishedAt,
       durationMs: 60000,
       exitCode: 0,
+      logTail: const ['Building', 'Finished with exit code 0.'],
       targetDeviceIds: const ['phone-1'],
     );
 
@@ -64,6 +65,7 @@ void main() {
     expect(loaded.finishedAt?.toUtc(), finishedAt);
     expect(loaded.durationMs, 60000);
     expect(loaded.exitCode, 0);
+    expect(loaded.logTail, ['Building', 'Finished with exit code 0.']);
     expect(loaded.targetDeviceIds, ['phone-1']);
   });
 }

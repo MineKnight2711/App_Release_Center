@@ -106,6 +106,7 @@ class CommandNotificationEvent {
     this.finishedAt,
     this.durationMs,
     this.exitCode,
+    this.logTail = const [],
     this.targetDeviceIds = const [],
   });
 
@@ -119,6 +120,7 @@ class CommandNotificationEvent {
   final DateTime? finishedAt;
   final int? durationMs;
   final int? exitCode;
+  final List<String> logTail;
   final List<String> targetDeviceIds;
 
   CommandNotificationEvent copyWith({
@@ -126,6 +128,7 @@ class CommandNotificationEvent {
     DateTime? finishedAt,
     int? durationMs,
     int? exitCode,
+    List<String>? logTail,
     List<String>? targetDeviceIds,
   }) {
     return CommandNotificationEvent(
@@ -139,6 +142,7 @@ class CommandNotificationEvent {
       finishedAt: finishedAt ?? this.finishedAt,
       durationMs: durationMs ?? this.durationMs,
       exitCode: exitCode ?? this.exitCode,
+      logTail: logTail ?? this.logTail,
       targetDeviceIds: targetDeviceIds ?? this.targetDeviceIds,
     );
   }
@@ -155,6 +159,7 @@ class CommandNotificationEvent {
       'finishedAt': finishedAt?.toUtc().toIso8601String(),
       'durationMs': durationMs,
       'exitCode': exitCode,
+      'logTail': logTail,
       'targetDeviceIds': targetDeviceIds,
     };
   }
@@ -175,6 +180,7 @@ class CommandNotificationEvent {
       finishedAt: _date(json['finishedAt']),
       durationMs: _int(json['durationMs']),
       exitCode: _int(json['exitCode']),
+      logTail: _stringList(json['logTail']),
       targetDeviceIds: _stringList(json['targetDeviceIds']),
     );
   }

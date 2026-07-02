@@ -410,15 +410,24 @@ class _PhonePairingDialog extends StatefulWidget {
 
 class _PhonePairingDialogState extends State<_PhonePairingDialog> {
   Timer? _pollTimer;
+  Timer? _countdownTimer;
   bool _isPolling = false;
   NotificationPairingStatus _status = NotificationPairingStatus.pending;
   LinkedNotificationDevice? _device;
+  Duration _initialRemaining = Duration.zero;
+  Duration _remaining = Duration.zero;
 
   HomeController get controller => Get.find<HomeController>();
 
   @override
   void initState() {
     super.initState();
+    _remaining = _remainingUntilExpiry();
+    _initialRemaining = _remaining;
+    _countdownTimer = Timer.periodic(
+      const Duration(seconds: 1),
+      (_) => _syncRemaining(),
+    );
     _pollTimer = Timer.periodic(const Duration(seconds: 2), (_) => _poll());
     unawaited(_poll());
   }
@@ -426,6 +435,7 @@ class _PhonePairingDialogState extends State<_PhonePairingDialog> {
   @override
   void dispose() {
     _pollTimer?.cancel();
+    _countdownTimer?.cancel();
     super.dispose();
   }
 
@@ -436,6 +446,18 @@ class _PhonePairingDialogState extends State<_PhonePairingDialog> {
       NotificationPairingStatus.linked => 'Linked ${_device?.label ?? ''}',
       NotificationPairingStatus.expired => 'Pairing expired',
     };
+    final countdownLabel = _status == NotificationPairingStatus.linked
+        ? 'Linked'
+        : _status == NotificationPairingStatus.expired
+        ? 'Expired'
+        : 'Expires in ${_formatRemaining(_remaining)}';
+    final countdownColor = _status == NotificationPairingStatus.linked
+        ? AppCyberTheme.neonGreen
+        : _status == NotificationPairingStatus.expired
+        ? Theme.of(context).colorScheme.error
+        : _isExpiringSoon
+        ? const Color(0xFFF79009)
+        : AppCyberTheme.electricBlue;
 
     return AlertDialog(
       backgroundColor: AppCyberTheme.panelBackgroundStrong,
@@ -497,6 +519,12 @@ class _PhonePairingDialogState extends State<_PhonePairingDialog> {
               highlighted: _status == NotificationPairingStatus.linked,
             ),
             const SizedBox(height: 10),
+            _PairingCountdown(
+              label: countdownLabel,
+              progress: _countdownProgress,
+              color: countdownColor,
+            ),
+            const SizedBox(height: 10),
             SelectableText(
               widget.session.pairingUrl,
               maxLines: 2,
@@ -525,6 +553,44 @@ class _PhonePairingDialogState extends State<_PhonePairingDialog> {
     );
   }
 
+  bool get _isExpiringSoon =>
+      _status == NotificationPairingStatus.pending &&
+      _remaining <= const Duration(seconds: 60);
+
+  double get _countdownProgress {
+    if (_status == NotificationPairingStatus.linked) return 1;
+    final totalMillis = _initialRemaining.inMilliseconds;
+    if (totalMillis <= 0) return 0;
+    return (_remaining.inMilliseconds / totalMillis).clamp(0.0, 1.0).toDouble();
+  }
+
+  void _syncRemaining({bool expireWhenElapsed = true}) {
+    final clamped = _remainingUntilExpiry();
+    if (!mounted) {
+      _remaining = clamped;
+      return;
+    }
+
+    setState(() {
+      _remaining = clamped;
+      if (expireWhenElapsed &&
+          clamped == Duration.zero &&
+          _status == NotificationPairingStatus.pending) {
+        _status = NotificationPairingStatus.expired;
+      }
+    });
+
+    if (_status == NotificationPairingStatus.expired) {
+      _pollTimer?.cancel();
+      _countdownTimer?.cancel();
+    }
+  }
+
+  Duration _remainingUntilExpiry() {
+    final nextRemaining = widget.session.expiresAt.difference(DateTime.now());
+    return nextRemaining.isNegative ? Duration.zero : nextRemaining;
+  }
+
   Future<void> _poll() async {
     if (_isPolling || _status != NotificationPairingStatus.pending) return;
     _isPolling = true;
@@ -533,6 +599,10 @@ class _PhonePairingDialogState extends State<_PhonePairingDialog> {
         widget.session.pairingId,
       );
       if (!mounted || result == null) return;
+      if (_status == NotificationPairingStatus.expired &&
+          result.status == NotificationPairingStatus.pending) {
+        return;
+      }
 
       setState(() {
         _status = result.status;
@@ -541,6 +611,7 @@ class _PhonePairingDialogState extends State<_PhonePairingDialog> {
 
       if (result.status != NotificationPairingStatus.pending) {
         _pollTimer?.cancel();
+        _countdownTimer?.cancel();
       }
       if (result.status == NotificationPairingStatus.linked && mounted) {
         await Future<void>.delayed(const Duration(milliseconds: 800));
@@ -550,6 +621,69 @@ class _PhonePairingDialogState extends State<_PhonePairingDialog> {
       _isPolling = false;
     }
   }
+}
+
+class _PairingCountdown extends StatelessWidget {
+  const _PairingCountdown({
+    required this.label,
+    required this.progress,
+    required this.color,
+  });
+
+  final String label;
+  final double progress;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return _HudCardShell(
+      active: true,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.timer_outlined, size: 15, color: color),
+              const SizedBox(width: 7),
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppCyberTheme.dataTextStyle(
+                    size: 11,
+                    color: AppCyberTheme.textPrimary,
+                    weight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: LinearProgressIndicator(
+              minHeight: 5,
+              value: progress,
+              color: color,
+              backgroundColor: color.withValues(alpha: 0.16),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+String _formatRemaining(Duration duration) {
+  final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
+  final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
+  if (duration.inHours > 0) {
+    final hours = duration.inHours.toString().padLeft(2, '0');
+    return '$hours:$minutes:$seconds';
+  }
+  return '$minutes:$seconds';
 }
 
 class _YesNoPromptActions extends GetView<HomeController> {
