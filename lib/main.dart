@@ -1,6 +1,9 @@
+import 'dart:io';
+
 import 'package:app_release_center/app/bindings/app_binding.dart';
 import 'package:app_release_center/app/services/theme_service.dart';
 import 'package:app_release_center/app/views/home_view.dart';
+import 'package:app_release_center/app/views/mobile_control_view.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -22,7 +25,9 @@ class AppReleaseCenterApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       initialBinding: AppBinding(),
       theme: themeService.themeData,
-      home: const HomeView(),
+      home: Platform.isAndroid || Platform.isIOS
+          ? const MobileControlView()
+          : const HomeView(),
     );
   }
 }

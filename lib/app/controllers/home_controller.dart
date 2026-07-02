@@ -108,7 +108,7 @@ class HomeController extends GetxController {
   }
 
   Future<void> pickProjectDirectory() async {
-    final selectedPath = await FilePicker.getDirectoryPath(
+    final selectedPath = await FilePicker.platform.getDirectoryPath(
       dialogTitle: 'Select project directory',
       initialDirectory: _initialDirectory(),
     );
@@ -118,7 +118,7 @@ class HomeController extends GetxController {
   }
 
   Future<ChPlayProject?> pickChPlayProjectDraft() async {
-    final selectedPath = await FilePicker.getDirectoryPath(
+    final selectedPath = await FilePicker.platform.getDirectoryPath(
       dialogTitle: 'Select CH Play project directory',
       initialDirectory: _initialDirectory(),
     );
@@ -182,7 +182,7 @@ class HomeController extends GetxController {
   }
 
   Future<AppStoreProject?> pickAppStoreProjectDraft() async {
-    final selectedPath = await FilePicker.getDirectoryPath(
+    final selectedPath = await FilePicker.platform.getDirectoryPath(
       dialogTitle: 'Select App Store project directory',
       initialDirectory: _initialDirectory(),
     );
@@ -244,7 +244,7 @@ class HomeController extends GetxController {
   }
 
   Future<String?> pickGooglePlayJsonContent() async {
-    final result = await FilePicker.pickFiles(
+    final result = await FilePicker.platform.pickFiles(
       dialogTitle: 'Select Google Play service-account JSON',
       type: FileType.custom,
       allowedExtensions: const ['json'],
@@ -256,7 +256,7 @@ class HomeController extends GetxController {
   }
 
   Future<String?> pickAppStoreP8Content() async {
-    final result = await FilePicker.pickFiles(
+    final result = await FilePicker.platform.pickFiles(
       dialogTitle: 'Select App Store Connect .p8 key',
       type: FileType.custom,
       allowedExtensions: const ['p8'],
@@ -268,7 +268,7 @@ class HomeController extends GetxController {
   }
 
   Future<String?> pickJksPath() async {
-    final result = await FilePicker.pickFiles(
+    final result = await FilePicker.platform.pickFiles(
       dialogTitle: 'Select Android keystore',
       type: FileType.custom,
       allowedExtensions: const ['jks', 'keystore'],

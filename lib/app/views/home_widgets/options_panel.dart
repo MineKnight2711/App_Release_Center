@@ -15,6 +15,8 @@ class _OptionsPanel extends GetView<HomeController> {
             children: [
               const _PanelTitle(icon: Icons.tune_outlined, title: 'Options'),
               const SizedBox(height: 12),
+              const _RemoteControlOptions(),
+              const Divider(height: 28),
               const _NotificationOptions(),
               const Divider(height: 28),
               if (project?.hasFirebaseDeployTools ?? false) ...[
@@ -201,6 +203,178 @@ class _OptionsPanel extends GetView<HomeController> {
           ),
         );
       }),
+    );
+  }
+}
+
+class _RemoteControlOptions extends GetView<HomeController> {
+  const _RemoteControlOptions();
+
+  RemoteControlService get remote => Get.find<RemoteControlService>();
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final settings = remote.settings.value;
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _PanelTitle(
+            icon: Icons.settings_remote_outlined,
+            title: 'Remote Control',
+          ),
+          const SizedBox(height: 8),
+          SwitchListTile(
+            value: settings.enabled,
+            onChanged: remote.setEnabled,
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Phone command relay'),
+            subtitle: Text(remote.agentStatus.value),
+          ),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              FilledButton.icon(
+                onPressed: () => _showControlPairingDialog(context),
+                icon: const Icon(Icons.qr_code_2_outlined),
+                label: const Text('Pair control app'),
+              ),
+              OutlinedButton.icon(
+                onPressed: () => _showAllowedRootsDialog(context),
+                icon: const Icon(Icons.folder_special_outlined),
+                label: const Text('Allowed roots'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          _HudCardShell(
+            active: settings.enabled,
+            padding: const EdgeInsets.all(10),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  Icons.admin_panel_settings_outlined,
+                  size: 17,
+                  color: settings.enabled
+                      ? AppCyberTheme.neonGreen
+                      : AppCyberTheme.textMuted,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    settings.allowedRoots.isEmpty
+                        ? 'Shell is limited to recent project folders.'
+                        : 'Shell roots: ${settings.allowedRoots.length}',
+                    style: AppCyberTheme.dataTextStyle(
+                      size: 10.8,
+                      color: AppCyberTheme.textMuted,
+                      weight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+    });
+  }
+
+  Future<void> _showControlPairingDialog(BuildContext context) async {
+    final session = await controller.createPhonePairing();
+    if (session == null || !context.mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (_) => _PhonePairingDialog(session: session),
+    );
+  }
+
+  Future<void> _showAllowedRootsDialog(BuildContext context) async {
+    await showDialog<void>(
+      context: context,
+      builder: (_) => const _AllowedRootsDialog(),
+    );
+  }
+}
+
+class _AllowedRootsDialog extends StatefulWidget {
+  const _AllowedRootsDialog();
+
+  @override
+  State<_AllowedRootsDialog> createState() => _AllowedRootsDialogState();
+}
+
+class _AllowedRootsDialogState extends State<_AllowedRootsDialog> {
+  late final TextEditingController _controller;
+
+  RemoteControlService get remote => Get.find<RemoteControlService>();
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(
+      text: remote.settings.value.allowedRoots.join('\n'),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: AppCyberTheme.panelBackgroundStrong,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: BorderSide(
+          color: AppCyberTheme.isCyber
+              ? AppCyberTheme.electricBlue.withValues(alpha: 0.4)
+              : AppCyberTheme.lineBlue,
+        ),
+      ),
+      title: const _PanelTitle(
+        icon: Icons.folder_special_outlined,
+        title: 'Allowed Roots',
+      ),
+      content: SizedBox(
+        width: 460,
+        child: TextField(
+          controller: _controller,
+          minLines: 6,
+          maxLines: 10,
+          style: AppCyberTheme.dataTextStyle(
+            size: 11.5,
+            color: AppCyberTheme.textPrimary,
+          ),
+          decoration: const InputDecoration(
+            labelText: 'One folder per line',
+            alignLabelWithHint: true,
+          ),
+        ),
+      ),
+      actions: [
+        OutlinedButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton.icon(
+          onPressed: () async {
+            await remote.saveAllowedRoots(
+              _controller.text.split(RegExp(r'\r?\n')),
+            );
+            if (context.mounted) Navigator.of(context).pop();
+          },
+          icon: const Icon(Icons.save_outlined),
+          label: const Text('Save'),
+        ),
+      ],
     );
   }
 }

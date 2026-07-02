@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:app_release_center/app/models/app_store_project.dart';
 import 'package:app_release_center/app/models/ch_play_project.dart';
 import 'package:app_release_center/app/models/release_notification.dart';
+import 'package:app_release_center/app/models/remote_control.dart';
 import 'package:get/get.dart';
 import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -14,6 +15,8 @@ class ProjectStoreService extends GetxService {
   static const _appStoreProjectsKey = 'app_store_projects';
   static const _notificationSettingsKey = 'release_notification_settings';
   static const _linkedNotificationDevicesKey = 'linked_notification_devices';
+  static const _remoteControlSettingsKey = 'remote_control_settings';
+  static const _mobileControlSettingsKey = 'mobile_control_settings';
 
   late final SharedPreferences _preferences;
 
@@ -111,6 +114,42 @@ class ProjectStoreService extends GetxService {
     return devices;
   }
 
+  RemoteControlSettings get remoteControlSettings {
+    final entry = _preferences.getString(_remoteControlSettingsKey);
+    if (entry == null || entry.trim().isEmpty) {
+      return const RemoteControlSettings();
+    }
+
+    try {
+      final json = jsonDecode(entry);
+      if (json is Map<String, Object?>) {
+        return RemoteControlSettings.fromJson(json);
+      }
+    } catch (_) {
+      // Ignore invalid entries and fall back to defaults.
+    }
+
+    return const RemoteControlSettings();
+  }
+
+  MobileControlSettings get mobileControlSettings {
+    final entry = _preferences.getString(_mobileControlSettingsKey);
+    if (entry == null || entry.trim().isEmpty) {
+      return const MobileControlSettings();
+    }
+
+    try {
+      final json = jsonDecode(entry);
+      if (json is Map<String, Object?>) {
+        return MobileControlSettings.fromJson(json);
+      }
+    } catch (_) {
+      // Ignore invalid entries and fall back to defaults.
+    }
+
+    return const MobileControlSettings();
+  }
+
   Future<void> saveProjectPath(String path) async {
     final normalizedPath = p.normalize(path);
     final lowerPath = normalizedPath.toLowerCase();
@@ -155,5 +194,19 @@ class ProjectStoreService extends GetxService {
         .map((device) => jsonEncode(device.toJson()))
         .toList();
     await _preferences.setStringList(_linkedNotificationDevicesKey, entries);
+  }
+
+  Future<void> saveRemoteControlSettings(RemoteControlSettings settings) async {
+    await _preferences.setString(
+      _remoteControlSettingsKey,
+      jsonEncode(settings.toJson()),
+    );
+  }
+
+  Future<void> saveMobileControlSettings(MobileControlSettings settings) async {
+    await _preferences.setString(
+      _mobileControlSettingsKey,
+      jsonEncode(settings.toJson()),
+    );
   }
 }

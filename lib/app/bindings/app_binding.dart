@@ -11,6 +11,7 @@ import 'package:app_release_center/app/services/command_notification_service.dar
 import 'package:app_release_center/app/services/notification_credential_store_service.dart';
 import 'package:app_release_center/app/services/project_store_service.dart';
 import 'package:app_release_center/app/services/release_runner_service.dart';
+import 'package:app_release_center/app/services/remote_control_service.dart';
 import 'package:app_release_center/app/services/script_catalog_service.dart';
 import 'package:app_release_center/app/services/theme_service.dart';
 import 'package:get/get.dart';
@@ -48,6 +49,16 @@ class AppBinding extends Bindings {
     Get.put<ReleaseRunnerService>(
       ReleaseRunnerService(
         notificationService: Get.find<CommandNotificationService>(),
+      ),
+      permanent: true,
+    );
+    Get.put<RemoteControlService>(
+      RemoteControlService(
+        store: Get.find<ProjectStoreService>(),
+        catalog: Get.find<ScriptCatalogService>(),
+        runner: Get.find<ReleaseRunnerService>(),
+        connect: Get.find<ReleaseCenterConnect>(),
+        credentialStore: Get.find<NotificationCredentialStoreService>(),
       ),
       permanent: true,
     );
