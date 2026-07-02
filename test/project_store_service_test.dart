@@ -1,5 +1,6 @@
 import 'package:app_release_center/app/models/app_store_project.dart';
 import 'package:app_release_center/app/models/ch_play_project.dart';
+import 'package:app_release_center/app/models/release_notification.dart';
 import 'package:app_release_center/app/services/project_store_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -55,5 +56,35 @@ void main() {
     expect(service.appStoreProjects.single.bundleId, 'com.example.ios');
     expect(service.appStoreProjects.single.platform, 'ios');
     expect(service.appStoreProjects.single.hasSavedRequiredCredentials, isTrue);
+  });
+
+  test('stores notification settings and linked devices', () async {
+    SharedPreferences.setMockInitialValues({});
+    final service = await ProjectStoreService().init();
+
+    await service.saveNotificationSettings(
+      const ReleaseNotificationSettings(
+        enabled: true,
+        endpointBaseUrl: 'https://example.com/api',
+        selectedDeviceIds: ['phone-1'],
+      ),
+    );
+    await service.saveLinkedNotificationDevices([
+      LinkedNotificationDevice(
+        id: 'phone-1',
+        displayName: 'Pixel',
+        platform: 'Android',
+        browser: 'Chrome',
+        linkedAt: DateTime.utc(2026, 7, 1),
+      ),
+    ]);
+
+    expect(service.notificationSettings.enabled, isTrue);
+    expect(
+      service.notificationSettings.endpointBaseUrl,
+      'https://example.com/api',
+    );
+    expect(service.notificationSettings.selectedDeviceIds, ['phone-1']);
+    expect(service.linkedNotificationDevices.single.label, 'Pixel');
   });
 }

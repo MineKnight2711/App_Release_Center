@@ -8,6 +8,7 @@ import 'package:app_release_center/app/models/ch_play_credentials.dart';
 import 'package:app_release_center/app/models/ch_play_project.dart';
 import 'package:app_release_center/app/models/ch_play_version_snapshot.dart';
 import 'package:app_release_center/app/models/release_fastlane_lane.dart';
+import 'package:app_release_center/app/models/release_notification.dart';
 import 'package:app_release_center/app/models/release_project.dart';
 import 'package:app_release_center/app/models/release_script.dart';
 import 'package:app_release_center/app/services/android_cicd_clone_service.dart';
@@ -17,6 +18,7 @@ import 'package:app_release_center/app/services/app_store_version_check_service.
 import 'package:app_release_center/app/services/ch_play_credential_store_service.dart';
 import 'package:app_release_center/app/services/ch_play_project_inspector_service.dart';
 import 'package:app_release_center/app/services/ch_play_version_check_service.dart';
+import 'package:app_release_center/app/services/command_notification_service.dart';
 import 'package:app_release_center/app/services/project_store_service.dart';
 import 'package:app_release_center/app/services/release_runner_service.dart';
 import 'package:app_release_center/app/services/script_catalog_service.dart';
@@ -34,6 +36,7 @@ class HomeController extends GetxController {
     required this.androidCicdCloner,
     required this.runner,
     required this.connect,
+    required this.notifications,
     required this.chPlayInspector,
     required this.chPlayCredentialStore,
     required this.chPlayVersionChecker,
@@ -47,6 +50,7 @@ class HomeController extends GetxController {
   final AndroidCicdCloneService androidCicdCloner;
   final ReleaseRunnerService runner;
   final ReleaseCenterConnect connect;
+  final CommandNotificationService notifications;
   final ChPlayProjectInspectorService chPlayInspector;
   final ChPlayCredentialStoreService chPlayCredentialStore;
   final ChPlayVersionCheckService chPlayVersionChecker;
@@ -68,10 +72,16 @@ class HomeController extends GetxController {
   final playUploadChoice = PlayUploadChoice.ask.obs;
   final uploadPlayListingImages = true.obs;
   final validatePlayImages = true.obs;
+  final notificationSettings = const ReleaseNotificationSettings().obs;
+  final linkedNotificationDevices = <LinkedNotificationDevice>[].obs;
+  final isLoadingNotificationDevices = false.obs;
+  final notificationStatus = ''.obs;
 
   final releaseNotesController = TextEditingController();
   final customArgsController = TextEditingController();
   final stdinController = TextEditingController();
+  final notificationEndpointController = TextEditingController();
+  final notificationTokenController = TextEditingController();
   final _sessionChPlayCredentials = <String, ChPlayCredentials>{};
   final _sessionAppStoreCredentials = <String, AppStoreCredentials>{};
 
@@ -79,6 +89,7 @@ class HomeController extends GetxController {
   void onInit() {
     super.onInit();
     recentPaths.assignAll(_initialProjectPaths());
+    _loadNotificationState();
     _loadManagedStoreProjects();
     final savedPath = store.lastProjectPath;
     if (savedPath != null && Directory(savedPath).existsSync()) {
@@ -91,6 +102,8 @@ class HomeController extends GetxController {
     releaseNotesController.dispose();
     customArgsController.dispose();
     stdinController.dispose();
+    notificationEndpointController.dispose();
+    notificationTokenController.dispose();
     super.onClose();
   }
 
@@ -594,6 +607,110 @@ class HomeController extends GetxController {
     runner.clearLog();
   }
 
+  Future<void> saveNotificationConfiguration() async {
+    final updated = notificationSettings.value.copyWith(
+      endpointBaseUrl: notificationEndpointController.text.trim(),
+    );
+    await notifications.saveSettings(updated);
+    await notifications.saveApiToken(notificationTokenController.text);
+    _syncNotificationStateFromStore();
+    notificationStatus.value = 'Notification settings saved.';
+  }
+
+  Future<void> setNotificationsEnabled(bool enabled) async {
+    final updated = notificationSettings.value.copyWith(enabled: enabled);
+    await notifications.saveSettings(updated);
+    _syncNotificationStateFromStore();
+  }
+
+  Future<void> refreshLinkedNotificationDevices() async {
+    isLoadingNotificationDevices.value = true;
+    notificationStatus.value = 'Loading linked phones...';
+    try {
+      final devices = await notifications.fetchDevices();
+      linkedNotificationDevices.assignAll(devices);
+      _syncNotificationStateFromStore();
+      notificationStatus.value = devices.isEmpty
+          ? 'No linked phones found.'
+          : 'Linked phones refreshed.';
+    } catch (error) {
+      notificationStatus.value = error.toString();
+      runner.appendSystemLog('Notification devices refresh failed: $error');
+    } finally {
+      isLoadingNotificationDevices.value = false;
+    }
+  }
+
+  Future<void> toggleNotificationDevice(String deviceId, bool selected) async {
+    final ids = notificationSettings.value.selectedDeviceIds.toSet();
+    if (selected) {
+      ids.add(deviceId);
+    } else {
+      ids.remove(deviceId);
+    }
+
+    await notifications.saveSettings(
+      notificationSettings.value.copyWith(selectedDeviceIds: ids.toList()),
+    );
+    _syncNotificationStateFromStore();
+  }
+
+  Future<NotificationPairingSession?> createPhonePairing() async {
+    await saveNotificationConfiguration();
+    try {
+      final session = await notifications.createPairingSession();
+      notificationStatus.value = 'Pairing code ready.';
+      return session;
+    } catch (error) {
+      notificationStatus.value = error.toString();
+      runner.appendSystemLog('Phone pairing failed: $error');
+      return null;
+    }
+  }
+
+  Future<NotificationPairingPollResult?> pollPhonePairing(
+    String pairingId,
+  ) async {
+    try {
+      final result = await notifications.pollPairing(pairingId);
+      final device = result.device;
+      if (result.status == NotificationPairingStatus.linked && device != null) {
+        await notifications.saveLinkedDevice(device);
+        _syncNotificationStateFromStore();
+        notificationStatus.value = 'Linked ${device.label}.';
+      } else if (result.status == NotificationPairingStatus.expired) {
+        notificationStatus.value = 'Pairing code expired.';
+      }
+      return result;
+    } catch (error) {
+      notificationStatus.value = error.toString();
+      runner.appendSystemLog('Phone pairing poll failed: $error');
+      return null;
+    }
+  }
+
+  Future<void> unlinkNotificationDevice(LinkedNotificationDevice device) async {
+    try {
+      await notifications.unlinkDevice(device.id);
+      _syncNotificationStateFromStore();
+      notificationStatus.value = 'Unlinked ${device.label}.';
+    } catch (error) {
+      notificationStatus.value = error.toString();
+      runner.appendSystemLog('Unlink phone failed: $error');
+    }
+  }
+
+  Future<void> sendTestNotification() async {
+    await saveNotificationConfiguration();
+    try {
+      await notifications.sendTestNotification();
+      notificationStatus.value = 'Test notification sent.';
+    } catch (error) {
+      notificationStatus.value = error.toString();
+      runner.appendSystemLog('Test notification failed: $error');
+    }
+  }
+
   List<String> _fastlaneGemUpdateArguments() {
     final arguments = <String>[
       'update',
@@ -749,6 +866,23 @@ class HomeController extends GetxController {
 
   List<String> _customArgs() {
     return _splitArguments(customArgsController.text.trim());
+  }
+
+  Future<void> _loadNotificationState() async {
+    _syncNotificationStateFromStore();
+    notificationTokenController.text = await notifications.readApiToken() ?? '';
+    if (notificationSettings.value.hasEndpoint) {
+      await refreshLinkedNotificationDevices();
+    }
+  }
+
+  void _syncNotificationStateFromStore() {
+    final settings = notifications.settings;
+    notificationSettings.value = settings;
+    linkedNotificationDevices.assignAll(notifications.linkedDevices);
+    if (notificationEndpointController.text != settings.endpointBaseUrl) {
+      notificationEndpointController.text = settings.endpointBaseUrl;
+    }
   }
 
   Future<void> _loadManagedStoreProjects() async {

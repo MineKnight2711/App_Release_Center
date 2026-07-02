@@ -3,12 +3,17 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:app_release_center/app/models/release_fastlane_lane.dart';
+import 'package:app_release_center/app/models/release_notification.dart';
 import 'package:app_release_center/app/models/release_project.dart';
 import 'package:app_release_center/app/models/release_script.dart';
+import 'package:app_release_center/app/services/command_notification_service.dart';
 import 'package:get/get.dart';
 import 'package:path/path.dart' as p;
 
 class ReleaseRunnerService extends GetxService {
+  ReleaseRunnerService({CommandNotificationSender? notificationService})
+    : _notificationService = notificationService;
+
   final isRunning = false.obs;
   final status = 'Idle'.obs;
   final activeScriptPath = ''.obs;
@@ -21,6 +26,7 @@ class ReleaseRunnerService extends GetxService {
   StreamSubscription<String>? _stderrSubscription;
   bool _hasOpenLogLine = false;
   String _openLogPrefix = '';
+  final CommandNotificationSender? _notificationService;
 
   Future<int> run({
     required ReleaseProject project,
@@ -43,6 +49,7 @@ class ReleaseRunnerService extends GetxService {
       workingDirectory: project.autoDirectory.path,
       statusLabel: script.fileName,
       activePath: script.path,
+      projectName: project.name,
       environment: environment,
       clearLog: clearLog,
     );
@@ -79,6 +86,7 @@ class ReleaseRunnerService extends GetxService {
       workingDirectory: project.androidDirectory.path,
       statusLabel: lane.name,
       activePath: lane.key,
+      projectName: project.name,
       environment: fastlaneEnvironment,
       clearLog: clearLog,
     );
@@ -94,6 +102,7 @@ class ReleaseRunnerService extends GetxService {
     List<String>? displayArguments,
     Map<String, String> environment = const {},
     bool clearLog = false,
+    String? projectName,
   }) async {
     final result = await _runPlan(
       plan: CommandPlan(
@@ -104,6 +113,7 @@ class ReleaseRunnerService extends GetxService {
       workingDirectory: workingDirectory,
       statusLabel: statusLabel,
       activePath: activePath,
+      projectName: projectName ?? p.basename(workingDirectory),
       environment: environment,
       clearLog: clearLog,
     );
@@ -119,6 +129,7 @@ class ReleaseRunnerService extends GetxService {
     List<String>? displayArguments,
     Map<String, String> environment = const {},
     bool clearLog = false,
+    String? projectName,
   }) {
     return _runPlan(
       plan: CommandPlan(
@@ -129,6 +140,7 @@ class ReleaseRunnerService extends GetxService {
       workingDirectory: workingDirectory,
       statusLabel: statusLabel,
       activePath: activePath,
+      projectName: projectName ?? p.basename(workingDirectory),
       environment: environment,
       clearLog: clearLog,
       captureOutput: true,
@@ -156,6 +168,7 @@ class ReleaseRunnerService extends GetxService {
     required String workingDirectory,
     required String statusLabel,
     required String activePath,
+    required String? projectName,
     required Map<String, String> environment,
     required bool clearLog,
     bool captureOutput = false,
@@ -179,6 +192,17 @@ class ReleaseRunnerService extends GetxService {
     exitCode.value = null;
     _append('\$ ${plan.display}');
     final capturedOutput = StringBuffer();
+    final startedAt = DateTime.now();
+    final baseEvent = CommandNotificationEvent(
+      runId: 'run_${startedAt.microsecondsSinceEpoch}',
+      event: CommandNotificationEventType.started,
+      command: plan.display,
+      statusLabel: statusLabel,
+      activePath: activePath,
+      projectName: projectName,
+      startedAt: startedAt,
+    );
+    unawaited(_notifyCommandEvent(baseEvent));
 
     try {
       final process = await Process.start(
@@ -214,6 +238,19 @@ class ReleaseRunnerService extends GetxService {
       exitCode.value = code;
       status.value = code == 0 ? 'Completed' : 'Failed';
       _append('Finished with exit code $code.');
+      final finishedAt = DateTime.now();
+      unawaited(
+        _notifyCommandEvent(
+          baseEvent.copyWith(
+            event: code == 0
+                ? CommandNotificationEventType.completed
+                : CommandNotificationEventType.failed,
+            finishedAt: finishedAt,
+            durationMs: finishedAt.difference(startedAt).inMilliseconds,
+            exitCode: code,
+          ),
+        ),
+      );
       return CommandRunResult(
         exitCode: code,
         output: capturedOutput.toString(),
@@ -222,6 +259,17 @@ class ReleaseRunnerService extends GetxService {
       exitCode.value = -1;
       status.value = 'Failed to start';
       _append('Failed to start $statusLabel: ${error.message}');
+      final finishedAt = DateTime.now();
+      unawaited(
+        _notifyCommandEvent(
+          baseEvent.copyWith(
+            event: CommandNotificationEventType.failed,
+            finishedAt: finishedAt,
+            durationMs: finishedAt.difference(startedAt).inMilliseconds,
+            exitCode: -1,
+          ),
+        ),
+      );
       return CommandRunResult(exitCode: -1, output: capturedOutput.toString());
     } finally {
       _process = null;
@@ -230,6 +278,17 @@ class ReleaseRunnerService extends GetxService {
       yesNoPrompt.value = null;
       isRunning.value = false;
       activeScriptPath.value = '';
+    }
+  }
+
+  Future<void> _notifyCommandEvent(CommandNotificationEvent event) async {
+    final notificationService = _notificationService;
+    if (notificationService == null) return;
+
+    try {
+      await notificationService.sendCommandEvent(event);
+    } catch (error) {
+      _append('Notification failed: $error');
     }
   }
 

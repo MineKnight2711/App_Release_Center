@@ -7,6 +7,8 @@ import 'package:app_release_center/app/services/app_store_version_check_service.
 import 'package:app_release_center/app/services/ch_play_credential_store_service.dart';
 import 'package:app_release_center/app/services/ch_play_project_inspector_service.dart';
 import 'package:app_release_center/app/services/ch_play_version_check_service.dart';
+import 'package:app_release_center/app/services/command_notification_service.dart';
+import 'package:app_release_center/app/services/notification_credential_store_service.dart';
 import 'package:app_release_center/app/services/project_store_service.dart';
 import 'package:app_release_center/app/services/release_runner_service.dart';
 import 'package:app_release_center/app/services/script_catalog_service.dart';
@@ -28,7 +30,27 @@ class AppBinding extends Bindings {
       AndroidCicdCloneService(),
       permanent: true,
     );
-    Get.put<ReleaseRunnerService>(ReleaseRunnerService(), permanent: true);
+    Get.put<ReleaseCenterConnect>(ReleaseCenterConnect(), permanent: true);
+    Get.put<NotificationCredentialStoreService>(
+      NotificationCredentialStoreService(),
+      permanent: true,
+    );
+    Get.put<CommandNotificationService>(
+      CommandNotificationService(
+        store: Get.find<ProjectStoreService>(),
+        credentialStore: Get.find<NotificationCredentialStoreService>(),
+        httpClient: ReleaseCenterNotificationHttpClient(
+          Get.find<ReleaseCenterConnect>(),
+        ),
+      ),
+      permanent: true,
+    );
+    Get.put<ReleaseRunnerService>(
+      ReleaseRunnerService(
+        notificationService: Get.find<CommandNotificationService>(),
+      ),
+      permanent: true,
+    );
     Get.put<ChPlayProjectInspectorService>(
       ChPlayProjectInspectorService(),
       permanent: true,
@@ -59,7 +81,6 @@ class AppBinding extends Bindings {
       ),
       permanent: true,
     );
-    Get.put<ReleaseCenterConnect>(ReleaseCenterConnect(), permanent: true);
   }
 
   @override
@@ -71,6 +92,7 @@ class AppBinding extends Bindings {
         androidCicdCloner: Get.find<AndroidCicdCloneService>(),
         runner: Get.find<ReleaseRunnerService>(),
         connect: Get.find<ReleaseCenterConnect>(),
+        notifications: Get.find<CommandNotificationService>(),
         chPlayInspector: Get.find<ChPlayProjectInspectorService>(),
         chPlayCredentialStore: Get.find<ChPlayCredentialStoreService>(),
         chPlayVersionChecker: Get.find<ChPlayVersionCheckService>(),

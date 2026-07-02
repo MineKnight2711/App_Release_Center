@@ -13,7 +13,7 @@ class _FastlanePanel extends GetView<HomeController> {
 
       if (project.fastlaneLanes.isEmpty) {
         return const Center(child: Text('No Fastlane lanes found'));
-      } 
+      }
 
       return GridView.builder(
         padding: EdgeInsets.zero,
