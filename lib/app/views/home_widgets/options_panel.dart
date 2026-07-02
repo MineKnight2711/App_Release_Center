@@ -281,7 +281,7 @@ class _NotificationOptions extends GetView<HomeController> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.refresh_outlined),
-                label: const Text('Refresh'),
+                label: const Text('Refresh devices'),
               ),
               OutlinedButton.icon(
                 onPressed: settings.hasSelectedDevices

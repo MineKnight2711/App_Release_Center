@@ -626,12 +626,21 @@ class HomeController extends GetxController {
   Future<void> refreshLinkedNotificationDevices() async {
     isLoadingNotificationDevices.value = true;
     notificationStatus.value = 'Loading linked phones...';
+    final previousSelectedIds = notificationSettings.value.selectedDeviceIds
+        .toSet();
     try {
       final devices = await notifications.fetchDevices();
       linkedNotificationDevices.assignAll(devices);
       _syncNotificationStateFromStore();
+      final currentSelectedIds = notificationSettings.value.selectedDeviceIds
+          .toSet();
+      final removedSelectedCount = previousSelectedIds
+          .difference(currentSelectedIds)
+          .length;
       notificationStatus.value = devices.isEmpty
           ? 'No linked phones found.'
+          : removedSelectedCount > 0
+          ? 'Linked phones refreshed. Removed $removedSelectedCount unavailable selection(s).'
           : 'Linked phones refreshed.';
     } catch (error) {
       notificationStatus.value = error.toString();
@@ -888,10 +897,6 @@ class HomeController extends GetxController {
   Future<void> _loadManagedStoreProjects() async {
     await _loadManagedChPlayProjects(refreshAfterLoad: false);
     await _loadManagedAppStoreProjects(refreshAfterLoad: false);
-
-    if (chPlayProjects.isNotEmpty || appStoreProjects.isNotEmpty) {
-      await refreshAllStoreProjects();
-    }
   }
 
   Future<void> _loadManagedChPlayProjects({
