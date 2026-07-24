@@ -267,14 +267,14 @@ class RemoteControlService extends GetxService {
     _isPollingDesktop = true;
     try {
       while (settings.value.enabled && !Platform.isAndroid && !Platform.isIOS) {
-        if (_runner.isRunning.value || _isExecutingRemoteCommand) {
+        if (_runner.isBusy || _isExecutingRemoteCommand) {
           await Future<void>.delayed(const Duration(seconds: 2));
           continue;
         }
 
         final commands = await _fetchQueuedDesktopCommands();
         for (final command in commands) {
-          if (!_runner.isRunning.value && !_isExecutingRemoteCommand) {
+          if (!_runner.isBusy && !_isExecutingRemoteCommand) {
             await _claimAndExecute(command);
           }
         }
@@ -590,7 +590,7 @@ class RemoteControlService extends GetxService {
 
   Future<Map<String, Object?>> _desktopStatePayload() async {
     return {
-      'isRunning': _runner.isRunning.value,
+      'isRunning': _runner.isBusy,
       'status': _runner.status.value,
       'activeScriptPath': _runner.activeScriptPath.value,
       'exitCode': _runner.exitCode.value,

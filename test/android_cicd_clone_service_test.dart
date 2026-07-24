@@ -36,6 +36,10 @@ void main() {
         _draft(preview, 'android/fastlane/Fastfile').content,
         contains('flavor.empty? ? nil : flavor'),
       );
+      expect(
+        _draft(preview, 'android/.gitignore').content,
+        contains('/key.properties'),
+      );
     });
 
     test('uses the only detected flavor as the default flavor', () async {
@@ -178,6 +182,21 @@ void main() {
 
       expect(releaseScript.readAsStringSync(), 'old release script');
     });
+
+    test(
+      'adds key.properties to android gitignore when env is already ignored',
+      () async {
+        final project = _createProject(tempDir, _groovyGradle());
+        File(p.join(project.path, 'android', '.gitignore'))
+          ..createSync(recursive: true)
+          ..writeAsStringSync('/local.properties\n/env.properties\n');
+
+        final preview = await service.preview(project.path);
+
+        final gitignore = _draft(preview, 'android/.gitignore').content;
+        expect(gitignore, contains('/env.properties\n/key.properties\n'));
+      },
+    );
 
     test('fallback mode creates a generic scaffold without Gradle', () async {
       final project = _createProjectWithoutGradle(tempDir);

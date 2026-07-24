@@ -3,8 +3,21 @@ part of '../home_view.dart';
 enum _ExtendedAction {
   cloneAndroidCicd,
   cloneAndroidCicdFallback,
+  generateAndroidJks,
   pullRemoteBranch,
   updateFastlaneWithGem,
+  flutterClean,
+  flutterPubGet,
+}
+
+class _AndroidKeystoreGenerationInput {
+  const _AndroidKeystoreGenerationInput({
+    required this.keyAlias,
+    required this.forceRecreate,
+  });
+
+  final String keyAlias;
+  final bool forceRecreate;
 }
 
 class _PullRemoteBranchInput {
@@ -25,149 +38,8 @@ class _FlowPanel extends GetView<HomeController> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                const Expanded(
-                  child: _PanelTitle(
-                    icon: Icons.account_tree_outlined,
-                    title: 'Automation',
-                  ),
-                ),
-                Obx(() {
-                  final isEnabled =
-                      controller.project.value != null &&
-                      !controller.runner.isRunning.value;
-                  return PopupMenuButton<_ExtendedAction>(
-                    enabled: isEnabled,
-                    tooltip: isEnabled
-                        ? 'Extended actions'
-                        : 'Choose a project first',
-                    onSelected: (action) =>
-                        _onExtendedActionSelected(context, action),
-                    position: PopupMenuPosition.under,
-                    offset: const Offset(0, 8),
-                    color: AppCyberTheme.panelBackgroundStrong.withValues(
-                      alpha: 0.96,
-                    ),
-                    surfaceTintColor: Colors.transparent,
-                    constraints: const BoxConstraints(
-                      minWidth: 260,
-                      maxWidth: 340,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      side: BorderSide(
-                        color: AppCyberTheme.isCyber
-                            ? AppCyberTheme.electricBlue.withValues(alpha: 0.42)
-                            : AppCyberTheme.lineBlue,
-                      ),
-                    ),
-                    itemBuilder: (context) => const [
-                      PopupMenuItem(
-                        value: _ExtendedAction.cloneAndroidCicd,
-                        child: _ExtendedMenuItem(
-                          icon: Icons.android_outlined,
-                          title: 'Clone Android CI/CD',
-                          subtitle:
-                              'Preview and scaffold Fastlane plus auto tools.',
-                        ),
-                      ),
-                      PopupMenuItem(
-                        value: _ExtendedAction.cloneAndroidCicdFallback,
-                        child: _ExtendedMenuItem(
-                          icon: Icons.low_priority_outlined,
-                          title: 'Clone Android CI/CD fallback',
-                          subtitle:
-                              'Use generic no-flavor CI/CD without Gradle patching.',
-                        ),
-                      ),
-                      PopupMenuItem(
-                        value: _ExtendedAction.pullRemoteBranch,
-                        child: _ExtendedMenuItem(
-                          icon: Icons.call_received_outlined,
-                          title: 'Pull branch from remote',
-                          subtitle:
-                              'Input remote and branch, then run git pull.',
-                        ),
-                      ),
-                      PopupMenuItem(
-                        value: _ExtendedAction.updateFastlaneWithGem,
-                        child: _ExtendedMenuItem(
-                          icon: Icons.system_update_alt_outlined,
-                          title: 'Check and update Fastlane',
-                          subtitle:
-                              'Run fastlane --version then a user-scoped gem update.',
-                        ),
-                      ),
-                    ],
-                    child: AnimatedOpacity(
-                      duration: const Duration(milliseconds: 140),
-                      opacity: isEnabled ? 1 : 0.55,
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(
-                            color: AppCyberTheme.isCyber
-                                ? AppCyberTheme.electricBlue.withValues(
-                                    alpha: 0.44,
-                                  )
-                                : AppCyberTheme.lineBlue,
-                          ),
-                          gradient: LinearGradient(
-                            colors: AppCyberTheme.isCyber
-                                ? [
-                                    AppCyberTheme.electricBlue.withValues(
-                                      alpha: 0.2,
-                                    ),
-                                    AppCyberTheme.electricBlue.withValues(
-                                      alpha: 0.08,
-                                    ),
-                                  ]
-                                : const [Colors.white, Color(0xFFFAFBFC)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 7,
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.extension_outlined,
-                                size: 16,
-                                color: AppCyberTheme.isCyber
-                                    ? AppCyberTheme.electricBlue.withValues(
-                                        alpha: 0.95,
-                                      )
-                                    : AppCyberTheme.textMuted,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Extend',
-                                style: AppCyberTheme.dataTextStyle(
-                                  size: 11.5,
-                                  color: AppCyberTheme.textPrimary,
-                                  weight: FontWeight.w700,
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              Icon(
-                                Icons.expand_more_outlined,
-                                size: 15,
-                                color: AppCyberTheme.textMuted,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  );
-                }),
-              ],
+            _FlowPanelHeader(
+              onExtendedActionSelected: _onExtendedActionSelected,
             ),
             const SizedBox(height: 8),
             const TabBar(
@@ -210,6 +82,14 @@ class _FlowPanel extends GetView<HomeController> {
       case _ExtendedAction.cloneAndroidCicdFallback:
         await _runAndroidCicdClone(context, AndroidCicdCloneMode.fallback);
         break;
+      case _ExtendedAction.generateAndroidJks:
+        final input = await _showAndroidKeystoreGenerationDialog(context);
+        if (input == null) return;
+        await controller.generateAndroidKeystore(
+          keyAlias: input.keyAlias,
+          forceRecreate: input.forceRecreate,
+        );
+        break;
       case _ExtendedAction.pullRemoteBranch:
         final payload = await _showPullRemoteBranchDialog(context);
         if (payload == null) return;
@@ -220,6 +100,12 @@ class _FlowPanel extends GetView<HomeController> {
         break;
       case _ExtendedAction.updateFastlaneWithGem:
         await controller.checkFastlaneVersionAndUpdate();
+        break;
+      case _ExtendedAction.flutterClean:
+        await controller.runFlutterClean();
+        break;
+      case _ExtendedAction.flutterPubGet:
+        await controller.runFlutterPubGet();
         break;
     }
   }
@@ -233,6 +119,109 @@ class _FlowPanel extends GetView<HomeController> {
     final confirmed = await _showAndroidCicdCloneDialog(context, preview);
     if (confirmed != true) return;
     await controller.applyAndroidCicdClone(preview);
+  }
+
+  Future<_AndroidKeystoreGenerationInput?> _showAndroidKeystoreGenerationDialog(
+    BuildContext context,
+  ) async {
+    final aliasController = TextEditingController(text: defaultAndroidKeyAlias);
+    var forceRecreate = false;
+    String? validationError;
+
+    final result = await showDialog<_AndroidKeystoreGenerationInput>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              backgroundColor: AppCyberTheme.panelBackgroundStrong,
+              surfaceTintColor: Colors.transparent,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+                side: BorderSide(
+                  color: AppCyberTheme.isCyber
+                      ? AppCyberTheme.electricBlue.withValues(alpha: 0.4)
+                      : AppCyberTheme.lineBlue,
+                ),
+              ),
+              titlePadding: const EdgeInsets.fromLTRB(20, 16, 20, 6),
+              contentPadding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
+              actionsPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+              title: const _PanelTitle(
+                icon: Icons.vpn_key_outlined,
+                title: 'Generate Android JKS',
+              ),
+              content: SizedBox(
+                width: 420,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextField(
+                      controller: aliasController,
+                      decoration: const InputDecoration(
+                        labelText: 'Key alias',
+                        prefixIcon: Icon(Icons.alternate_email_outlined),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    CheckboxListTile(
+                      value: forceRecreate,
+                      onChanged: (value) {
+                        setState(() => forceRecreate = value ?? false);
+                      },
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Force recreate existing JKS'),
+                      controlAffinity: ListTileControlAffinity.leading,
+                    ),
+                    if (validationError != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        validationError!,
+                        style: AppCyberTheme.dataTextStyle(
+                          size: 11,
+                          color: Theme.of(context).colorScheme.error,
+                          weight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              actions: [
+                OutlinedButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton.icon(
+                  onPressed: () {
+                    final alias = aliasController.text.trim();
+                    if (alias.isEmpty) {
+                      setState(() {
+                        validationError = 'Key alias is required.';
+                      });
+                      return;
+                    }
+
+                    Navigator.of(dialogContext).pop(
+                      _AndroidKeystoreGenerationInput(
+                        keyAlias: alias,
+                        forceRecreate: forceRecreate,
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.vpn_key_outlined),
+                  label: const Text('Generate'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    aliasController.dispose();
+    return result;
   }
 
   Future<_PullRemoteBranchInput?> _showPullRemoteBranchDialog(
@@ -472,6 +461,201 @@ class _FlowPanel extends GetView<HomeController> {
   }
 }
 
+class _FlowPanelHeader extends GetView<HomeController> {
+  const _FlowPanelHeader({required this.onExtendedActionSelected});
+
+  final Future<void> Function(BuildContext context, _ExtendedAction action)
+  onExtendedActionSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        const Expanded(
+          child: _PanelTitle(
+            icon: Icons.account_tree_outlined,
+            title: 'Automation',
+          ),
+        ),
+        const SizedBox(width: 8),
+        Flexible(
+          flex: 2,
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              alignment: WrapAlignment.end,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                const _ThemeSwitchMenu(),
+                Obx(
+                  () => _StatusPill(
+                    label: controller.runner.status.value,
+                    running: controller.runner.isBusy,
+                  ),
+                ),
+                _ExtendedActionsButton(
+                  onSelected: (action) =>
+                      onExtendedActionSelected(context, action),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ExtendedActionsButton extends GetView<HomeController> {
+  const _ExtendedActionsButton({required this.onSelected});
+
+  final ValueChanged<_ExtendedAction> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final isEnabled =
+          controller.project.value != null &&
+          !controller.runner.isBusy &&
+          !controller.isGeneratingAndroidKeystore.value;
+
+      return PopupMenuButton<_ExtendedAction>(
+        enabled: isEnabled,
+        tooltip: isEnabled ? 'Extended actions' : 'Choose a project first',
+        onSelected: onSelected,
+        position: PopupMenuPosition.under,
+        offset: const Offset(0, 8),
+        color: AppCyberTheme.panelBackgroundStrong.withValues(alpha: 0.96),
+        surfaceTintColor: Colors.transparent,
+        constraints: const BoxConstraints(minWidth: 260, maxWidth: 340),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+          side: BorderSide(
+            color: AppCyberTheme.isCyber
+                ? AppCyberTheme.electricBlue.withValues(alpha: 0.42)
+                : AppCyberTheme.lineBlue,
+          ),
+        ),
+        itemBuilder: (context) => const [
+          PopupMenuItem(
+            value: _ExtendedAction.cloneAndroidCicd,
+            child: _ExtendedMenuItem(
+              icon: Icons.android_outlined,
+              title: 'Clone Android CI/CD',
+              subtitle: 'Preview and scaffold Fastlane plus auto tools.',
+            ),
+          ),
+          PopupMenuItem(
+            value: _ExtendedAction.cloneAndroidCicdFallback,
+            child: _ExtendedMenuItem(
+              icon: Icons.low_priority_outlined,
+              title: 'Clone Android CI/CD fallback',
+              subtitle: 'Use generic no-flavor CI/CD without Gradle patching.',
+            ),
+          ),
+          PopupMenuItem(
+            value: _ExtendedAction.generateAndroidJks,
+            child: _ExtendedMenuItem(
+              icon: Icons.vpn_key_outlined,
+              title: 'Generate Android JKS',
+              subtitle: 'Create local upload keystore and signing configs.',
+            ),
+          ),
+          PopupMenuItem(
+            value: _ExtendedAction.pullRemoteBranch,
+            child: _ExtendedMenuItem(
+              icon: Icons.call_received_outlined,
+              title: 'Pull branch from remote',
+              subtitle: 'Input remote and branch, then run git pull.',
+            ),
+          ),
+          PopupMenuItem(
+            value: _ExtendedAction.updateFastlaneWithGem,
+            child: _ExtendedMenuItem(
+              icon: Icons.system_update_alt_outlined,
+              title: 'Check and update Fastlane',
+              subtitle: 'Run fastlane --version then a user-scoped gem update.',
+            ),
+          ),
+          PopupMenuItem(
+            value: _ExtendedAction.flutterClean,
+            child: _ExtendedMenuItem(
+              icon: Icons.cleaning_services_outlined,
+              title: 'Flutter clean',
+              subtitle: 'Clear Flutter build artifacts in this project.',
+            ),
+          ),
+          PopupMenuItem(
+            value: _ExtendedAction.flutterPubGet,
+            child: _ExtendedMenuItem(
+              icon: Icons.download_for_offline_outlined,
+              title: 'Flutter pub get',
+              subtitle: 'Fetch Dart and Flutter dependencies.',
+            ),
+          ),
+        ],
+        child: AnimatedOpacity(
+          duration: const Duration(milliseconds: 140),
+          opacity: isEnabled ? 1 : 0.55,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: AppCyberTheme.isCyber
+                    ? AppCyberTheme.electricBlue.withValues(alpha: 0.44)
+                    : AppCyberTheme.lineBlue,
+              ),
+              gradient: LinearGradient(
+                colors: AppCyberTheme.isCyber
+                    ? [
+                        AppCyberTheme.electricBlue.withValues(alpha: 0.2),
+                        AppCyberTheme.electricBlue.withValues(alpha: 0.08),
+                      ]
+                    : const [Colors.white, Color(0xFFFAFBFC)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.extension_outlined,
+                    size: 16,
+                    color: AppCyberTheme.isCyber
+                        ? AppCyberTheme.electricBlue.withValues(alpha: 0.95)
+                        : AppCyberTheme.textMuted,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Extend',
+                    style: AppCyberTheme.dataTextStyle(
+                      size: 11.5,
+                      color: AppCyberTheme.textPrimary,
+                      weight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Icon(
+                    Icons.expand_more_outlined,
+                    size: 15,
+                    color: AppCyberTheme.textMuted,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    });
+  }
+}
+
 class _AndroidCicdWarningList extends StatelessWidget {
   const _AndroidCicdWarningList({required this.warnings});
 
@@ -670,7 +854,7 @@ class _ScriptCard extends GetView<HomeController> {
   @override
   Widget build(BuildContext context) {
     return Obx(() {
-      final isRunning = controller.runner.isRunning.value;
+      final isRunning = controller.runner.isBusy;
       final isActive = controller.runner.activeScriptPath.value == script.path;
 
       return _HudCardShell(

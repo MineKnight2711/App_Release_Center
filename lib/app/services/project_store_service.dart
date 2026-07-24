@@ -2,8 +2,10 @@ import 'dart:convert';
 
 import 'package:app_release_center/app/models/app_store_project.dart';
 import 'package:app_release_center/app/models/ch_play_project.dart';
+import 'package:app_release_center/app/models/google_drive_release_settings.dart';
 import 'package:app_release_center/app/models/release_notification.dart';
 import 'package:app_release_center/app/models/remote_control.dart';
+import 'package:app_release_center/app/models/telegram_release_settings.dart';
 import 'package:get/get.dart';
 import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -11,12 +13,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 class ProjectStoreService extends GetxService {
   static const _lastProjectKey = 'last_project_path';
   static const _recentProjectsKey = 'recent_project_paths';
+  static const _dismissedRecentProjectsKey = 'dismissed_recent_project_paths';
   static const _chPlayProjectsKey = 'ch_play_projects';
   static const _appStoreProjectsKey = 'app_store_projects';
   static const _notificationSettingsKey = 'release_notification_settings';
   static const _linkedNotificationDevicesKey = 'linked_notification_devices';
   static const _remoteControlSettingsKey = 'remote_control_settings';
   static const _mobileControlSettingsKey = 'mobile_control_settings';
+  static const _telegramReleaseSettingsKey = 'telegram_release_settings';
+  static const _googleDriveReleaseSettingsKey = 'google_drive_release_settings';
 
   late final SharedPreferences _preferences;
 
@@ -29,6 +34,10 @@ class ProjectStoreService extends GetxService {
 
   List<String> get recentProjectPaths {
     return _preferences.getStringList(_recentProjectsKey) ?? const [];
+  }
+
+  List<String> get dismissedRecentProjectPaths {
+    return _preferences.getStringList(_dismissedRecentProjectsKey) ?? const [];
   }
 
   List<ChPlayProject> get chPlayProjects {
@@ -90,6 +99,42 @@ class ProjectStoreService extends GetxService {
     }
 
     return const ReleaseNotificationSettings();
+  }
+
+  TelegramReleaseSettings get telegramReleaseSettings {
+    final entry = _preferences.getString(_telegramReleaseSettingsKey);
+    if (entry == null || entry.trim().isEmpty) {
+      return const TelegramReleaseSettings();
+    }
+
+    try {
+      final json = jsonDecode(entry);
+      if (json is Map<String, Object?>) {
+        return TelegramReleaseSettings.fromJson(json);
+      }
+    } catch (_) {
+      // Ignore invalid or legacy entries and fall back to safe defaults.
+    }
+
+    return const TelegramReleaseSettings();
+  }
+
+  GoogleDriveReleaseSettings get googleDriveReleaseSettings {
+    final entry = _preferences.getString(_googleDriveReleaseSettingsKey);
+    if (entry == null || entry.trim().isEmpty) {
+      return const GoogleDriveReleaseSettings();
+    }
+
+    try {
+      final json = jsonDecode(entry);
+      if (json is Map<String, Object?>) {
+        return GoogleDriveReleaseSettings.fromJson(json);
+      }
+    } catch (_) {
+      // Ignore invalid or legacy entries and fall back to safe defaults.
+    }
+
+    return const GoogleDriveReleaseSettings();
   }
 
   List<LinkedNotificationDevice> get linkedNotificationDevices {
@@ -159,9 +204,41 @@ class ProjectStoreService extends GetxService {
         (existingPath) => existingPath.toLowerCase() != lowerPath,
       ),
     ].take(8).toList();
+    final dismissedPaths = dismissedRecentProjectPaths
+        .where((existingPath) => existingPath.toLowerCase() != lowerPath)
+        .toList();
 
     await _preferences.setString(_lastProjectKey, normalizedPath);
     await _preferences.setStringList(_recentProjectsKey, paths);
+    await _preferences.setStringList(
+      _dismissedRecentProjectsKey,
+      dismissedPaths,
+    );
+  }
+
+  Future<void> removeRecentProjectPath(String path) async {
+    final normalizedPath = p.normalize(path);
+    final lowerPath = normalizedPath.toLowerCase();
+    final paths = recentProjectPaths
+        .where((existingPath) => existingPath.toLowerCase() != lowerPath)
+        .toList();
+    final dismissedPaths = <String>[
+      normalizedPath,
+      ...dismissedRecentProjectPaths.where(
+        (existingPath) => existingPath.toLowerCase() != lowerPath,
+      ),
+    ].take(32).toList();
+
+    await _preferences.setStringList(_recentProjectsKey, paths);
+    await _preferences.setStringList(
+      _dismissedRecentProjectsKey,
+      dismissedPaths,
+    );
+
+    final lastPath = lastProjectPath;
+    if (lastPath != null && p.normalize(lastPath).toLowerCase() == lowerPath) {
+      await _preferences.remove(_lastProjectKey);
+    }
   }
 
   Future<void> saveChPlayProjects(List<ChPlayProject> projects) async {
@@ -183,6 +260,24 @@ class ProjectStoreService extends GetxService {
   ) async {
     await _preferences.setString(
       _notificationSettingsKey,
+      jsonEncode(settings.toJson()),
+    );
+  }
+
+  Future<void> saveTelegramReleaseSettings(
+    TelegramReleaseSettings settings,
+  ) async {
+    await _preferences.setString(
+      _telegramReleaseSettingsKey,
+      jsonEncode(settings.toJson()),
+    );
+  }
+
+  Future<void> saveGoogleDriveReleaseSettings(
+    GoogleDriveReleaseSettings settings,
+  ) async {
+    await _preferences.setString(
+      _googleDriveReleaseSettingsKey,
       jsonEncode(settings.toJson()),
     );
   }

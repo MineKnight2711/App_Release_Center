@@ -30,7 +30,7 @@ class _StoreVersionsPanel extends GetView<HomeController> {
             ),
             Obx(() {
               final disabled =
-                  controller.runner.isRunning.value ||
+                  controller.runner.isBusy ||
                   controller.isRefreshingChPlay.value ||
                   controller.isRefreshingAppStore.value;
               return OutlinedButton.icon(
@@ -103,32 +103,78 @@ class _StoreVersionsPanel extends GetView<HomeController> {
   }
 
   Future<void> _addChPlayProject(BuildContext context) async {
-    final draft = await controller.pickChPlayProjectDraft();
-    if (draft == null || !context.mounted) return;
+    try {
+      final draft = await controller.pickChPlayProjectDraft();
+      if (draft == null || !context.mounted) return;
 
-    final project = await _showChPlayProjectDialog(
-      context,
-      project: draft,
-      isNew: true,
-    );
-    if (project == null) return;
+      final project = await _showChPlayProjectDialog(
+        context,
+        project: draft,
+        isNew: true,
+      );
+      if (project == null) return;
 
-    await controller.saveChPlayProject(project);
+      await controller.saveChPlayProject(project);
+    } catch (error) {
+      controller.runner.appendSystemLog('Add CH Play project failed: $error');
+      if (context.mounted) {
+        await _showStoreProjectError(
+          context,
+          title: 'Add CH Play failed',
+          error: error,
+        );
+      }
+    }
   }
 
   Future<void> _addAppStoreProject(BuildContext context) async {
-    final draft = await controller.pickAppStoreProjectDraft();
-    if (draft == null || !context.mounted) return;
+    try {
+      final draft = await controller.pickAppStoreProjectDraft();
+      if (draft == null || !context.mounted) return;
 
-    final project = await _showAppStoreProjectDialog(
-      context,
-      project: draft,
-      isNew: true,
-    );
-    if (project == null) return;
+      final project = await _showAppStoreProjectDialog(
+        context,
+        project: draft,
+        isNew: true,
+      );
+      if (project == null) return;
 
-    await controller.saveAppStoreProject(project);
+      await controller.saveAppStoreProject(project);
+    } catch (error) {
+      controller.runner.appendSystemLog('Add App Store project failed: $error');
+      if (context.mounted) {
+        await _showStoreProjectError(
+          context,
+          title: 'Add App Store failed',
+          error: error,
+        );
+      }
+    }
   }
+}
+
+Future<void> _showStoreProjectError(
+  BuildContext context, {
+  required String title,
+  required Object error,
+}) {
+  return showDialog<void>(
+    context: context,
+    builder: (dialogContext) {
+      return AlertDialog(
+        backgroundColor: AppCyberTheme.panelBackgroundStrong,
+        surfaceTintColor: Colors.transparent,
+        title: Text(title),
+        content: Text(error.toString()),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('OK'),
+          ),
+        ],
+      );
+    },
+  );
 }
 
 class _ChPlayProjectCard extends GetView<HomeController> {
@@ -261,7 +307,7 @@ class _ChPlayProjectActions extends GetView<HomeController> {
   @override
   Widget build(BuildContext context) {
     return Obx(() {
-      final isRunning = controller.runner.isRunning.value;
+      final isRunning = controller.runner.isBusy;
       final isRefreshing =
           controller.chPlaySnapshots[project.id]?.isRefreshing ?? false;
       return Row(
@@ -487,7 +533,7 @@ class _AppStoreProjectActions extends GetView<HomeController> {
   @override
   Widget build(BuildContext context) {
     return Obx(() {
-      final isRunning = controller.runner.isRunning.value;
+      final isRunning = controller.runner.isBusy;
       final isRefreshing =
           controller.appStoreSnapshots[project.id]?.isRefreshing ?? false;
       return Row(
@@ -836,6 +882,8 @@ Future<void> _showChPlayCredentialsDialog(
       project.hasSavedGooglePlayJson ||
       project.hasSavedSigningCredentials ||
       !credentials.hasGooglePlayJson;
+  var forceRecreateJks = false;
+  var isGeneratingJks = false;
   String? validationError;
 
   await showDialog<void>(
@@ -904,6 +952,74 @@ Future<void> _showChPlayCredentialsDialog(
                           icon: const Icon(Icons.file_upload_outlined),
                         ),
                       ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Expanded(
+                          child: CheckboxListTile(
+                            value: forceRecreateJks,
+                            onChanged: isGeneratingJks
+                                ? null
+                                : (value) {
+                                    setState(() {
+                                      forceRecreateJks = value ?? false;
+                                    });
+                                  },
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text('Force recreate JKS'),
+                            controlAffinity: ListTileControlAffinity.leading,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        OutlinedButton.icon(
+                          onPressed:
+                              isGeneratingJks ||
+                                  controller.runner.isBusy ||
+                                  controller.isGeneratingAndroidKeystore.value
+                              ? null
+                              : () async {
+                                  setState(() {
+                                    isGeneratingJks = true;
+                                    validationError = null;
+                                  });
+                                  final result = await controller
+                                      .generateAndroidKeystore(
+                                        projectPath: project.path,
+                                        keyAlias: aliasController.text.trim(),
+                                        forceRecreate: forceRecreateJks,
+                                      );
+                                  if (!dialogContext.mounted) return;
+                                  if (result != null) {
+                                    setState(() {
+                                      jksController.text = result.keystorePath;
+                                      aliasController.text = result.keyAlias;
+                                      storePasswordController.text =
+                                          result.storePassword;
+                                      keyPasswordController.text =
+                                          result.keyPassword;
+                                      keyPasswordSameAsStore =
+                                          result.keyPassword ==
+                                          result.storePassword;
+                                    });
+                                  }
+                                  setState(() {
+                                    isGeneratingJks = false;
+                                  });
+                                },
+                          icon: isGeneratingJks
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(Icons.vpn_key_outlined),
+                          label: const Text('Generate'),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 12),
                     TextField(

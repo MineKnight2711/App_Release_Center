@@ -69,6 +69,76 @@ void main() {
       expect(joinedTail, isNot(contains('abc123')));
     },
   );
+
+  test('publishes completed progress for every standalone command', () async {
+    final runner = ReleaseRunnerService();
+    final tempDir = Directory.systemTemp.createTempSync('arc_progress_');
+    addTearDown(() => tempDir.deleteSync(recursive: true));
+
+    final code = await _runNoop(runner, tempDir, label: 'standalone');
+
+    expect(code, 0);
+    expect(runner.workflowStep.value, 1);
+    expect(runner.workflowTotalSteps.value, 1);
+    expect(runner.overallProgress.value, 1);
+    expect(runner.overallProgressLabel.value, contains('completed'));
+    expect(runner.isWorkflowRunning.value, isFalse);
+  });
+
+  test('aggregates progress across a multi-command workflow', () async {
+    final runner = ReleaseRunnerService();
+    final tempDir = Directory.systemTemp.createTempSync('arc_progress_');
+    addTearDown(() => tempDir.deleteSync(recursive: true));
+    runner.beginWorkflow(totalSteps: 2, label: 'Deploy Demo');
+
+    expect(
+      await _runNoop(
+        runner,
+        tempDir,
+        label: 'deploy',
+        allowDuringWorkflow: true,
+      ),
+      0,
+    );
+    expect(runner.workflowStep.value, 1);
+    expect(runner.overallProgress.value, 0.5);
+    expect(runner.isBusy, isTrue);
+
+    expect(
+      await _runNoop(
+        runner,
+        tempDir,
+        label: 'build apk',
+        allowDuringWorkflow: true,
+      ),
+      0,
+    );
+    runner.finishWorkflow(success: true);
+
+    expect(runner.workflowStep.value, 2);
+    expect(runner.workflowTotalSteps.value, 2);
+    expect(runner.overallProgress.value, 1);
+    expect(runner.overallProgressLabel.value, 'Deploy Demo — completed');
+    expect(runner.isBusy, isFalse);
+  });
+}
+
+Future<int> _runNoop(
+  ReleaseRunnerService runner,
+  Directory workingDirectory, {
+  required String label,
+  bool allowDuringWorkflow = false,
+}) {
+  return runner.runCommand(
+    workingDirectory: workingDirectory.path,
+    statusLabel: label,
+    activePath: 'test:$label',
+    executable: Platform.isWindows ? 'cmd' : 'sh',
+    arguments: Platform.isWindows
+        ? const ['/c', 'exit', '0']
+        : const ['-c', 'exit 0'],
+    allowDuringWorkflow: allowDuringWorkflow,
+  );
 }
 
 class _FailingSender implements CommandNotificationSender {

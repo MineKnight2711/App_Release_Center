@@ -366,12 +366,17 @@ class AndroidCicdCloneService extends GetxService {
     final file = File(p.join(rootPath, 'android', '.gitignore'));
     final existing = file.existsSync() ? file.readAsStringSync() : '';
     final lines = existing.split(RegExp(r'\r?\n'));
-    if (lines.any((line) => line.trim() == '/env.properties')) return null;
+    final existingEntries = lines.map((line) => line.trim()).toSet();
+    final missingEntries = const [
+      '/env.properties',
+      '/key.properties',
+    ].where((entry) => !existingEntries.contains(entry)).toList();
+    if (missingEntries.isEmpty) return null;
 
     final separator = existing.isEmpty || existing.endsWith('\n') ? '' : '\n';
     return AndroidCicdFileDraft(
       relativePath: 'android/.gitignore',
-      content: '$existing$separator/env.properties\n',
+      content: '$existing$separator${missingEntries.join('\n')}\n',
     );
   }
 

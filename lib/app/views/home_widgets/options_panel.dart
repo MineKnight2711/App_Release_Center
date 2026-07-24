@@ -6,204 +6,976 @@ class _OptionsPanel extends GetView<HomeController> {
   @override
   Widget build(BuildContext context) {
     return _Panel(
-      child: Obx(() {
-        final project = controller.project.value;
+      child: DefaultTabController(
+        length: _OptionsTab.values.length,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: const [
+            _PanelTitle(icon: Icons.tune_outlined, title: 'Options'),
+            SizedBox(height: 10),
+            _OptionsTabSelector(),
+            SizedBox(height: 10),
+            Expanded(
+              child: TabBarView(
+                children: [
+                  _OptionsTabShell(child: _ReleaseOptions()),
+                  _OptionsTabShell(child: _TelegramReleaseOptions()),
+                  _OptionsTabShell(child: _NotificationOptions()),
+                  _OptionsTabShell(child: _RemoteControlOptions()),
+                ],
+              ),
+            ),
+            SizedBox(height: 12),
+            _CommandInputDock(),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
-        return SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const _PanelTitle(icon: Icons.tune_outlined, title: 'Options'),
-              const SizedBox(height: 12),
-              const _RemoteControlOptions(),
-              const Divider(height: 28),
-              const _NotificationOptions(),
-              const Divider(height: 28),
-              if (project?.hasFirebaseDeployTools ?? false) ...[
-                CheckboxListTile(
-                  value: controller.includeFirebaseDeploy.value,
-                  onChanged: (value) {
-                    controller.includeFirebaseDeploy.value = value ?? true;
-                  },
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Firebase App Distribution'),
-                  controlAffinity: ListTileControlAffinity.leading,
-                ),
-              ],
-              if (project?.hasPlayReleaseTools ?? false) ...[
-                Text(
-                  'CH Play upload',
-                  style: Theme.of(context).textTheme.labelLarge,
-                ),
-                const SizedBox(height: 8),
-                SizedBox(
-                  width: double.infinity,
-                  child: SegmentedButton<PlayUploadChoice>(
-                    showSelectedIcon: false,
-                    segments: const [
-                      ButtonSegment(
-                        value: PlayUploadChoice.ask,
-                        icon: Icon(Icons.help_outline),
-                        label: Text('Ask'),
+enum _OptionsTab { release, telegram, push, remote }
+
+extension _OptionsTabMeta on _OptionsTab {
+  IconData get icon {
+    return switch (this) {
+      _OptionsTab.release => Icons.rocket_launch_outlined,
+      _OptionsTab.telegram => Icons.send_outlined,
+      _OptionsTab.push => Icons.notifications_active_outlined,
+      _OptionsTab.remote => Icons.settings_remote_outlined,
+    };
+  }
+
+  String get label {
+    return switch (this) {
+      _OptionsTab.release => 'Release',
+      _OptionsTab.telegram => 'Telegram',
+      _OptionsTab.push => 'Push',
+      _OptionsTab.remote => 'Remote',
+    };
+  }
+}
+
+class _OptionsTabSelector extends StatefulWidget {
+  const _OptionsTabSelector();
+
+  @override
+  State<_OptionsTabSelector> createState() => _OptionsTabSelectorState();
+}
+
+class _OptionsTabSelectorState extends State<_OptionsTabSelector> {
+  TabController? _controller;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final nextController = DefaultTabController.maybeOf(context);
+    if (_controller == nextController) return;
+    _controller?.removeListener(_handleTabChange);
+    _controller = nextController;
+    _controller?.addListener(_handleTabChange);
+  }
+
+  @override
+  void dispose() {
+    _controller?.removeListener(_handleTabChange);
+    super.dispose();
+  }
+
+  void _handleTabChange() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final selectedIndex = _controller?.index ?? 0;
+    const spacing = 8.0;
+
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _OptionsTabButton(
+                tab: _OptionsTab.release,
+                selected: selectedIndex == _OptionsTab.release.index,
+                onTap: _select,
+              ),
+            ),
+            const SizedBox(width: spacing),
+            Expanded(
+              child: _OptionsTabButton(
+                tab: _OptionsTab.telegram,
+                selected: selectedIndex == _OptionsTab.telegram.index,
+                onTap: _select,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: spacing),
+        Row(
+          children: [
+            Expanded(
+              child: _OptionsTabButton(
+                tab: _OptionsTab.push,
+                selected: selectedIndex == _OptionsTab.push.index,
+                onTap: _select,
+              ),
+            ),
+            const SizedBox(width: spacing),
+            Expanded(
+              child: _OptionsTabButton(
+                tab: _OptionsTab.remote,
+                selected: selectedIndex == _OptionsTab.remote.index,
+                onTap: _select,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  void _select(_OptionsTab tab) {
+    _controller?.animateTo(tab.index);
+  }
+}
+
+class _OptionsTabButton extends StatelessWidget {
+  const _OptionsTabButton({
+    required this.tab,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final _OptionsTab tab;
+  final bool selected;
+  final ValueChanged<_OptionsTab> onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final borderColor = selected
+        ? AppCyberTheme.electricBlue.withValues(alpha: 0.72)
+        : AppCyberTheme.lineBlue.withValues(alpha: 0.25);
+    final backgroundColor = selected
+        ? AppCyberTheme.electricBlue.withValues(alpha: 0.14)
+        : AppCyberTheme.panelBackgroundStrong.withValues(
+            alpha: AppCyberTheme.isCyber ? 0.34 : 0.82,
+          );
+    final foregroundColor = selected
+        ? AppCyberTheme.electricBlue
+        : AppCyberTheme.textMuted;
+
+    return Tooltip(
+      message: tab.label,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: () => onTap(tab),
+          child: AnimatedContainer(
+            height: 42,
+            duration: const Duration(milliseconds: 160),
+            curve: Curves.easeOutCubic,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            decoration: BoxDecoration(
+              color: backgroundColor,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: borderColor),
+              boxShadow: selected && AppCyberTheme.isCyber
+                  ? [
+                      BoxShadow(
+                        color: AppCyberTheme.electricBlue.withValues(
+                          alpha: 0.18,
+                        ),
+                        blurRadius: 12,
+                        spreadRadius: -4,
                       ),
-                      ButtonSegment(
-                        value: PlayUploadChoice.upload,
-                        icon: Icon(Icons.cloud_upload_outlined),
-                        label: Text('Upload'),
-                      ),
-                      ButtonSegment(
-                        value: PlayUploadChoice.skip,
-                        icon: Icon(Icons.block_outlined),
-                        label: Text('Skip'),
-                      ),
-                    ],
-                    selected: {controller.playUploadChoice.value},
-                    onSelectionChanged: (selected) {
-                      controller.playUploadChoice.value = selected.first;
-                    },
-                  ),
-                ),
-                const SizedBox(height: 10),
-                AnimatedOpacity(
-                  opacity:
-                      controller.playUploadChoice.value == PlayUploadChoice.skip
-                      ? 0.55
-                      : 1,
-                  duration: const Duration(milliseconds: 160),
-                  child: TextField(
-                    controller: controller.releaseNotesController,
-                    enabled:
-                        controller.playUploadChoice.value !=
-                        PlayUploadChoice.skip,
-                    maxLines: 5,
+                    ]
+                  : const [],
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(tab.icon, size: 17, color: foregroundColor),
+                const SizedBox(width: 7),
+                Flexible(
+                  child: Text(
+                    tab.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: AppCyberTheme.dataTextStyle(
                       size: 11.5,
-                      color: AppCyberTheme.textPrimary,
-                    ),
-                    decoration: const InputDecoration(
-                      labelText: 'Release notes',
-                      alignLabelWithHint: true,
+                      color: foregroundColor,
+                      weight: selected ? FontWeight.w800 : FontWeight.w700,
                     ),
                   ),
                 ),
-                const SizedBox(height: 8),
-                CheckboxListTile(
-                  value: controller.uploadPlayListingImages.value,
-                  onChanged:
-                      controller.playUploadChoice.value != PlayUploadChoice.skip
-                      ? (value) {
-                          controller.uploadPlayListingImages.value =
-                              value ?? true;
-                        }
-                      : null,
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Upload Play images and app icon'),
-                  subtitle: const Text(
-                    'Includes icon, feature graphic, and screenshots.',
-                  ),
-                  controlAffinity: ListTileControlAffinity.leading,
-                ),
-                if (project?.imageValidator != null) ...[
-                  const SizedBox(height: 8),
-                  CheckboxListTile(
-                    value: controller.validatePlayImages.value,
-                    onChanged:
-                        controller.playUploadChoice.value !=
-                                PlayUploadChoice.skip &&
-                            controller.uploadPlayListingImages.value
-                        ? (value) {
-                            controller.validatePlayImages.value = value ?? true;
-                          }
-                        : null,
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Validate Play images first'),
-                    controlAffinity: ListTileControlAffinity.leading,
-                  ),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: controller.runner.isRunning.value
-                          ? null
-                          : controller.validateImages,
-                      icon: const Icon(Icons.image_search_outlined),
-                      label: const Text('Validate images'),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _OptionsTabShell extends StatelessWidget {
+  const _OptionsTabShell({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      primary: false,
+      padding: const EdgeInsets.only(right: 2, bottom: 2),
+      child: child,
+    );
+  }
+}
+
+class _ReleaseOptions extends GetView<HomeController> {
+  const _ReleaseOptions();
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final project = controller.project.value;
+      final hasFirebaseTools = project?.hasFirebaseDeployTools ?? false;
+      final hasPlayTools = project?.hasPlayReleaseTools ?? false;
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (hasFirebaseTools) ...[
+            CheckboxListTile(
+              value: controller.includeFirebaseDeploy.value,
+              onChanged: (value) {
+                controller.includeFirebaseDeploy.value = value ?? true;
+              },
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Firebase App Distribution'),
+              controlAffinity: ListTileControlAffinity.leading,
+            ),
+            const Divider(height: 24),
+          ],
+          if (hasPlayTools) ...[
+            const _PlayUploadOptions(),
+            const SizedBox(height: 10),
+            const _AiReleaseNotesOptions(),
+            const SizedBox(height: 10),
+            _PlayImageOptions(project: project!),
+            const SizedBox(height: 10),
+            const _GoogleDriveFallbackOptions(),
+            const Divider(height: 24),
+          ],
+          if (!hasFirebaseTools && !hasPlayTools) ...[
+            _HudCardShell(
+              padding: const EdgeInsets.all(10),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.info_outline, size: 17),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Select a project with release tooling to show deployment options.',
+                      style: AppCyberTheme.dataTextStyle(
+                        size: 10.8,
+                        color: AppCyberTheme.textMuted,
+                        weight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ],
-                const Divider(height: 28),
-              ],
-              TextField(
-                controller: controller.customArgsController,
-                style: AppCyberTheme.dataTextStyle(
-                  size: 11.5,
-                  color: AppCyberTheme.textPrimary,
-                ),
-                decoration: const InputDecoration(
-                  labelText: 'Custom script arguments',
-                  prefixIcon: Icon(Icons.code_outlined),
-                ),
               ),
-              const SizedBox(height: 16),
-              const _PanelTitle(icon: Icons.keyboard_outlined, title: 'Input'),
-              const SizedBox(height: 10),
-              if (controller.runner.yesNoPrompt.value != null)
-                _YesNoPromptActions(
-                  prompt: controller.runner.yesNoPrompt.value!,
-                )
-              else
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: controller.stdinController,
-                        enabled: controller.runner.isRunning.value,
-                        onSubmitted: (_) => controller.sendInput(),
-                        style: AppCyberTheme.dataTextStyle(
-                          size: 11.5,
-                          color: AppCyberTheme.textPrimary,
-                        ),
-                        decoration: const InputDecoration(
-                          labelText: 'Send to script',
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    IconButton.filled(
-                      tooltip: 'Send input',
-                      onPressed: controller.runner.isRunning.value
-                          ? controller.sendInput
-                          : null,
-                      icon: const Icon(Icons.send),
-                    ),
-                  ],
+            ),
+            const SizedBox(height: 12),
+          ],
+          const _CustomScriptArguments(),
+        ],
+      );
+    });
+  }
+}
+
+class _PlayUploadOptions extends GetView<HomeController> {
+  const _PlayUploadOptions();
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final isSkipped =
+          controller.playUploadChoice.value == PlayUploadChoice.skip;
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('CH Play upload', style: Theme.of(context).textTheme.labelLarge),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: SegmentedButton<PlayUploadChoice>(
+              showSelectedIcon: false,
+              segments: const [
+                ButtonSegment(
+                  value: PlayUploadChoice.ask,
+                  icon: Icon(Icons.help_outline),
+                  label: Text('Ask'),
                 ),
-              const SizedBox(height: 16),
+                ButtonSegment(
+                  value: PlayUploadChoice.upload,
+                  icon: Icon(Icons.cloud_upload_outlined),
+                  label: Text('Upload'),
+                ),
+                ButtonSegment(
+                  value: PlayUploadChoice.skip,
+                  icon: Icon(Icons.block_outlined),
+                  label: Text('Skip'),
+                ),
+              ],
+              selected: {controller.playUploadChoice.value},
+              onSelectionChanged: (selected) {
+                controller.playUploadChoice.value = selected.first;
+              },
+            ),
+          ),
+          const SizedBox(height: 10),
+          AnimatedOpacity(
+            opacity: isSkipped ? 0.55 : 1,
+            duration: const Duration(milliseconds: 160),
+            child: TextField(
+              controller: controller.releaseNotesController,
+              enabled: !isSkipped,
+              maxLines: 5,
+              style: AppCyberTheme.dataTextStyle(
+                size: 11.5,
+                color: AppCyberTheme.textPrimary,
+              ),
+              decoration: const InputDecoration(
+                labelText: 'Release notes',
+                alignLabelWithHint: true,
+              ),
+            ),
+          ),
+        ],
+      );
+    });
+  }
+}
+
+class _PlayImageOptions extends GetView<HomeController> {
+  const _PlayImageOptions({required this.project});
+
+  final ReleaseProject project;
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CheckboxListTile(
+            value: controller.uploadPlayListingImages.value,
+            onChanged:
+                controller.playUploadChoice.value != PlayUploadChoice.skip
+                ? (value) {
+                    controller.uploadPlayListingImages.value = value ?? true;
+                  }
+                : null,
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Upload Play images and app icon'),
+            subtitle: const Text(
+              'Includes icon, feature graphic, and screenshots.',
+            ),
+            controlAffinity: ListTileControlAffinity.leading,
+          ),
+          if (project.imageValidator != null) ...[
+            const SizedBox(height: 8),
+            CheckboxListTile(
+              value: controller.validatePlayImages.value,
+              onChanged:
+                  controller.playUploadChoice.value != PlayUploadChoice.skip &&
+                      controller.uploadPlayListingImages.value
+                  ? (value) {
+                      controller.validatePlayImages.value = value ?? true;
+                    }
+                  : null,
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Validate Play images first'),
+              controlAffinity: ListTileControlAffinity.leading,
+            ),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: controller.runner.isBusy
+                    ? null
+                    : controller.validateImages,
+                icon: const Icon(Icons.image_search_outlined),
+                label: const Text('Validate images'),
+              ),
+            ),
+          ],
+        ],
+      );
+    });
+  }
+}
+
+class _CustomScriptArguments extends GetView<HomeController> {
+  const _CustomScriptArguments();
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: controller.customArgsController,
+      style: AppCyberTheme.dataTextStyle(
+        size: 11.5,
+        color: AppCyberTheme.textPrimary,
+      ),
+      decoration: const InputDecoration(
+        labelText: 'Custom script arguments',
+        prefixIcon: Icon(Icons.code_outlined),
+      ),
+    );
+  }
+}
+
+class _CommandInputDock extends GetView<HomeController> {
+  const _CommandInputDock();
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final isRunning = controller.runner.isRunning.value;
+      final prompt = controller.runner.yesNoPrompt.value;
+
+      return _HudCardShell(
+        active: isRunning || prompt != null,
+        padding: const EdgeInsets.all(10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const _PanelTitle(icon: Icons.keyboard_outlined, title: 'Input'),
+            const SizedBox(height: 10),
+            if (prompt != null)
+              _YesNoPromptActions(prompt: prompt)
+            else
               Row(
                 children: [
                   Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: controller.clearLog,
-                      icon: const Icon(Icons.clear_all_outlined),
-                      label: const Text('Clear log'),
+                    child: TextField(
+                      controller: controller.stdinController,
+                      enabled: isRunning,
+                      onSubmitted: (_) => controller.sendInput(),
+                      style: AppCyberTheme.dataTextStyle(
+                        size: 11.5,
+                        color: AppCyberTheme.textPrimary,
+                      ),
+                      decoration: const InputDecoration(
+                        labelText: 'Send to script',
+                      ),
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Expanded(
-                    child: FilledButton.tonalIcon(
-                      onPressed: controller.runner.isRunning.value
-                          ? controller.stopRun
-                          : null,
-                      icon: const Icon(Icons.stop_circle_outlined),
-                      label: const Text('Stop'),
-                    ),
+                  IconButton.filled(
+                    tooltip: 'Send input',
+                    onPressed: isRunning ? controller.sendInput : null,
+                    icon: const Icon(Icons.send),
                   ),
                 ],
               ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: controller.clearLog,
+                    icon: const Icon(Icons.clear_all_outlined),
+                    label: const Text('Clear log'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: FilledButton.tonalIcon(
+                    onPressed: isRunning ? controller.stopRun : null,
+                    icon: const Icon(Icons.stop_circle_outlined),
+                    label: const Text('Stop'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+    });
+  }
+}
+
+class _AiReleaseNotesOptions extends GetView<HomeController> {
+  const _AiReleaseNotesOptions();
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final isGenerating = controller.isGeneratingReleaseNotes.value;
+      final isBusy =
+          isGenerating ||
+          controller.isSendingTelegram.value ||
+          controller.isConnectingGoogleDrive.value ||
+          controller.isTestingGoogleDrive.value ||
+          controller.isUploadingGoogleDriveApk.value ||
+          controller.runner.isBusy;
+      final canSave = controller.hasGeminiApiKey.value && !isBusy;
+      final canGenerate =
+          controller.project.value != null &&
+          controller.hasGeminiApiKey.value &&
+          !controller.runner.isBusy &&
+          !isBusy;
+
+      return _HudCardShell(
+        active: isBusy,
+        padding: const EdgeInsets.all(10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const _PanelTitle(
+              icon: Icons.auto_awesome_outlined,
+              title: 'AI Release Notes',
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: controller.geminiApiKeyController,
+              obscureText: true,
+              enableSuggestions: false,
+              autocorrect: false,
+              style: AppCyberTheme.dataTextStyle(
+                size: 11.5,
+                color: AppCyberTheme.textPrimary,
+              ),
+              decoration: const InputDecoration(
+                labelText: 'Gemini API key',
+                prefixIcon: Icon(Icons.key_outlined),
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: controller.releaseNotePromptController,
+              minLines: 3,
+              maxLines: 5,
+              style: AppCyberTheme.dataTextStyle(
+                size: 11.3,
+                color: AppCyberTheme.textPrimary,
+              ),
+              decoration: const InputDecoration(
+                labelText: 'Custom prompt',
+                alignLabelWithHint: true,
+                prefixIcon: Icon(Icons.edit_note_outlined),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: canSave ? controller.saveGeminiApiKey : null,
+                  icon: const Icon(Icons.save_outlined),
+                  label: const Text('Save API key'),
+                ),
+                FilledButton.icon(
+                  onPressed: canGenerate
+                      ? controller.generateReleaseNotes
+                      : null,
+                  icon: isGenerating
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.auto_awesome_outlined),
+                  label: const Text('Generate'),
+                ),
+              ],
+            ),
+            if (controller.releaseNoteAiStatus.value.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                controller.releaseNoteAiStatus.value,
+                style: AppCyberTheme.dataTextStyle(
+                  size: 10.6,
+                  color: AppCyberTheme.textMuted,
+                  weight: FontWeight.w600,
+                ),
+              ),
             ],
-          ),
-        );
-      }),
-    );
+          ],
+        ),
+      );
+    });
+  }
+}
+
+class _GoogleDriveFallbackOptions extends GetView<HomeController> {
+  const _GoogleDriveFallbackOptions();
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final settings = controller.googleDriveReleaseSettings.value;
+      final isDriveBusy =
+          controller.isConnectingGoogleDrive.value ||
+          controller.isTestingGoogleDrive.value ||
+          controller.isUploadingGoogleDriveApk.value;
+      final isBusy =
+          controller.isGeneratingReleaseNotes.value ||
+          controller.isSendingTelegram.value ||
+          isDriveBusy ||
+          controller.runner.isBusy;
+      final hasTelegramConfiguration =
+          controller.hasTelegramBotToken.value &&
+          controller.hasTelegramChatId.value;
+      final hasDriveConfiguration =
+          controller.hasGoogleDriveOAuthClientId.value &&
+          controller.hasGoogleDriveCredentials.value;
+      final canToggleDriveFallback =
+          !isBusy &&
+          (!settings.useDriveFallbackEnabled ||
+              (hasTelegramConfiguration && hasDriveConfiguration));
+      final canToggleDriveTelegramLink =
+          !isBusy &&
+          (!settings.sendApkLinkToTelegramEnabled ||
+              (hasTelegramConfiguration && hasDriveConfiguration));
+      final canUploadApkToDrive =
+          controller.project.value != null && hasDriveConfiguration && !isBusy;
+
+      return _HudCardShell(
+        active: isDriveBusy,
+        padding: const EdgeInsets.all(10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.cloud_sync_outlined, size: 18),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Google Drive APK delivery',
+                    style: AppCyberTheme.dataTextStyle(
+                      size: 11.8,
+                      color: AppCyberTheme.textPrimary,
+                      weight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                _MetaChip(
+                  icon: controller.hasGoogleDriveCredentials.value
+                      ? Icons.check_circle_outline
+                      : Icons.link_off_outlined,
+                  label: controller.hasGoogleDriveCredentials.value
+                      ? 'Connected'
+                      : 'Not connected',
+                  highlighted: controller.hasGoogleDriveCredentials.value,
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: controller.googleDriveOAuthClientIdController,
+              enabled: !isBusy,
+              enableSuggestions: false,
+              autocorrect: false,
+              style: AppCyberTheme.dataTextStyle(
+                size: 11.5,
+                color: AppCyberTheme.textPrimary,
+              ),
+              decoration: const InputDecoration(
+                labelText: 'Google OAuth Client ID',
+                prefixIcon: Icon(Icons.key_outlined),
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: controller.googleDriveOAuthClientSecretController,
+              obscureText: true,
+              enabled: !isBusy,
+              enableSuggestions: false,
+              autocorrect: false,
+              style: AppCyberTheme.dataTextStyle(
+                size: 11.5,
+                color: AppCyberTheme.textPrimary,
+              ),
+              decoration: const InputDecoration(
+                labelText: 'Google OAuth Client Secret (optional)',
+                helperText:
+                    'Only needed when Google rejects the token exchange with client_secret is missing.',
+                prefixIcon: Icon(Icons.password_outlined),
+              ),
+            ),
+            SwitchListTile.adaptive(
+              value: settings.useDriveFallbackEnabled,
+              onChanged: canToggleDriveFallback
+                  ? controller.setGoogleDriveFallbackEnabled
+                  : null,
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Use Drive for APKs over 50 MB'),
+              subtitle: const Text(
+                'Upload oversized APKs to Drive and send the link to Telegram.',
+              ),
+            ),
+            SwitchListTile.adaptive(
+              value: settings.sendApkLinkToTelegramEnabled,
+              onChanged: canToggleDriveTelegramLink
+                  ? controller.setGoogleDriveApkLinkTelegramEnabled
+                  : null,
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Send Drive link to Telegram'),
+              subtitle: const Text(
+                'Build/Upload APK and post-deploy delivery will upload to Drive, then send the link.',
+              ),
+            ),
+            CheckboxListTile(
+              value: settings.includeReleaseNotesInTelegramLink,
+              onChanged: !isBusy && settings.sendApkLinkToTelegramEnabled
+                  ? (value) => controller
+                        .setGoogleDriveLinkReleaseNotesIncluded(value ?? false)
+                  : null,
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Include release notes'),
+              subtitle: const Text(
+                'Adds the current Release notes text to the Telegram link message.',
+              ),
+              controlAffinity: ListTileControlAffinity.leading,
+            ),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text(
+                'Manual Drive upload uses the latest release APK if it exists; otherwise it builds a new release APK first.',
+                style: AppCyberTheme.dataTextStyle(
+                  size: 10.2,
+                  color: AppCyberTheme.textMuted,
+                  weight: FontWeight.w500,
+                ),
+              ),
+            ),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: !isBusy
+                      ? controller.saveGoogleDriveConfiguration
+                      : null,
+                  icon: const Icon(Icons.save_outlined),
+                  label: const Text('Save Drive'),
+                ),
+                FilledButton.tonalIcon(
+                  onPressed:
+                      controller.hasGoogleDriveOAuthClientId.value && !isBusy
+                      ? controller.connectGoogleDrive
+                      : null,
+                  icon: controller.isConnectingGoogleDrive.value
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.link_outlined),
+                  label: const Text('Connect Drive'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: hasDriveConfiguration && !isBusy
+                      ? controller.testGoogleDriveConnection
+                      : null,
+                  icon: controller.isTestingGoogleDrive.value
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.wifi_tethering_outlined),
+                  label: const Text('Test Drive'),
+                ),
+                OutlinedButton.icon(
+                  onPressed:
+                      controller.hasGoogleDriveCredentials.value && !isBusy
+                      ? controller.disconnectGoogleDrive
+                      : null,
+                  icon: const Icon(Icons.link_off_outlined),
+                  label: const Text('Disconnect'),
+                ),
+                FilledButton.icon(
+                  onPressed: canUploadApkToDrive
+                      ? controller.buildOrUploadReleaseApkToGoogleDrive
+                      : null,
+                  icon: controller.isUploadingGoogleDriveApk.value
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.cloud_upload_outlined),
+                  label: const Text('Build/Upload APK'),
+                ),
+              ],
+            ),
+            if (controller.googleDriveReleaseStatus.value.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                controller.googleDriveReleaseStatus.value,
+                style: AppCyberTheme.dataTextStyle(
+                  size: 10.6,
+                  color: AppCyberTheme.textMuted,
+                  weight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ],
+        ),
+      );
+    });
+  }
+}
+
+class _TelegramReleaseOptions extends GetView<HomeController> {
+  const _TelegramReleaseOptions();
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final isTelegramBusy = controller.isSendingTelegram.value;
+      final isBusy =
+          controller.isGeneratingReleaseNotes.value ||
+          isTelegramBusy ||
+          controller.isConnectingGoogleDrive.value ||
+          controller.isTestingGoogleDrive.value ||
+          controller.isUploadingGoogleDriveApk.value ||
+          controller.runner.isBusy;
+      final hasTelegramConfiguration =
+          controller.hasTelegramBotToken.value &&
+          controller.hasTelegramChatId.value;
+      final canSendNow =
+          hasTelegramConfiguration &&
+          controller.hasTelegramReleaseContext.value &&
+          controller.hasReleaseNoteText.value &&
+          !isBusy;
+
+      return _HudCardShell(
+        active: isTelegramBusy,
+        padding: const EdgeInsets.all(10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const _PanelTitle(icon: Icons.send_outlined, title: 'Telegram'),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                const Icon(Icons.forum_outlined, size: 18),
+                const SizedBox(width: 8),
+                Text(
+                  hasTelegramConfiguration ? 'Configured' : 'Not configured',
+                  style: AppCyberTheme.dataTextStyle(
+                    size: 11,
+                    color: hasTelegramConfiguration
+                        ? AppCyberTheme.neonGreen
+                        : AppCyberTheme.textMuted,
+                    weight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: controller.telegramBotTokenController,
+              obscureText: true,
+              enableSuggestions: false,
+              autocorrect: false,
+              enabled: !isBusy,
+              style: AppCyberTheme.dataTextStyle(
+                size: 11.5,
+                color: AppCyberTheme.textPrimary,
+              ),
+              decoration: const InputDecoration(
+                labelText: 'Telegram bot token',
+                prefixIcon: Icon(Icons.smart_toy_outlined),
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: controller.telegramChatIdController,
+              enabled: !isBusy,
+              enableSuggestions: false,
+              autocorrect: false,
+              style: AppCyberTheme.dataTextStyle(
+                size: 11.5,
+                color: AppCyberTheme.textPrimary,
+              ),
+              decoration: const InputDecoration(
+                labelText: 'Telegram chat ID',
+                hintText: '-1001234567890 or @group_username',
+                prefixIcon: Icon(Icons.forum_outlined),
+              ),
+            ),
+            SwitchListTile.adaptive(
+              value: controller.telegramReleaseSettings.value.autoSendEnabled,
+              onChanged: isBusy ? null : controller.setTelegramAutoSendEnabled,
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Auto send release updates'),
+              subtitle: const Text(
+                'Send generated notes and post-deploy APKs automatically.',
+              ),
+            ),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: !isBusy
+                      ? controller.saveTelegramConfiguration
+                      : null,
+                  icon: const Icon(Icons.save_outlined),
+                  label: const Text('Save'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: hasTelegramConfiguration && !isBusy
+                      ? controller.testTelegramConfiguration
+                      : null,
+                  icon: const Icon(Icons.wifi_tethering_outlined),
+                  label: const Text('Test'),
+                ),
+                FilledButton.tonalIcon(
+                  onPressed: canSendNow
+                      ? controller.sendCurrentReleaseNoteToTelegram
+                      : null,
+                  icon: isTelegramBusy
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.send_outlined),
+                  label: const Text('Send now'),
+                ),
+              ],
+            ),
+            if (controller.telegramReleaseStatus.value.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                controller.telegramReleaseStatus.value,
+                style: AppCyberTheme.dataTextStyle(
+                  size: 10.6,
+                  color: AppCyberTheme.textMuted,
+                  weight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ],
+        ),
+      );
+    });
   }
 }
 
@@ -869,43 +1641,39 @@ class _YesNoPromptActions extends GetView<HomeController> {
   Widget build(BuildContext context) {
     return SizedBox(
       width: double.infinity,
-      child: _HudCardShell(
-        active: true,
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              prompt,
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
-              style: AppCyberTheme.dataTextStyle(
-                size: 11.2,
-                color: AppCyberTheme.textPrimary,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            prompt,
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+            style: AppCyberTheme.dataTextStyle(
+              size: 11.2,
+              color: AppCyberTheme.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => controller.sendYesNoInput(false),
+                  icon: const Icon(Icons.close_outlined),
+                  label: const Text('No'),
+                ),
               ),
-            ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () => controller.sendYesNoInput(false),
-                    icon: const Icon(Icons.close_outlined),
-                    label: const Text('No'),
-                  ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: () => controller.sendYesNoInput(true),
+                  icon: const Icon(Icons.check_circle_outline),
+                  label: const Text('Yes'),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: FilledButton.icon(
-                    onPressed: () => controller.sendYesNoInput(true),
-                    icon: const Icon(Icons.check_circle_outline),
-                    label: const Text('Yes'),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

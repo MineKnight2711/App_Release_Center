@@ -20,13 +20,23 @@ class ReleaseRunnerService extends GetxService {
   final exitCode = RxnInt();
   final logLines = <String>[].obs;
   final yesNoPrompt = RxnString();
+  final overallProgress = 0.0.obs;
+  final overallProgressLabel = 'Ready'.obs;
+  final workflowStep = 0.obs;
+  final workflowTotalSteps = 0.obs;
+  final isWorkflowRunning = false.obs;
 
   Process? _process;
   StreamSubscription<String>? _stdoutSubscription;
   StreamSubscription<String>? _stderrSubscription;
   bool _hasOpenLogLine = false;
   String _openLogPrefix = '';
+  int _completedWorkflowSteps = 0;
+  bool _workflowStepActive = false;
+  String _workflowTitle = '';
   final CommandNotificationSender? _notificationService;
+
+  bool get isBusy => isRunning.value || isWorkflowRunning.value;
 
   Future<int> run({
     required ReleaseProject project,
@@ -34,8 +44,9 @@ class ReleaseRunnerService extends GetxService {
     List<String> args = const [],
     Map<String, String> environment = const {},
     bool clearLog = false,
+    bool allowDuringWorkflow = false,
   }) async {
-    if (isRunning.value) {
+    if (isRunning.value || (isWorkflowRunning.value && !allowDuringWorkflow)) {
       _append('A script is already running.');
       return -1;
     }
@@ -52,6 +63,7 @@ class ReleaseRunnerService extends GetxService {
       projectName: project.name,
       environment: environment,
       clearLog: clearLog,
+      allowDuringWorkflow: allowDuringWorkflow,
     );
     return result.exitCode;
   }
@@ -62,6 +74,7 @@ class ReleaseRunnerService extends GetxService {
     List<String> args = const [],
     Map<String, String> environment = const {},
     bool clearLog = false,
+    bool allowDuringWorkflow = false,
   }) async {
     if (!project.androidDirectory.existsSync()) {
       _append('Project does not contain an android folder.');
@@ -89,6 +102,7 @@ class ReleaseRunnerService extends GetxService {
       projectName: project.name,
       environment: fastlaneEnvironment,
       clearLog: clearLog,
+      allowDuringWorkflow: allowDuringWorkflow,
     );
     return result.exitCode;
   }
@@ -103,6 +117,7 @@ class ReleaseRunnerService extends GetxService {
     Map<String, String> environment = const {},
     bool clearLog = false,
     String? projectName,
+    bool allowDuringWorkflow = false,
   }) async {
     final result = await _runPlan(
       plan: CommandPlan(
@@ -116,6 +131,7 @@ class ReleaseRunnerService extends GetxService {
       projectName: projectName ?? p.basename(workingDirectory),
       environment: environment,
       clearLog: clearLog,
+      allowDuringWorkflow: allowDuringWorkflow,
     );
     return result.exitCode;
   }
@@ -130,6 +146,7 @@ class ReleaseRunnerService extends GetxService {
     Map<String, String> environment = const {},
     bool clearLog = false,
     String? projectName,
+    bool allowDuringWorkflow = false,
   }) {
     return _runPlan(
       plan: CommandPlan(
@@ -144,6 +161,7 @@ class ReleaseRunnerService extends GetxService {
       environment: environment,
       clearLog: clearLog,
       captureOutput: true,
+      allowDuringWorkflow: allowDuringWorkflow,
     );
   }
 
@@ -155,12 +173,73 @@ class ReleaseRunnerService extends GetxService {
     return _gemExecutable();
   }
 
+  String resolveFlutterExecutable() {
+    return _flutterExecutable();
+  }
+
   String? resolveBundleExecutable() {
     return _bundleExecutable();
   }
 
   void appendSystemLog(String message) {
     _append(message);
+  }
+
+  void beginWorkflow({required int totalSteps, required String label}) {
+    final normalizedTotal = totalSteps < 1 ? 1 : totalSteps;
+    _workflowTitle = label.trim().isEmpty ? 'Command workflow' : label.trim();
+    _completedWorkflowSteps = 0;
+    _workflowStepActive = false;
+    workflowStep.value = 0;
+    workflowTotalSteps.value = normalizedTotal;
+    overallProgress.value = 0;
+    overallProgressLabel.value = _workflowTitle;
+    isWorkflowRunning.value = true;
+  }
+
+  void beginWorkflowStep(String label) {
+    if (!isWorkflowRunning.value) {
+      beginWorkflow(totalSteps: 1, label: label);
+    }
+    if (_workflowStepActive) return;
+
+    _workflowStepActive = true;
+    final total = workflowTotalSteps.value;
+    workflowStep.value = (_completedWorkflowSteps + 1).clamp(1, total);
+    overallProgress.value = total == 0 ? 0 : _completedWorkflowSteps / total;
+    final stepLabel = label.trim().isEmpty ? 'Running command' : label.trim();
+    overallProgressLabel.value = '$_workflowTitle — $stepLabel';
+    status.value = 'Running $stepLabel';
+  }
+
+  void completeWorkflowStep({required bool success}) {
+    if (!_workflowStepActive) return;
+    _workflowStepActive = false;
+    final total = workflowTotalSteps.value;
+    _completedWorkflowSteps = (_completedWorkflowSteps + 1).clamp(0, total);
+    overallProgress.value = total == 0 ? 0 : _completedWorkflowSteps / total;
+    if (!success) {
+      overallProgressLabel.value = '$_workflowTitle — failed';
+      status.value = 'Failed';
+    }
+  }
+
+  void finishWorkflow({required bool success}) {
+    if (!isWorkflowRunning.value) return;
+    if (_workflowStepActive) {
+      completeWorkflowStep(success: success);
+    }
+    if (success) {
+      _completedWorkflowSteps = workflowTotalSteps.value;
+      workflowStep.value = workflowTotalSteps.value;
+      overallProgress.value = 1;
+      overallProgressLabel.value = '$_workflowTitle — completed';
+      status.value = 'Completed';
+    } else {
+      overallProgressLabel.value = '$_workflowTitle — failed';
+      status.value = 'Failed';
+    }
+    isWorkflowRunning.value = false;
   }
 
   Future<CommandRunResult> _runPlan({
@@ -172,8 +251,9 @@ class ReleaseRunnerService extends GetxService {
     required Map<String, String> environment,
     required bool clearLog,
     bool captureOutput = false,
+    bool allowDuringWorkflow = false,
   }) async {
-    if (isRunning.value) {
+    if (isRunning.value || (isWorkflowRunning.value && !allowDuringWorkflow)) {
       _append('A script is already running.');
       return const CommandRunResult(exitCode: -1);
     }
@@ -186,6 +266,12 @@ class ReleaseRunnerService extends GetxService {
       ..addAll(_plainLogEnvironment)
       ..addAll(environment);
 
+    final ownsWorkflow = !isWorkflowRunning.value;
+    if (ownsWorkflow) {
+      beginWorkflow(totalSteps: 1, label: statusLabel);
+    }
+    beginWorkflowStep(statusLabel);
+    var commandSucceeded = false;
     isRunning.value = true;
     status.value = 'Running $statusLabel';
     activeScriptPath.value = activePath;
@@ -242,6 +328,7 @@ class ReleaseRunnerService extends GetxService {
       await _stderrSubscription?.cancel();
 
       exitCode.value = code;
+      commandSucceeded = code == 0;
       status.value = code == 0 ? 'Completed' : 'Failed';
       _append('Finished with exit code $code.');
       notificationLogTail.addLine('Finished with exit code $code.');
@@ -284,6 +371,10 @@ class ReleaseRunnerService extends GetxService {
       );
       return CommandRunResult(exitCode: -1, output: capturedOutput.toString());
     } finally {
+      completeWorkflowStep(success: commandSucceeded);
+      if (ownsWorkflow) {
+        finishWorkflow(success: commandSucceeded);
+      }
       _process = null;
       _stdoutSubscription = null;
       _stderrSubscription = null;
@@ -479,6 +570,29 @@ class ReleaseRunnerService extends GetxService {
     }
 
     return 'gem';
+  }
+
+  String _flutterExecutable() {
+    if (!Platform.isWindows) return 'flutter';
+
+    final fromPath = _resolveFromPath('flutter');
+    if (fromPath != null) return fromPath;
+
+    final candidates = [
+      _candidateFromEnv('FLUTTER_ROOT', ['bin', 'flutter.bat']),
+      _candidateFromEnv('FLUTTER_ROOT', ['bin', 'flutter.cmd']),
+      r'C:\flutter\bin\flutter.bat',
+      r'C:\flutter\bin\flutter.cmd',
+      r'C:\src\flutter\bin\flutter.bat',
+      r'C:\src\flutter\bin\flutter.cmd',
+    ];
+
+    for (final candidate in candidates) {
+      if (candidate.isEmpty) continue;
+      if (File(candidate).existsSync()) return candidate;
+    }
+
+    return 'flutter';
   }
 
   String? _bundleExecutable() {

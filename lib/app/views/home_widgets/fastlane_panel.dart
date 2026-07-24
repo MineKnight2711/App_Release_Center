@@ -40,7 +40,7 @@ class _FastlaneLaneCard extends GetView<HomeController> {
   @override
   Widget build(BuildContext context) {
     return Obx(() {
-      final isRunning = controller.runner.isRunning.value;
+      final isRunning = controller.runner.isBusy;
       final isActive = controller.runner.activeScriptPath.value == lane.key;
 
       return _HudCardShell(

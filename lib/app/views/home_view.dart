@@ -13,6 +13,8 @@ import 'package:app_release_center/app/models/release_notification.dart';
 import 'package:app_release_center/app/models/release_project.dart';
 import 'package:app_release_center/app/models/release_script.dart';
 import 'package:app_release_center/app/services/android_cicd_clone_service.dart';
+import 'package:app_release_center/app/services/android_keystore_generation_service.dart';
+import 'package:app_release_center/app/services/release_runner_service.dart';
 import 'package:app_release_center/app/services/remote_control_service.dart';
 import 'package:app_release_center/app/services/theme_service.dart';
 import 'package:app_release_center/app/theme/cyber_theme.dart';
@@ -68,32 +70,7 @@ class _HomeScaffoldState extends State<_HomeScaffold> {
 
       return Scaffold(
         key: ValueKey(themeChoice),
-        appBar: AppBar(
-          title: const Text('App Release Center'),
-          centerTitle: false,
-          bottom: PreferredSize(
-            preferredSize: const Size.fromHeight(1),
-            child: Container(
-              height: 1,
-              color: AppCyberTheme.isCyber
-                  ? AppCyberTheme.electricBlue.withValues(alpha: 0.25)
-                  : AppCyberTheme.lineBlue,
-            ),
-          ),
-          actions: [
-            const _ThemeSwitchMenu(),
-            const SizedBox(width: 8),
-            Obx(
-              () => Padding(
-                padding: const EdgeInsets.only(right: 16),
-                child: _StatusPill(
-                  label: controller.runner.status.value,
-                  running: controller.runner.isRunning.value,
-                ),
-              ),
-            ),
-          ],
-        ),
+        bottomNavigationBar: GlobalCommandProgress(runner: controller.runner),
         body: Stack(
           children: [
             Positioned.fill(child: _HudBackdrop()),
@@ -103,6 +80,10 @@ class _HomeScaffoldState extends State<_HomeScaffold> {
                   final usableWidth =
                       constraints.maxWidth - (_outerPadding * 2);
                   final isWide = usableWidth >= _desktopBreakpoint;
+                  final mobileOptionsHeight =
+                      (constraints.maxHeight - (_outerPadding * 2))
+                          .clamp(580.0, 760.0)
+                          .toDouble();
                   final content = isWide
                       ? _WideHomeLayout(
                           leftPanelWidth: _leftPanelWidth,
@@ -115,12 +96,15 @@ class _HomeScaffoldState extends State<_HomeScaffold> {
                         )
                       : SingleChildScrollView(
                           child: Column(
-                            children: const [
-                              _ProjectPanel(),
-                              SizedBox(height: 16),
-                              SizedBox(height: 520, child: _MainPanel()),
-                              SizedBox(height: 16),
-                              _OptionsPanel(),
+                            children: [
+                              const _ProjectPanel(),
+                              const SizedBox(height: 16),
+                              const SizedBox(height: 520, child: _MainPanel()),
+                              const SizedBox(height: 16),
+                              SizedBox(
+                                height: mobileOptionsHeight,
+                                child: const _OptionsPanel(),
+                              ),
                             ],
                           ),
                         );

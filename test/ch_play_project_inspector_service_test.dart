@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:app_release_center/app/services/ch_play_project_inspector_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -60,6 +62,70 @@ android {
 ''');
 
       expect(applicationId, 'com.example.namespace');
+    });
+
+    test('inspect tolerates malformed project metadata files', () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'app_release_center_ch_play_inspector_',
+      );
+      addTearDown(() async {
+        if (directory.existsSync()) {
+          await directory.delete(recursive: true);
+        }
+      });
+
+      await File(
+        '${directory.path}${Platform.pathSeparator}pubspec.yaml',
+      ).writeAsBytes([0xFF, 0xFE, 0xFD]);
+      await File(
+        '${directory.path}${Platform.pathSeparator}android'
+        '${Platform.pathSeparator}app${Platform.pathSeparator}build.gradle',
+      ).create(recursive: true);
+      await File(
+        '${directory.path}${Platform.pathSeparator}android'
+        '${Platform.pathSeparator}app${Platform.pathSeparator}build.gradle',
+      ).writeAsBytes([0xFF, 0xFE, 0xFD]);
+
+      final inspection = await ChPlayProjectInspectorService().inspect(
+        directory.path,
+      );
+
+      expect(inspection.applicationId, isNull);
+      expect(inspection.localVersion, isNull);
+    });
+
+    test('detectApplicationId skips malformed Gradle candidates', () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'app_release_center_ch_play_inspector_',
+      );
+      addTearDown(() async {
+        if (directory.existsSync()) {
+          await directory.delete(recursive: true);
+        }
+      });
+
+      final groovyGradle = File(
+        '${directory.path}${Platform.pathSeparator}android'
+        '${Platform.pathSeparator}app${Platform.pathSeparator}build.gradle',
+      );
+      final kotlinGradle = File(
+        '${directory.path}${Platform.pathSeparator}android'
+        '${Platform.pathSeparator}app${Platform.pathSeparator}build.gradle.kts',
+      );
+      await groovyGradle.create(recursive: true);
+      await groovyGradle.writeAsBytes([0xFF, 0xFE, 0xFD]);
+      await kotlinGradle.writeAsString('''
+android {
+  defaultConfig {
+    applicationId = "com.example.kotlin"
+  }
+}
+''');
+
+      final applicationId = await ChPlayProjectInspectorService()
+          .detectApplicationId(directory.path);
+
+      expect(applicationId, 'com.example.kotlin');
     });
   });
 }

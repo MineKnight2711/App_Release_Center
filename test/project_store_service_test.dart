@@ -6,6 +6,42 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  test(
+    'removes recent project paths without deleting saved projects',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final service = await ProjectStoreService().init();
+
+      await service.saveProjectPath(r'C:\apps\demo-a');
+      await service.saveProjectPath(r'C:\apps\demo-b');
+
+      expect(service.recentProjectPaths, [
+        r'C:\apps\demo-b',
+        r'C:\apps\demo-a',
+      ]);
+      expect(service.lastProjectPath, r'C:\apps\demo-b');
+
+      await service.removeRecentProjectPath(r'C:\apps\demo-a');
+
+      expect(service.recentProjectPaths, [r'C:\apps\demo-b']);
+      expect(service.lastProjectPath, r'C:\apps\demo-b');
+
+      await service.removeRecentProjectPath(r'C:\apps\demo-b');
+
+      expect(service.recentProjectPaths, isEmpty);
+      expect(service.lastProjectPath, isNull);
+
+      await service.saveProjectPath(r'C:\apps\demo-b');
+
+      expect(service.recentProjectPaths, [r'C:\apps\demo-b']);
+      expect(
+        service.dismissedRecentProjectPaths,
+        isNot(contains(r'C:\apps\demo-b')),
+      );
+      expect(service.lastProjectPath, r'C:\apps\demo-b');
+    },
+  );
+
   test('stores and loads managed CH Play projects', () async {
     SharedPreferences.setMockInitialValues({});
     final service = await ProjectStoreService().init();

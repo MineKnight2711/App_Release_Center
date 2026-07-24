@@ -31,9 +31,15 @@ class ChPlayProjectInspectorService extends GetxService {
 
   Future<ChPlayLocalVersion?> readLocalVersion(String projectPath) async {
     final pubspec = File(p.join(projectPath, 'pubspec.yaml'));
-    if (!pubspec.existsSync()) return null;
+    try {
+      if (!pubspec.existsSync()) return null;
 
-    return parsePubspecVersion(await pubspec.readAsString());
+      return parsePubspecVersion(await pubspec.readAsString());
+    } on FileSystemException {
+      return null;
+    } on FormatException {
+      return null;
+    }
   }
 
   Future<String?> detectApplicationId(String projectPath) async {
@@ -43,9 +49,15 @@ class ChPlayProjectInspectorService extends GetxService {
     ];
 
     for (final file in candidates) {
-      if (!file.existsSync()) continue;
-      final parsed = parseApplicationId(await file.readAsString());
-      if (parsed != null) return parsed;
+      try {
+        if (!file.existsSync()) continue;
+        final parsed = parseApplicationId(await file.readAsString());
+        if (parsed != null) return parsed;
+      } on FileSystemException {
+        continue;
+      } on FormatException {
+        continue;
+      }
     }
 
     return null;
