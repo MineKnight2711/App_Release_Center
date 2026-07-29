@@ -572,6 +572,7 @@ class ReleaseRunnerService extends GetxService {
   }
 
   String _dartExecutable() {
+    if (Platform.isMacOS) return _macOSExecutable('dart');
     if (!Platform.isWindows) return 'dart';
 
     final fromPath = _resolveFromPath('dart');
@@ -604,6 +605,7 @@ class ReleaseRunnerService extends GetxService {
   }
 
   String _fastlaneExecutable() {
+    if (Platform.isMacOS) return _macOSExecutable('fastlane');
     if (!Platform.isWindows) return 'fastlane';
 
     final fromPath = _resolveFromPath('fastlane');
@@ -623,6 +625,7 @@ class ReleaseRunnerService extends GetxService {
   }
 
   String _gemExecutable() {
+    if (Platform.isMacOS) return _macOSExecutable('gem');
     if (!Platform.isWindows) return 'gem';
 
     final fromPath = _resolveFromPath('gem');
@@ -642,6 +645,7 @@ class ReleaseRunnerService extends GetxService {
   }
 
   String _flutterExecutable() {
+    if (Platform.isMacOS) return _macOSExecutable('flutter');
     if (!Platform.isWindows) return 'flutter';
 
     final fromPath = _resolveFromPath('flutter');
@@ -665,11 +669,58 @@ class ReleaseRunnerService extends GetxService {
   }
 
   String? _bundleExecutable() {
+    if (Platform.isMacOS) return _macOSExecutable('bundle');
     if (!Platform.isWindows) return 'bundle';
 
     final fromPath = _resolveFromPath('bundle');
     if (fromPath != null) return fromPath;
 
+    return null;
+  }
+
+  /// Apps launched from Finder do not inherit the user's shell PATH. Resolve
+  /// development tools through zsh so Flutter, Ruby and Fastlane installations
+  /// configured in .zprofile or .zshrc are available to the macOS app too.
+  String _macOSExecutable(String executable) {
+    final fromAppPath = _resolveUnixPath(executable);
+    if (fromAppPath != null) return fromAppPath;
+
+    const zsh = '/bin/zsh';
+    if (!File(zsh).existsSync()) return executable;
+
+    try {
+      final result = Process.runSync(
+        zsh,
+        ['-lic', 'command -v $executable'],
+        stdoutEncoding: utf8,
+        stderrEncoding: utf8,
+      );
+      if (result.exitCode != 0 || result.stdout is! String) return executable;
+
+      final candidates = (result.stdout as String)
+          .split(RegExp(r'\r?\n'))
+          .map((line) => line.trim())
+          .where((line) => line.startsWith('/'))
+          .toList()
+          .reversed;
+      for (final candidate in candidates) {
+        if (File(candidate).existsSync()) return candidate;
+      }
+    } on ProcessException {
+      // Keep the command name as a fallback so the command log remains useful.
+    }
+
+    return executable;
+  }
+
+  String? _resolveUnixPath(String executable) {
+    final rawPath = Platform.environment['PATH'];
+    if (rawPath == null || rawPath.trim().isEmpty) return null;
+
+    for (final directory in rawPath.split(':')) {
+      final candidate = p.join(directory.trim(), executable);
+      if (File(candidate).existsSync()) return candidate;
+    }
     return null;
   }
 
