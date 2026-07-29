@@ -13,10 +13,12 @@ enum _ExtendedAction {
 class _AndroidKeystoreGenerationInput {
   const _AndroidKeystoreGenerationInput({
     required this.keyAlias,
+    required this.storePassword,
     required this.forceRecreate,
   });
 
   final String keyAlias;
+  final String storePassword;
   final bool forceRecreate;
 }
 
@@ -87,6 +89,7 @@ class _FlowPanel extends GetView<HomeController> {
         if (input == null) return;
         await controller.generateAndroidKeystore(
           keyAlias: input.keyAlias,
+          storePassword: input.storePassword,
           forceRecreate: input.forceRecreate,
         );
         break;
@@ -123,105 +126,11 @@ class _FlowPanel extends GetView<HomeController> {
 
   Future<_AndroidKeystoreGenerationInput?> _showAndroidKeystoreGenerationDialog(
     BuildContext context,
-  ) async {
-    final aliasController = TextEditingController(text: defaultAndroidKeyAlias);
-    var forceRecreate = false;
-    String? validationError;
-
-    final result = await showDialog<_AndroidKeystoreGenerationInput>(
+  ) {
+    return showDialog<_AndroidKeystoreGenerationInput>(
       context: context,
-      builder: (dialogContext) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return AlertDialog(
-              backgroundColor: AppCyberTheme.panelBackgroundStrong,
-              surfaceTintColor: Colors.transparent,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-                side: BorderSide(
-                  color: AppCyberTheme.isCyber
-                      ? AppCyberTheme.electricBlue.withValues(alpha: 0.4)
-                      : AppCyberTheme.lineBlue,
-                ),
-              ),
-              titlePadding: const EdgeInsets.fromLTRB(20, 16, 20, 6),
-              contentPadding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
-              actionsPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-              title: const _PanelTitle(
-                icon: Icons.vpn_key_outlined,
-                title: 'Generate Android JKS',
-              ),
-              content: SizedBox(
-                width: 420,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    TextField(
-                      controller: aliasController,
-                      decoration: const InputDecoration(
-                        labelText: 'Key alias',
-                        prefixIcon: Icon(Icons.alternate_email_outlined),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    CheckboxListTile(
-                      value: forceRecreate,
-                      onChanged: (value) {
-                        setState(() => forceRecreate = value ?? false);
-                      },
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Force recreate existing JKS'),
-                      controlAffinity: ListTileControlAffinity.leading,
-                    ),
-                    if (validationError != null) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        validationError!,
-                        style: AppCyberTheme.dataTextStyle(
-                          size: 11,
-                          color: Theme.of(context).colorScheme.error,
-                          weight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              actions: [
-                OutlinedButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(),
-                  child: const Text('Cancel'),
-                ),
-                FilledButton.icon(
-                  onPressed: () {
-                    final alias = aliasController.text.trim();
-                    if (alias.isEmpty) {
-                      setState(() {
-                        validationError = 'Key alias is required.';
-                      });
-                      return;
-                    }
-
-                    Navigator.of(dialogContext).pop(
-                      _AndroidKeystoreGenerationInput(
-                        keyAlias: alias,
-                        forceRecreate: forceRecreate,
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.vpn_key_outlined),
-                  label: const Text('Generate'),
-                ),
-              ],
-            );
-          },
-        );
-      },
+      builder: (_) => const _AndroidKeystoreGenerationDialog(),
     );
-
-    aliasController.dispose();
-    return result;
   }
 
   Future<_PullRemoteBranchInput?> _showPullRemoteBranchDialog(
@@ -461,6 +370,139 @@ class _FlowPanel extends GetView<HomeController> {
   }
 }
 
+class _AndroidKeystoreGenerationDialog extends StatefulWidget {
+  const _AndroidKeystoreGenerationDialog();
+
+  @override
+  State<_AndroidKeystoreGenerationDialog> createState() =>
+      _AndroidKeystoreGenerationDialogState();
+}
+
+class _AndroidKeystoreGenerationDialogState
+    extends State<_AndroidKeystoreGenerationDialog> {
+  final _aliasController = TextEditingController(text: defaultAndroidKeyAlias);
+  final _storePasswordController = TextEditingController();
+
+  var _forceRecreate = false;
+  String? _validationError;
+
+  @override
+  void dispose() {
+    _aliasController.dispose();
+    _storePasswordController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: AppCyberTheme.panelBackgroundStrong,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: BorderSide(
+          color: AppCyberTheme.isCyber
+              ? AppCyberTheme.electricBlue.withValues(alpha: 0.4)
+              : AppCyberTheme.lineBlue,
+        ),
+      ),
+      titlePadding: const EdgeInsets.fromLTRB(20, 16, 20, 6),
+      contentPadding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
+      actionsPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+      title: const _PanelTitle(
+        icon: Icons.vpn_key_outlined,
+        title: 'Generate Android JKS',
+      ),
+      content: SizedBox(
+        width: 420,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextField(
+                controller: _aliasController,
+                decoration: const InputDecoration(
+                  labelText: 'Key alias',
+                  prefixIcon: Icon(Icons.alternate_email_outlined),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _storePasswordController,
+                obscureText: true,
+                enableSuggestions: false,
+                autocorrect: false,
+                decoration: const InputDecoration(
+                  labelText: 'JKS password',
+                  prefixIcon: Icon(Icons.password_outlined),
+                ),
+              ),
+              const SizedBox(height: 8),
+              CheckboxListTile(
+                value: _forceRecreate,
+                onChanged: (value) {
+                  setState(() => _forceRecreate = value ?? false);
+                },
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Force recreate existing JKS'),
+                controlAffinity: ListTileControlAffinity.leading,
+              ),
+              if (_validationError != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  _validationError!,
+                  style: AppCyberTheme.dataTextStyle(
+                    size: 11,
+                    color: Theme.of(context).colorScheme.error,
+                    weight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        OutlinedButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton.icon(
+          onPressed: _submit,
+          icon: const Icon(Icons.vpn_key_outlined),
+          label: const Text('Generate'),
+        ),
+      ],
+    );
+  }
+
+  void _submit() {
+    final alias = _aliasController.text.trim();
+    final storePassword = _storePasswordController.text.trim();
+    if (alias.isEmpty) {
+      setState(() {
+        _validationError = 'Key alias is required.';
+      });
+      return;
+    }
+    if (storePassword.isNotEmpty && storePassword.length < 6) {
+      setState(() {
+        _validationError = 'JKS password must be at least 6 characters.';
+      });
+      return;
+    }
+
+    Navigator.of(context).pop(
+      _AndroidKeystoreGenerationInput(
+        keyAlias: alias,
+        storePassword: storePassword,
+        forceRecreate: _forceRecreate,
+      ),
+    );
+  }
+}
+
 class _FlowPanelHeader extends GetView<HomeController> {
   const _FlowPanelHeader({required this.onExtendedActionSelected});
 
@@ -489,6 +531,7 @@ class _FlowPanelHeader extends GetView<HomeController> {
               alignment: WrapAlignment.end,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
+                const _ReleaseWorkflowButton(),
                 const _ThemeSwitchMenu(),
                 Obx(
                   () => _StatusPill(
@@ -904,7 +947,13 @@ class _ScriptCard extends GetView<HomeController> {
                   visualDensity: VisualDensity.compact,
                   onPressed: isRunning
                       ? null
-                      : () => controller.runScript(script),
+                      : () {
+                          if (script.kind == ReleaseScriptKind.release) {
+                            showReleaseWorkflowDialog(context);
+                          } else {
+                            controller.runScript(script);
+                          }
+                        },
                   icon: isActive
                       ? const SizedBox(
                           width: 18,

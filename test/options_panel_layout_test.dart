@@ -4,6 +4,7 @@ import 'package:app_release_center/app/controllers/home_controller.dart';
 import 'package:app_release_center/app/data/release_center_connect.dart';
 import 'package:app_release_center/app/models/ch_play_project.dart';
 import 'package:app_release_center/app/models/release_project.dart';
+import 'package:app_release_center/app/models/release_workflow.dart';
 import 'package:app_release_center/app/services/android_cicd_clone_service.dart';
 import 'package:app_release_center/app/services/android_keystore_generation_service.dart';
 import 'package:app_release_center/app/services/app_store_credential_store_service.dart';
@@ -120,6 +121,176 @@ void main() {
     expect(find.text('Extend'), findsOneWidget);
   });
 
+  testWidgets('opens the responsive release workflow preflight popup', (
+    tester,
+  ) async {
+    await _pumpHome(tester, harness);
+
+    expect(find.byKey(const Key('run-release-workflow')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('run-release-workflow')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('release-workflow-dialog')), findsOneWidget);
+    expect(find.byKey(const Key('release-track-selector')), findsOneWidget);
+    expect(find.text('Prepare release'), findsOneWidget);
+    expect(find.byKey(const Key('review-release-workflow')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('hide-release-workflow')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('release-workflow-dialog')), findsNothing);
+  });
+
+  testWidgets('requires explicit confirmation for production releases', (
+    tester,
+  ) async {
+    await _pumpHome(tester, harness);
+    await tester.tap(find.byKey(const Key('run-release-workflow')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('release-track-selector')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('PRODUCTION').last);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('production-release-confirmation')),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .widget<FilledButton>(
+            find.byKey(const Key('review-release-workflow')),
+          )
+          .onPressed,
+      isNull,
+    );
+
+    await tester.tap(find.byKey(const Key('production-release-confirmation')));
+    await tester.pump();
+    expect(
+      tester
+          .widget<FilledButton>(
+            find.byKey(const Key('review-release-workflow')),
+          )
+          .onPressed,
+      isNotNull,
+    );
+
+    await tester.tap(find.byKey(const Key('hide-release-workflow')));
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('honors reduced motion while a release step is active', (
+    tester,
+  ) async {
+    final now = DateTime(2026, 7, 27, 10);
+    harness.controller.releaseWorkflow.currentRun.value = ReleaseWorkflowRun(
+      id: 'reduced-motion-release',
+      projectPath: harness.projectDirectory.path,
+      projectName: 'Demo App',
+      track: 'internal',
+      currentBranch: 'main',
+      currentVersion: '1.0.0+1',
+      proposedVersion: '1.0.1+2',
+      changedFiles: const [],
+      supportsSplitBuildDeploy: true,
+      steps: [
+        ReleaseWorkflowStepRun(
+          kind: ReleaseWorkflowStepKind.build,
+          label: 'Build AAB',
+          status: ReleaseStepStatus.running,
+          startedAt: now,
+        ),
+      ],
+      createdAt: now,
+      startedAt: now,
+    );
+    await _pumpHome(tester, harness, reduceMotion: true);
+
+    await tester.tap(find.byKey(const Key('run-release-workflow')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.byKey(const Key('release-workflow-dialog')), findsOneWidget);
+    expect(find.text('RUNNING'), findsOneWidget);
+    expect(
+      MediaQuery.of(tester.element(find.text('RUNNING'))).disableAnimations,
+      isTrue,
+    );
+    final motionFinder = find.byKey(
+      const Key('release-workflow-step-motion-build'),
+    );
+    final before = tester
+        .widget<Transform>(motionFinder)
+        .transform
+        .storage
+        .toList();
+    await tester.pump(const Duration(milliseconds: 500));
+    final after = tester
+        .widget<Transform>(motionFinder)
+        .transform
+        .storage
+        .toList();
+    expect(after, before);
+
+    await tester.tap(find.byKey(const Key('hide-release-workflow')));
+    await tester.pump(const Duration(milliseconds: 300));
+  });
+
+  testWidgets('renders a completed release timeline on a narrow window', (
+    tester,
+  ) async {
+    await _pumpHome(tester, harness);
+    final now = DateTime(2026, 7, 27, 10);
+    harness.controller.releaseWorkflow.currentRun.value = ReleaseWorkflowRun(
+      id: 'widget-release',
+      projectPath: harness.projectDirectory.path,
+      projectName: 'Demo App',
+      track: 'internal',
+      currentBranch: 'main',
+      currentVersion: '1.0.0+1',
+      proposedVersion: '1.0.1+2',
+      changedFiles: const ['pubspec.yaml'],
+      supportsSplitBuildDeploy: true,
+      steps: [
+        ReleaseWorkflowStepRun(
+          kind: ReleaseWorkflowStepKind.preflight,
+          label: 'Preflight',
+          status: ReleaseStepStatus.succeeded,
+          startedAt: now,
+          finishedAt: now,
+        ),
+        ReleaseWorkflowStepRun(
+          kind: ReleaseWorkflowStepKind.release,
+          label: 'Release',
+          status: ReleaseStepStatus.succeeded,
+          startedAt: now,
+          finishedAt: now.add(const Duration(seconds: 5)),
+          logLines: const ['CH Play release verified.'],
+        ),
+      ],
+      createdAt: now,
+      startedAt: now,
+      finishedAt: now.add(const Duration(seconds: 5)),
+    );
+    await tester.pump();
+
+    await tester.tap(find.byKey(const Key('run-release-workflow')));
+    await tester.pumpAndSettle();
+
+    final view = tester.view;
+    view.physicalSize = const Size(880, 900);
+    view.devicePixelRatio = 1;
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('release-workflow-progress')), findsOneWidget);
+    expect(find.text('Preflight'), findsWidgets);
+    expect(find.text('Release'), findsWidgets);
+    expect(find.text('New Release'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('hide-release-workflow')));
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('shows Android JKS generation in extended actions', (
     tester,
   ) async {
@@ -129,6 +300,23 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Generate Android JKS'), findsOneWidget);
+
+    await tester.tap(find.text('Generate Android JKS'));
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(TextField, 'JKS password'), findsOneWidget);
+
+    await tester.enterText(
+      find.widgetWithText(TextField, 'JKS password'),
+      'manual-menu-pass',
+    );
+    await tester.tap(find.widgetWithText(FilledButton, 'Generate').last);
+    await tester.pump();
+
+    expect(harness.androidKeystores.calls, hasLength(1));
+    expect(
+      harness.androidKeystores.calls.single.storePassword,
+      'manual-menu-pass',
+    );
   });
 
   testWidgets('switches right panel feature tabs', (tester) async {
@@ -184,6 +372,11 @@ void main() {
 
     await tester.tap(find.byTooltip('Credentials'));
     await tester.pumpAndSettle();
+    await tester.enterText(
+      find.widgetWithText(TextField, 'JKS password'),
+      'manual-dialog-pass',
+    );
+    await tester.pump();
     await tester.tap(find.widgetWithText(OutlinedButton, 'Generate'));
     await tester.pump();
     for (var attempt = 0; attempt < 50; attempt++) {
@@ -198,6 +391,10 @@ void main() {
 
     expect(harness.androidKeystores.calls, hasLength(1));
     expect(
+      harness.androidKeystores.calls.single.storePassword,
+      'manual-dialog-pass',
+    );
+    expect(
       _textFieldByLabel(tester, 'JKS keystore').controller?.text,
       endsWith(
         'android${Platform.pathSeparator}fastlane'
@@ -207,19 +404,23 @@ void main() {
     expect(_textFieldByLabel(tester, 'Key alias').controller?.text, 'release');
     expect(
       _textFieldByLabel(tester, 'Store password').controller?.text,
-      'dialog-secret',
+      'manual-dialog-pass',
     );
 
     await tester.tap(find.text('Key password matches store password'));
     await tester.pump();
     expect(
       _textFieldByLabel(tester, 'Key password').controller?.text,
-      'dialog-secret',
+      'manual-dialog-pass',
     );
   });
 }
 
-Future<void> _pumpHome(WidgetTester tester, _Harness harness) async {
+Future<void> _pumpHome(
+  WidgetTester tester,
+  _Harness harness, {
+  bool reduceMotion = false,
+}) async {
   harness.controller.project.value = ReleaseProject(
     path: harness.projectDirectory.path,
     scripts: const [],
@@ -232,6 +433,12 @@ Future<void> _pumpHome(WidgetTester tester, _Harness harness) async {
   await tester.pumpWidget(
     GetMaterialApp(
       theme: Get.find<ThemeService>().themeData,
+      builder: reduceMotion
+          ? (context, child) => MediaQuery(
+              data: MediaQuery.of(context).copyWith(disableAnimations: true),
+              child: child!,
+            )
+          : null,
       home: const HomeView(),
     ),
   );
@@ -468,6 +675,7 @@ class _FakeAndroidKeystoreGenerationService
   Future<AndroidKeystoreGenerationResult> generate({
     required String projectPath,
     String keyAlias = defaultAndroidKeyAlias,
+    String? storePassword,
     bool forceRecreate = false,
     String? distinguishedName,
   }) async {
@@ -478,6 +686,7 @@ class _FakeAndroidKeystoreGenerationService
       _GenerateKeystoreCall(
         projectPath: projectPath,
         keyAlias: alias,
+        storePassword: storePassword?.trim() ?? '',
         forceRecreate: forceRecreate,
       ),
     );
@@ -486,6 +695,9 @@ class _FakeAndroidKeystoreGenerationService
         '$projectPath${Platform.pathSeparator}android'
         '${Platform.pathSeparator}fastlane${Platform.pathSeparator}keys'
         '${Platform.pathSeparator}$alias.jks';
+    final password = (storePassword?.trim().isEmpty ?? true)
+        ? 'dialog-secret'
+        : storePassword!.trim();
     return AndroidKeystoreGenerationResult(
       keystorePath: keystorePath,
       envPropertiesPath:
@@ -495,8 +707,8 @@ class _FakeAndroidKeystoreGenerationService
           '$projectPath${Platform.pathSeparator}android'
           '${Platform.pathSeparator}key.properties',
       keyAlias: alias,
-      storePassword: 'dialog-secret',
-      keyPassword: 'dialog-secret',
+      storePassword: password,
+      keyPassword: password,
       envKeystorePath: 'fastlane/keys/$alias.jks',
       keyPropertiesStoreFile: '../fastlane/keys/$alias.jks',
     );
@@ -507,10 +719,12 @@ class _GenerateKeystoreCall {
   const _GenerateKeystoreCall({
     required this.projectPath,
     required this.keyAlias,
+    required this.storePassword,
     required this.forceRecreate,
   });
 
   final String projectPath;
   final String keyAlias;
+  final String storePassword;
   final bool forceRecreate;
 }

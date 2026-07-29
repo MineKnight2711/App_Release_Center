@@ -475,8 +475,13 @@ class AndroidCicdCloneService extends GetxService {
     }
 
     var patched = source;
-    if (!patched.contains('import java.util.Properties')) {
-      patched = 'import java.util.Properties\n\n$patched';
+    final missingImports = [
+      if (!patched.contains('import java.io.File')) 'import java.io.File',
+      if (!patched.contains('import java.util.Properties'))
+        'import java.util.Properties',
+    ];
+    if (missingImports.isNotEmpty) {
+      patched = '${missingImports.join('\n')}\n\n$patched';
     }
     patched = patched.replaceFirst(
       RegExp(r'^android\s*\{', multiLine: true),
@@ -670,13 +675,13 @@ fun nullIfBlank(value: String?): String? {
     return if (trimmed.isNullOrEmpty()) null else trimmed
 }
 
-fun resolveKeystoreFile(rawPath: String?): java.io.File? {
+fun resolveKeystoreFile(rawPath: String?): File? {
     var path = nullIfBlank(rawPath) ?: return null
     if (path.startsWith("~")) {
         path = path.replaceFirst("~", System.getProperty("user.home"))
     }
 
-    val candidate = java.io.File(path)
+    val candidate = File(path)
     return if (candidate.isAbsolute) candidate else rootProject.file(path)
 }
 
@@ -927,6 +932,19 @@ platform :android do
     write_pubspec_version(version_name: new_version_name, version_code: current[:version_code])
   end
 
+  desc "Build the release AAB without uploading it"
+  lane :build_aab do |options|
+    flavor = resolve_android_flavor(options)
+    sh(flutter_build_command(artifact: "appbundle", flavor: flavor))
+
+    aab_path = release_aab_path(flavor)
+    UI.message("Checking AAB at: #{aab_path}")
+    UI.user_error!("AAB not found at #{aab_path}") unless File.exist?(aab_path)
+    UI.success("AAB built: #{aab_path}")
+    puts "ARC_AAB_PATH:#{aab_path}"
+    aab_path
+  end
+
   desc "Upload the AAB to Google Play"
   lane :upload_to_chplay do |options|
     update_description = (options[:update_description] || ENV["UPDATE_DESCRIPTION"]).to_s.strip
@@ -976,11 +994,18 @@ platform :android do
       UI.message("Skipping Google Play listing images/app icon/screenshots upload.")
     end
 
-    sh(flutter_build_command(artifact: "appbundle", flavor: flavor))
+    skip_build_raw = (options[:skip_build] || ENV["SKIP_PLAY_BUILD"]).to_s.strip.downcase
+    skip_build = ["1", "true", "yes", "y"].include?(skip_build_raw)
+    if skip_build
+      UI.message("Using the existing AAB from the separate build step.")
+    else
+      build_aab(options)
+    end
 
     aab_path = release_aab_path(flavor)
     UI.message("Checking AAB at: #{aab_path}")
     UI.user_error!("AAB not found at #{aab_path}") unless File.exist?(aab_path)
+    puts "ARC_AAB_PATH:#{aab_path}"
 
     supply(
       track: track,

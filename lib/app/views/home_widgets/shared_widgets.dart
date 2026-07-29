@@ -395,10 +395,14 @@ class _HudCardShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final reduceMotion =
+        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
     return _PulseGlow(
-      enabled: active && AppCyberTheme.isCyber,
+      enabled: active && AppCyberTheme.isCyber && !reduceMotion,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 220),
+        duration: reduceMotion
+            ? Duration.zero
+            : const Duration(milliseconds: 220),
         curve: Curves.easeOutCubic,
         decoration: AppCyberTheme.gridShellDecoration(active: active),
         child: Stack(

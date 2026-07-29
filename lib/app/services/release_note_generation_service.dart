@@ -36,12 +36,12 @@ class ReleaseNoteGenerationService extends GetxService {
       apiKey: trimmedKey,
       input: input,
     );
-    if (_looksInternalReleaseNote(notes)) {
+    if (_shouldRetryReleaseNote(notes, appDisplayName)) {
       notes = await _requestGeminiReleaseNotes(
         apiKey: trimmedKey,
         input: _buildRetryInput(input, notes),
       );
-      if (_looksInternalReleaseNote(notes)) {
+      if (_shouldRetryReleaseNote(notes, appDisplayName)) {
         notes = _fallbackReleaseNote(appDisplayName);
       }
     }
@@ -157,6 +157,7 @@ class ReleaseNoteGenerationService extends GetxService {
       ..writeln('Release note rules:')
       ..writeln('- Start with a warm thank-you sentence using the app name.')
       ..writeln('- End with a short call to update/download and experience it.')
+      ..writeln('- Return 2-3 complete Vietnamese sentences.')
       ..writeln('- Write for app users, not developers.')
       ..writeln('- Convert technical commit subjects into user benefits.')
       ..writeln('- Never copy commit subjects verbatim.')
@@ -208,7 +209,7 @@ class ReleaseNoteGenerationService extends GetxService {
           'input': input,
           'generation_config': {
             'temperature': 0.25,
-            'max_output_tokens': 220,
+            'max_output_tokens': _geminiReleaseNoteMaxOutputTokens,
             'thinking_level': 'low',
           },
         }),
@@ -334,11 +335,20 @@ class ReleaseNoteGenerationService extends GetxService {
     return _internalReleaseNoteTerms.any(normalized.contains);
   }
 
+  bool _shouldRetryReleaseNote(String notes, String appDisplayName) {
+    return _looksInternalReleaseNote(notes) ||
+        !isUsableGeneratedReleaseNote(
+          notes: notes,
+          appDisplayName: appDisplayName,
+        );
+  }
+
   String _buildRetryInput(String input, String previousOutput) {
     return '$input\n\n'
-        'The previous output was too technical for Google Play users:\n'
+        'The previous output was incomplete or too technical for Google Play users:\n'
         '$previousOutput\n\n'
-        'Rewrite it in natural Vietnamese for end users. Do not copy commit '
+        'Rewrite it in 2-3 complete natural Vietnamese sentences for end users. '
+        'Do not stop after the thank-you sentence. Do not copy commit '
         'subjects. Do not use words like "triển khai", "kiến trúc", '
         '"refactor", "API", "service", "controller", "module", or "database". '
         'Include a thank-you opening sentence and a final update/download CTA. '
@@ -534,6 +544,37 @@ String releaseNoteAppName(String projectName) {
       .join(' ');
 }
 
+bool isUsableGeneratedReleaseNote({
+  required String notes,
+  required String appDisplayName,
+}) {
+  final trimmed = notes.trim();
+  if (trimmed.runes.length < _minimumGeneratedReleaseNoteRunes) {
+    return false;
+  }
+
+  if (_commitHashOnlyPattern.hasMatch(trimmed) ||
+      _analysisLeakPattern.hasMatch(trimmed)) {
+    return false;
+  }
+
+  final normalized = trimmed.toLowerCase();
+  final normalizedAppName = appDisplayName.trim().toLowerCase();
+  if (normalizedAppName.isNotEmpty && !normalized.contains(normalizedAppName)) {
+    return false;
+  }
+
+  if (!_releaseNoteCtaPattern.hasMatch(normalized)) {
+    return false;
+  }
+
+  if (_incompleteThankYouPattern.hasMatch(normalized)) {
+    return false;
+  }
+
+  return true;
+}
+
 Future<String?> _readAndroidStringResource(
   String projectPath,
   String name,
@@ -667,6 +708,8 @@ const _systemInstruction =
     'Unicode characters.';
 
 const _maxPromptCommitChars = 30000;
+const _geminiReleaseNoteMaxOutputTokens = 2048;
+const _minimumGeneratedReleaseNoteRunes = 45;
 const _connectionTimeout = Duration(seconds: 20);
 const _requestTimeout = Duration(seconds: 60);
 final _geminiInteractionsUri = Uri.parse(
@@ -676,6 +719,22 @@ final _geminiInteractionsUri = Uri.parse(
 final _conventionalCommitPrefixPattern = RegExp(
   r'^(?:feat|fix|chore|refactor|perf|build|ci|docs|test|style)'
   r'(?:\([^)]+\))?!?:\s*',
+  caseSensitive: false,
+);
+final _releaseNoteCtaPattern = RegExp(
+  r'(cập nhật|tải|download|trải nghiệm|khám phá)',
+  caseSensitive: false,
+);
+final _commitHashOnlyPattern = RegExp(
+  r'''^[\s`'",.;:\-\[\]()]*[0-9a-f]{6,40}[\s`'",.;:\-\[\](),]*$''',
+  caseSensitive: false,
+);
+final _analysisLeakPattern = RegExp(
+  r'(^|\n)\s*\d+\.\s+\*\*|final polish|no markdown|plain text',
+  caseSensitive: false,
+);
+final _incompleteThankYouPattern = RegExp(
+  r'cảm ơn bạn đã tin tưởng sử dụng\s*$',
   caseSensitive: false,
 );
 

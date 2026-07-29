@@ -21,6 +21,7 @@ class AndroidKeystoreGenerationService extends GetxService {
   Future<AndroidKeystoreGenerationResult> generate({
     required String projectPath,
     String keyAlias = defaultAndroidKeyAlias,
+    String? storePassword,
     bool forceRecreate = false,
     String? distinguishedName,
   }) async {
@@ -64,12 +65,7 @@ class AndroidKeystoreGenerationService extends GetxService {
       await keystoreFile.delete();
     }
 
-    final password = _passwordGenerator().trim();
-    if (password.isEmpty) {
-      throw const AndroidKeystoreGenerationException(
-        'Failed to generate a keystore password.',
-      );
-    }
+    final password = _resolvePassword(storePassword);
 
     keystoreFile.parent.createSync(recursive: true);
     final result = await _commandRunner.run(
@@ -207,6 +203,26 @@ class AndroidKeystoreGenerationService extends GetxService {
   String _normalizeAlias(String value) {
     final alias = value.trim();
     return alias.isEmpty ? defaultAndroidKeyAlias : alias;
+  }
+
+  String _resolvePassword(String? manualPassword) {
+    final manual = manualPassword?.trim() ?? '';
+    if (manual.isNotEmpty) {
+      if (manual.length < 6) {
+        throw const AndroidKeystoreGenerationException(
+          'Manual keystore password must be at least 6 characters.',
+        );
+      }
+      return manual;
+    }
+
+    final generated = _passwordGenerator().trim();
+    if (generated.isEmpty) {
+      throw const AndroidKeystoreGenerationException(
+        'Failed to generate a keystore password.',
+      );
+    }
+    return generated;
   }
 
   String _safeFileSegment(String value) {

@@ -12,9 +12,11 @@ import 'package:app_release_center/app/models/release_fastlane_lane.dart';
 import 'package:app_release_center/app/models/release_notification.dart';
 import 'package:app_release_center/app/models/release_project.dart';
 import 'package:app_release_center/app/models/release_script.dart';
+import 'package:app_release_center/app/models/release_workflow.dart';
 import 'package:app_release_center/app/services/android_cicd_clone_service.dart';
 import 'package:app_release_center/app/services/android_keystore_generation_service.dart';
 import 'package:app_release_center/app/services/release_runner_service.dart';
+import 'package:app_release_center/app/services/release_workflow_service.dart';
 import 'package:app_release_center/app/services/remote_control_service.dart';
 import 'package:app_release_center/app/services/theme_service.dart';
 import 'package:app_release_center/app/theme/cyber_theme.dart';
@@ -31,6 +33,7 @@ part 'home_widgets/log_panel.dart';
 part 'home_widgets/main_panel.dart';
 part 'home_widgets/options_panel.dart';
 part 'home_widgets/project_panel.dart';
+part 'home_widgets/release_workflow_dialog.dart';
 part 'home_widgets/shared_widgets.dart';
 
 class HomeView extends GetView<HomeController> {

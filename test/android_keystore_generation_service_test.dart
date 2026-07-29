@@ -115,6 +115,43 @@ void main() {
       },
     );
 
+    test('uses a manual password instead of generating one', () async {
+      final result = await service.generate(
+        projectPath: project.path,
+        storePassword: 'manual-pass',
+      );
+
+      expect(
+        _argumentAfter(runner.calls.single.arguments, '-storepass'),
+        'manual-pass',
+      );
+      expect(
+        _argumentAfter(runner.calls.single.arguments, '-keypass'),
+        'manual-pass',
+      );
+      expect(result.storePassword, 'manual-pass');
+      expect(result.keyPassword, 'manual-pass');
+      expect(
+        File(result.envPropertiesPath).readAsStringSync(),
+        contains('STORE_PASSWORD=manual-pass'),
+      );
+    });
+
+    test('rejects manual passwords shorter than keytool accepts', () async {
+      await expectLater(
+        service.generate(projectPath: project.path, storePassword: 'short'),
+        throwsA(
+          isA<AndroidKeystoreGenerationException>().having(
+            (error) => error.message,
+            'message',
+            contains('at least 6 characters'),
+          ),
+        ),
+      );
+
+      expect(runner.calls, isEmpty);
+    });
+
     test(
       'preserves unrelated properties while updating signing keys',
       () async {

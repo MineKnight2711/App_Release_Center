@@ -12,6 +12,7 @@ import 'package:app_release_center/app/models/release_fastlane_lane.dart';
 import 'package:app_release_center/app/models/release_notification.dart';
 import 'package:app_release_center/app/models/release_project.dart';
 import 'package:app_release_center/app/models/release_script.dart';
+import 'package:app_release_center/app/models/release_workflow.dart';
 import 'package:app_release_center/app/models/telegram_release_settings.dart';
 import 'package:app_release_center/app/services/android_cicd_clone_service.dart';
 import 'package:app_release_center/app/services/android_keystore_generation_service.dart';
@@ -28,6 +29,7 @@ import 'package:app_release_center/app/services/project_store_service.dart';
 import 'package:app_release_center/app/services/release_apk_artifact_service.dart';
 import 'package:app_release_center/app/services/release_note_generation_service.dart';
 import 'package:app_release_center/app/services/release_runner_service.dart';
+import 'package:app_release_center/app/services/release_workflow_service.dart';
 import 'package:app_release_center/app/services/script_catalog_service.dart';
 import 'package:app_release_center/app/services/telegram_release_notification_service.dart';
 import 'package:file_picker/file_picker.dart';
@@ -55,10 +57,19 @@ class HomeController extends GetxController {
     required this.chPlayInspector,
     required this.chPlayCredentialStore,
     required this.chPlayVersionChecker,
+    ReleaseWorkflowService? releaseWorkflow,
     required this.appStoreInspector,
     required this.appStoreCredentialStore,
     required this.appStoreVersionChecker,
-  });
+  }) : releaseWorkflow =
+           releaseWorkflow ??
+           ReleaseWorkflowService(
+             runner: runner,
+             catalog: catalog,
+             chPlayInspector: chPlayInspector,
+             chPlayVersionChecker: chPlayVersionChecker,
+             releaseNotesGenerator: releaseNotesGenerator,
+           );
 
   final ProjectStoreService store;
   final ScriptCatalogService catalog;
@@ -75,6 +86,7 @@ class HomeController extends GetxController {
   final ChPlayProjectInspectorService chPlayInspector;
   final ChPlayCredentialStoreService chPlayCredentialStore;
   final ChPlayVersionCheckService chPlayVersionChecker;
+  final ReleaseWorkflowService releaseWorkflow;
   final AppStoreProjectInspectorService appStoreInspector;
   final AppStoreCredentialStoreService appStoreCredentialStore;
   final AppStoreVersionCheckService appStoreVersionChecker;
@@ -474,7 +486,7 @@ class HomeController extends GetxController {
             _generatedReleaseContext!.projectPath,
             loadedProject.path,
           )) {
-        _clearGeneratedReleaseContext();
+        _clearGeneratedReleaseContext(clearReleaseNotes: true);
       }
       project.value = loadedProject;
       includeFirebaseDeploy.value = loadedProject.hasFirebaseDeployTools;
@@ -486,11 +498,11 @@ class HomeController extends GetxController {
       await store.saveProjectPath(loadedProject.path);
       recentPaths.assignAll(_initialProjectPaths());
     } on FileSystemException catch (error) {
-      _clearGeneratedReleaseContext();
+      _clearGeneratedReleaseContext(clearReleaseNotes: true);
       project.value = null;
       projectError.value = error.message;
     } catch (error) {
-      _clearGeneratedReleaseContext();
+      _clearGeneratedReleaseContext(clearReleaseNotes: true);
       project.value = null;
       projectError.value = error.toString();
     } finally {
@@ -528,6 +540,81 @@ class HomeController extends GetxController {
     );
 
     await _refreshProjectSnapshot(currentProject.path);
+  }
+
+  Future<ReleaseWorkflowRun> prepareAutomatedRelease(String track) async {
+    final currentProject = project.value;
+    if (currentProject == null) {
+      throw const ReleaseWorkflowException(
+        'Select a project before preparing a release.',
+      );
+    }
+    final managedProject = _chPlayProjectByPath(currentProject.path);
+    if (managedProject == null) {
+      throw const ReleaseWorkflowException(
+        'Add this project under Store Versions > CH Play before release.',
+      );
+    }
+    final credentials = await readChPlayCredentials(managedProject.id);
+    final shouldDeliver =
+        telegramReleaseSettings.value.autoSendEnabled ||
+        googleDriveReleaseSettings.value.sendApkLinkToTelegramEnabled;
+    return releaseWorkflow.prepare(
+      ReleaseWorkflowConfig(
+        project: currentProject,
+        playProject: managedProject,
+        credentials: credentials,
+        track: track,
+        geminiApiKey: geminiApiKeyController.text,
+        releaseNotePrompt: releaseNotePromptController.text,
+        uploadListingImages: uploadPlayListingImages.value,
+        validateListingImages: validatePlayImages.value,
+        postReleaseStepCount: 1 + (shouldDeliver ? 1 : 0),
+      ),
+    );
+  }
+
+  Future<ReleaseWorkflowRun> startAutomatedRelease() async {
+    final result = await releaseWorkflow.start(
+      postProcessor: _runAutomatedReleasePostProcessing,
+    );
+    final currentProject = project.value;
+    if (currentProject != null) {
+      await _refreshProjectSnapshot(currentProject.path);
+    }
+    return result;
+  }
+
+  Future<ReleaseWorkflowRun> retryAutomatedRelease() async {
+    final result = await releaseWorkflow.retryFailedStep();
+    final currentProject = project.value;
+    if (currentProject != null) {
+      await _refreshProjectSnapshot(currentProject.path);
+    }
+    return result;
+  }
+
+  Future<void> cancelAutomatedRelease() => releaseWorkflow.cancel();
+
+  Future<void> openReleaseArtifact(String path) async {
+    final file = File(path);
+    if (!file.existsSync()) {
+      runner.appendSystemLog('Release artifact no longer exists: $path');
+      return;
+    }
+    try {
+      if (Platform.isWindows) {
+        await Process.start('explorer.exe', ['/select,', file.path]);
+      } else if (Platform.isMacOS) {
+        await Process.start('open', ['-R', file.path]);
+      } else {
+        await Process.start('xdg-open', [file.parent.path]);
+      }
+    } on ProcessException catch (error) {
+      runner.appendSystemLog(
+        'Could not open release artifact: ${error.message}',
+      );
+    }
   }
 
   Future<void> runFastlaneLane(ReleaseFastlaneLane lane) async {
@@ -694,6 +781,7 @@ class HomeController extends GetxController {
   Future<AndroidKeystoreGenerationResult?> generateAndroidKeystore({
     String? projectPath,
     String keyAlias = defaultAndroidKeyAlias,
+    String? storePassword,
     bool forceRecreate = false,
   }) async {
     if (runner.isBusy || isGeneratingAndroidKeystore.value) return null;
@@ -715,6 +803,7 @@ class HomeController extends GetxController {
       final result = await androidKeystores.generate(
         projectPath: targetPath,
         keyAlias: keyAlias,
+        storePassword: storePassword,
         forceRecreate: forceRecreate,
       );
       runner.appendSystemLog('Android upload keystore created.');
@@ -1434,6 +1523,68 @@ class HomeController extends GetxController {
     await runner.stop();
   }
 
+  Future<ReleaseWorkflowPostResult> _runAutomatedReleasePostProcessing(
+    ReleaseWorkflowPostContext context,
+  ) async {
+    final warnings = <String>[];
+    releaseNotesController.text = context.releaseNotes;
+    _generatedReleaseContext = _GeneratedReleaseContext(
+      projectPath: context.project.path,
+      appDisplayName: context.appDisplayName,
+      version: context.fullVersion,
+    );
+    hasTelegramReleaseContext.value = true;
+
+    if (telegramReleaseSettings.value.autoSendEnabled &&
+        context.releaseNotes.trim().isNotEmpty) {
+      try {
+        await telegramReleaseNotifications.sendReleaseNote(
+          appDisplayName: context.appDisplayName,
+          version: context.fullVersion,
+          releaseNotes: context.releaseNotes,
+        );
+        runner.appendSystemLog('Release notes sent to Telegram.');
+      } catch (error) {
+        final warning = 'Telegram release note send failed: $error';
+        warnings.add(warning);
+        runner.appendSystemLog(warning);
+      }
+    }
+
+    ReleaseApkArtifact artifact;
+    try {
+      artifact = await releaseApkArtifacts.buildAndRename(
+        project: context.project,
+        appDisplayName: context.appDisplayName,
+      );
+      runner.appendSystemLog('Release APK ready: ${artifact.file.path}');
+    } catch (error) {
+      final warning = 'CH Play release succeeded, but APK build failed: $error';
+      warnings.add(warning);
+      runner.appendSystemLog(warning);
+      return ReleaseWorkflowPostResult(warning: warnings.join('\n'));
+    }
+
+    final shouldDeliver =
+        telegramReleaseSettings.value.autoSendEnabled ||
+        googleDriveReleaseSettings.value.sendApkLinkToTelegramEnabled;
+    if (shouldDeliver) {
+      final delivered = await _deliverReleaseApk(artifact);
+      if (!delivered) {
+        warnings.add(telegramReleaseStatus.value);
+      }
+    } else {
+      runner.appendSystemLog(
+        'Automatic APK delivery is disabled; APK was kept locally.',
+      );
+    }
+
+    return ReleaseWorkflowPostResult(
+      artifactPath: artifact.file.path,
+      warning: warnings.isEmpty ? null : warnings.join('\n'),
+    );
+  }
+
   Future<ReleaseApkArtifact> _buildReleaseApkArtifactForDrive({
     required ReleaseProject project,
     required String appDisplayName,
@@ -1893,9 +2044,12 @@ class HomeController extends GetxController {
     hasReleaseNoteText.value = releaseNotesController.text.trim().isNotEmpty;
   }
 
-  void _clearGeneratedReleaseContext() {
+  void _clearGeneratedReleaseContext({bool clearReleaseNotes = false}) {
     _generatedReleaseContext = null;
     hasTelegramReleaseContext.value = false;
+    if (clearReleaseNotes) {
+      releaseNotesController.clear();
+    }
   }
 
   Future<void> _loadNotificationState() async {

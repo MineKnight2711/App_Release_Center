@@ -29,6 +29,9 @@ class ChPlayVersionCheckService extends GetxService {
   Future<ChPlayVersionSnapshot> refreshProject({
     required ChPlayProject project,
     required ChPlayCredentials credentials,
+    bool clearLog = true,
+    bool allowDuringWorkflow = false,
+    bool trackWorkflowStep = true,
   }) async {
     final localVersion = await inspector.readLocalVersion(project.path);
     final checkedAt = DateTime.now();
@@ -90,7 +93,9 @@ class ChPlayVersionCheckService extends GetxService {
         executable: invocation.executable,
         arguments: invocation.arguments,
         environment: invocation.environment,
-        clearLog: true,
+        clearLog: clearLog,
+        allowDuringWorkflow: allowDuringWorkflow,
+        trackWorkflowStep: trackWorkflowStep,
       );
 
       if (result.exitCode != 0) {

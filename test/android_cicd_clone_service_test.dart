@@ -36,10 +36,36 @@ void main() {
         _draft(preview, 'android/fastlane/Fastfile').content,
         contains('flavor.empty? ? nil : flavor'),
       );
+      final fastfile = _draft(preview, 'android/fastlane/Fastfile').content;
+      expect(fastfile, contains('lane :build_aab do |options|'));
+      expect(fastfile, contains('ARC_AAB_PATH:#{aab_path}'));
+      expect(fastfile, contains('options[:skip_build]'));
+      expect(fastfile, contains('ENV["SKIP_PLAY_BUILD"]'));
       expect(
         _draft(preview, 'android/.gitignore').content,
         contains('/key.properties'),
       );
+    });
+
+    test('patches Kotlin Gradle signing with explicit File import', () async {
+      final project = _createProject(
+        tempDir,
+        _kotlinGradle(),
+        gradleFileName: 'build.gradle.kts',
+      );
+
+      final preview = await service.preview(project.path);
+
+      final gradle = _draft(preview, 'android/app/build.gradle.kts').content;
+      expect(gradle, contains('import java.io.File'));
+      expect(gradle, contains('import java.util.Properties'));
+      expect(
+        gradle,
+        contains('fun resolveKeystoreFile(rawPath: String?): File?'),
+      );
+      expect(gradle, contains('val candidate = File(path)'));
+      expect(gradle, isNot(contains('java.io.File(path)')));
+      expect(gradle, isNot(contains('rawPath: String?): java.io.File?')));
     });
 
     test('uses the only detected flavor as the default flavor', () async {
@@ -268,9 +294,13 @@ void main() {
   });
 }
 
-Directory _createProject(Directory parent, String gradleSource) {
+Directory _createProject(
+  Directory parent,
+  String gradleSource, {
+  String gradleFileName = 'build.gradle',
+}) {
   final project = _createProjectWithoutGradle(parent);
-  File(p.join(project.path, 'android', 'app', 'build.gradle'))
+  File(p.join(project.path, 'android', 'app', gradleFileName))
     ..createSync(recursive: true)
     ..writeAsStringSync(gradleSource);
   return project;
@@ -324,6 +354,29 @@ $flavors
     buildTypes {
         release {
             signingConfig signingConfigs.debug
+        }
+    }
+}
+''';
+}
+
+String _kotlinGradle({String flavors = ''}) {
+  return '''
+plugins {
+    id("com.android.application")
+}
+
+android {
+    namespace = "com.example.demo"
+    defaultConfig {
+        applicationId = "com.example.demo"
+        versionCode = flutter.versionCode
+        versionName = flutter.versionName
+    }
+$flavors
+    buildTypes {
+        release {
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
 }

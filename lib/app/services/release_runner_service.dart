@@ -68,6 +68,27 @@ class ReleaseRunnerService extends GetxService {
     return result.exitCode;
   }
 
+  Future<CommandRunResult> runWithOutput({
+    required ReleaseProject project,
+    required ReleaseScript script,
+    List<String> args = const [],
+    Map<String, String> environment = const {},
+    bool clearLog = false,
+    bool allowDuringWorkflow = false,
+  }) {
+    return _runPlan(
+      plan: _commandPlan(script, args),
+      workingDirectory: project.autoDirectory.path,
+      statusLabel: script.fileName,
+      activePath: script.path,
+      projectName: project.name,
+      environment: environment,
+      clearLog: clearLog,
+      captureOutput: true,
+      allowDuringWorkflow: allowDuringWorkflow,
+    );
+  }
+
   Future<int> runFastlaneLane({
     required ReleaseProject project,
     required ReleaseFastlaneLane lane,
@@ -107,6 +128,45 @@ class ReleaseRunnerService extends GetxService {
     return result.exitCode;
   }
 
+  Future<CommandRunResult> runFastlaneLaneWithOutput({
+    required ReleaseProject project,
+    required ReleaseFastlaneLane lane,
+    List<String> args = const [],
+    Map<String, String> environment = const {},
+    bool clearLog = false,
+    bool allowDuringWorkflow = false,
+  }) {
+    if (!project.androidDirectory.existsSync()) {
+      _append('Project does not contain an android folder.');
+      return Future.value(const CommandRunResult(exitCode: -1));
+    }
+
+    final gemfile = File(
+      p.join(project.androidDirectory.path, 'fastlane', 'Gemfile'),
+    );
+    final bundleExecutable = gemfile.existsSync() ? _bundleExecutable() : null;
+    final fastlaneEnvironment = Map<String, String>.from(environment);
+    if (bundleExecutable != null) {
+      fastlaneEnvironment['BUNDLE_GEMFILE'] = gemfile.path;
+    }
+
+    return _runPlan(
+      plan: _fastlaneCommandPlan(
+        lane,
+        args,
+        bundleExecutable: bundleExecutable,
+      ),
+      workingDirectory: project.androidDirectory.path,
+      statusLabel: lane.name,
+      activePath: lane.key,
+      projectName: project.name,
+      environment: fastlaneEnvironment,
+      clearLog: clearLog,
+      captureOutput: true,
+      allowDuringWorkflow: allowDuringWorkflow,
+    );
+  }
+
   Future<int> runCommand({
     required String workingDirectory,
     required String statusLabel,
@@ -118,6 +178,7 @@ class ReleaseRunnerService extends GetxService {
     bool clearLog = false,
     String? projectName,
     bool allowDuringWorkflow = false,
+    bool trackWorkflowStep = true,
   }) async {
     final result = await _runPlan(
       plan: CommandPlan(
@@ -132,6 +193,7 @@ class ReleaseRunnerService extends GetxService {
       environment: environment,
       clearLog: clearLog,
       allowDuringWorkflow: allowDuringWorkflow,
+      trackWorkflowStep: trackWorkflowStep,
     );
     return result.exitCode;
   }
@@ -147,6 +209,7 @@ class ReleaseRunnerService extends GetxService {
     bool clearLog = false,
     String? projectName,
     bool allowDuringWorkflow = false,
+    bool trackWorkflowStep = true,
   }) {
     return _runPlan(
       plan: CommandPlan(
@@ -162,6 +225,7 @@ class ReleaseRunnerService extends GetxService {
       clearLog: clearLog,
       captureOutput: true,
       allowDuringWorkflow: allowDuringWorkflow,
+      trackWorkflowStep: trackWorkflowStep,
     );
   }
 
@@ -252,6 +316,7 @@ class ReleaseRunnerService extends GetxService {
     required bool clearLog,
     bool captureOutput = false,
     bool allowDuringWorkflow = false,
+    bool trackWorkflowStep = true,
   }) async {
     if (isRunning.value || (isWorkflowRunning.value && !allowDuringWorkflow)) {
       _append('A script is already running.');
@@ -266,11 +331,13 @@ class ReleaseRunnerService extends GetxService {
       ..addAll(_plainLogEnvironment)
       ..addAll(environment);
 
-    final ownsWorkflow = !isWorkflowRunning.value;
+    final ownsWorkflow = trackWorkflowStep && !isWorkflowRunning.value;
     if (ownsWorkflow) {
       beginWorkflow(totalSteps: 1, label: statusLabel);
     }
-    beginWorkflowStep(statusLabel);
+    if (trackWorkflowStep) {
+      beginWorkflowStep(statusLabel);
+    }
     var commandSucceeded = false;
     isRunning.value = true;
     status.value = 'Running $statusLabel';
@@ -371,7 +438,9 @@ class ReleaseRunnerService extends GetxService {
       );
       return CommandRunResult(exitCode: -1, output: capturedOutput.toString());
     } finally {
-      completeWorkflowStep(success: commandSucceeded);
+      if (trackWorkflowStep) {
+        completeWorkflowStep(success: commandSucceeded);
+      }
       if (ownsWorkflow) {
         finishWorkflow(success: commandSucceeded);
       }

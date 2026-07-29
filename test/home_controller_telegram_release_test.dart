@@ -110,6 +110,7 @@ void main() {
       ).create();
       await harness.controller.loadProject(otherProject.path);
       expect(harness.controller.hasTelegramReleaseContext.value, isFalse);
+      expect(harness.controller.releaseNotesController.text, isEmpty);
 
       await harness.controller.sendCurrentReleaseNoteToTelegram();
       expect(harness.telegramClient.requests, hasLength(1));

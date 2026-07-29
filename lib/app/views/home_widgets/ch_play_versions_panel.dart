@@ -5,101 +5,147 @@ class _StoreVersionsPanel extends GetView<HomeController> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxHeight < 140;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (compact)
+              _buildCompactToolbar(context)
+            else ...[
+              Row(
+                children: [
+                  Expanded(child: _buildProjectCount()),
+                  _buildRefreshButton(compact: false),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  FilledButton.icon(
+                    onPressed: () => _addChPlayProject(context),
+                    icon: const Icon(Icons.android_outlined),
+                    label: const Text('Add CH Play'),
+                  ),
+                  FilledButton.tonalIcon(
+                    onPressed: () => _addAppStoreProject(context),
+                    icon: const Icon(Icons.apple),
+                    label: const Text('Add App Store'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+            ],
             Expanded(
               child: Obx(() {
-                final chPlayCount = controller.chPlayProjects.length;
-                final appStoreCount = controller.appStoreProjects.length;
-                final count = chPlayCount + appStoreCount;
-                final label = count == 0
-                    ? 'No managed projects'
-                    : '$count projects';
-                return Text(
-                  label,
-                  style: AppCyberTheme.dataTextStyle(
-                    size: 11.5,
-                    color: AppCyberTheme.textMuted,
-                    weight: FontWeight.w600,
-                  ),
+                final chPlayProjects = controller.chPlayProjects.toList();
+                final appStoreProjects = controller.appStoreProjects.toList();
+                final itemCount =
+                    chPlayProjects.length + appStoreProjects.length;
+                if (itemCount == 0) {
+                  return Center(
+                    child: Text(
+                      'No managed store projects',
+                      style: AppCyberTheme.dataTextStyle(
+                        color: AppCyberTheme.textMuted,
+                      ),
+                    ),
+                  );
+                }
+
+                return ListView.separated(
+                  itemCount: itemCount,
+                  separatorBuilder: (context, index) =>
+                      const SizedBox(height: 10),
+                  itemBuilder: (context, index) {
+                    if (index < chPlayProjects.length) {
+                      final project = chPlayProjects[index];
+                      return _ChPlayProjectCard(project: project);
+                    }
+
+                    final project =
+                        appStoreProjects[index - chPlayProjects.length];
+                    return _AppStoreProjectCard(project: project);
+                  },
                 );
               }),
             ),
-            Obx(() {
-              final disabled =
-                  controller.runner.isBusy ||
-                  controller.isRefreshingChPlay.value ||
-                  controller.isRefreshingAppStore.value;
-              return OutlinedButton.icon(
-                onPressed: disabled ? null : controller.refreshAllStoreProjects,
-                icon:
-                    controller.isRefreshingChPlay.value ||
-                        controller.isRefreshingAppStore.value
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.refresh_outlined),
-                label: const Text('Refresh all'),
-              );
-            }),
           ],
-        ),
-        const SizedBox(height: 10),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            FilledButton.icon(
-              onPressed: () => _addChPlayProject(context),
-              icon: const Icon(Icons.android_outlined),
-              label: const Text('Add CH Play'),
-            ),
-            FilledButton.tonalIcon(
-              onPressed: () => _addAppStoreProject(context),
-              icon: const Icon(Icons.apple),
-              label: const Text('Add App Store'),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        Expanded(
-          child: Obx(() {
-            final chPlayProjects = controller.chPlayProjects.toList();
-            final appStoreProjects = controller.appStoreProjects.toList();
-            final itemCount = chPlayProjects.length + appStoreProjects.length;
-            if (itemCount == 0) {
-              return Center(
-                child: Text(
-                  'No managed store projects',
-                  style: AppCyberTheme.dataTextStyle(
-                    color: AppCyberTheme.textMuted,
-                  ),
-                ),
-              );
-            }
-
-            return ListView.separated(
-              itemCount: itemCount,
-              separatorBuilder: (context, index) => const SizedBox(height: 10),
-              itemBuilder: (context, index) {
-                if (index < chPlayProjects.length) {
-                  final project = chPlayProjects[index];
-                  return _ChPlayProjectCard(project: project);
-                }
-
-                final project = appStoreProjects[index - chPlayProjects.length];
-                return _AppStoreProjectCard(project: project);
-              },
-            );
-          }),
-        ),
-      ],
+        );
+      },
     );
+  }
+
+  Widget _buildCompactToolbar(BuildContext context) {
+    return SizedBox(
+      height: 40,
+      child: Row(
+        children: [
+          Expanded(child: _buildProjectCount()),
+          _buildRefreshButton(compact: true),
+          IconButton(
+            tooltip: 'Add CH Play',
+            visualDensity: VisualDensity.compact,
+            onPressed: () => _addChPlayProject(context),
+            icon: const Icon(Icons.android_outlined),
+          ),
+          IconButton(
+            tooltip: 'Add App Store',
+            visualDensity: VisualDensity.compact,
+            onPressed: () => _addAppStoreProject(context),
+            icon: const Icon(Icons.apple),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProjectCount() {
+    return Obx(() {
+      final count =
+          controller.chPlayProjects.length + controller.appStoreProjects.length;
+      return Text(
+        count == 0 ? 'No managed projects' : '$count projects',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: AppCyberTheme.dataTextStyle(
+          size: 11.5,
+          color: AppCyberTheme.textMuted,
+          weight: FontWeight.w600,
+        ),
+      );
+    });
+  }
+
+  Widget _buildRefreshButton({required bool compact}) {
+    return Obx(() {
+      final refreshing =
+          controller.isRefreshingChPlay.value ||
+          controller.isRefreshingAppStore.value;
+      final disabled = controller.runner.isBusy || refreshing;
+      final icon = refreshing
+          ? const SizedBox.square(
+              dimension: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : const Icon(Icons.refresh_outlined);
+      if (compact) {
+        return IconButton(
+          tooltip: 'Refresh all',
+          visualDensity: VisualDensity.compact,
+          onPressed: disabled ? null : controller.refreshAllStoreProjects,
+          icon: icon,
+        );
+      }
+      return OutlinedButton.icon(
+        onPressed: disabled ? null : controller.refreshAllStoreProjects,
+        icon: icon,
+        label: const Text('Refresh all'),
+      );
+    });
   }
 
   Future<void> _addChPlayProject(BuildContext context) async {
@@ -861,6 +907,7 @@ Future<void> _showChPlayCredentialsDialog(
   if (!context.mounted) return;
 
   final jksController = TextEditingController(text: credentials.jksPath ?? '');
+  final jksPasswordController = TextEditingController();
   final aliasController = TextEditingController(
     text: credentials.keyAlias ?? '',
   );
@@ -953,6 +1000,17 @@ Future<void> _showChPlayCredentialsDialog(
                         ),
                       ),
                     ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: jksPasswordController,
+                      obscureText: true,
+                      enableSuggestions: false,
+                      autocorrect: false,
+                      decoration: const InputDecoration(
+                        labelText: 'JKS password',
+                        prefixIcon: Icon(Icons.password_outlined),
+                      ),
+                    ),
                     const SizedBox(height: 8),
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
@@ -980,6 +1038,18 @@ Future<void> _showChPlayCredentialsDialog(
                                   controller.isGeneratingAndroidKeystore.value
                               ? null
                               : () async {
+                                  final manualPassword = jksPasswordController
+                                      .text
+                                      .trim();
+                                  if (manualPassword.isNotEmpty &&
+                                      manualPassword.length < 6) {
+                                    setState(() {
+                                      validationError =
+                                          'JKS password must be at least 6 characters.';
+                                    });
+                                    return;
+                                  }
+
                                   setState(() {
                                     isGeneratingJks = true;
                                     validationError = null;
@@ -988,6 +1058,7 @@ Future<void> _showChPlayCredentialsDialog(
                                       .generateAndroidKeystore(
                                         projectPath: project.path,
                                         keyAlias: aliasController.text.trim(),
+                                        storePassword: manualPassword,
                                         forceRecreate: forceRecreateJks,
                                       );
                                   if (!dialogContext.mounted) return;
@@ -995,6 +1066,8 @@ Future<void> _showChPlayCredentialsDialog(
                                     setState(() {
                                       jksController.text = result.keystorePath;
                                       aliasController.text = result.keyAlias;
+                                      jksPasswordController.text =
+                                          result.storePassword;
                                       storePasswordController.text =
                                           result.storePassword;
                                       keyPasswordController.text =
@@ -1135,6 +1208,7 @@ Future<void> _showChPlayCredentialsDialog(
 
   jsonController.dispose();
   jksController.dispose();
+  jksPasswordController.dispose();
   aliasController.dispose();
   storePasswordController.dispose();
   keyPasswordController.dispose();

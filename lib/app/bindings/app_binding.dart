@@ -17,6 +17,7 @@ import 'package:app_release_center/app/services/project_store_service.dart';
 import 'package:app_release_center/app/services/release_apk_artifact_service.dart';
 import 'package:app_release_center/app/services/release_note_generation_service.dart';
 import 'package:app_release_center/app/services/release_runner_service.dart';
+import 'package:app_release_center/app/services/release_workflow_service.dart';
 import 'package:app_release_center/app/services/remote_control_service.dart';
 import 'package:app_release_center/app/services/script_catalog_service.dart';
 import 'package:app_release_center/app/services/theme_service.dart';
@@ -125,6 +126,16 @@ class AppBinding extends Bindings {
       ),
       permanent: true,
     );
+    Get.put<ReleaseWorkflowService>(
+      ReleaseWorkflowService(
+        runner: Get.find<ReleaseRunnerService>(),
+        catalog: Get.find<ScriptCatalogService>(),
+        chPlayInspector: Get.find<ChPlayProjectInspectorService>(),
+        chPlayVersionChecker: Get.find<ChPlayVersionCheckService>(),
+        releaseNotesGenerator: Get.find<ReleaseNoteGenerationService>(),
+      ),
+      permanent: true,
+    );
     Get.put<AppStoreProjectInspectorService>(
       AppStoreProjectInspectorService(),
       permanent: true,
@@ -162,6 +173,7 @@ class AppBinding extends Bindings {
         chPlayInspector: Get.find<ChPlayProjectInspectorService>(),
         chPlayCredentialStore: Get.find<ChPlayCredentialStoreService>(),
         chPlayVersionChecker: Get.find<ChPlayVersionCheckService>(),
+        releaseWorkflow: Get.find<ReleaseWorkflowService>(),
         appStoreInspector: Get.find<AppStoreProjectInspectorService>(),
         appStoreCredentialStore: Get.find<AppStoreCredentialStoreService>(),
         appStoreVersionChecker: Get.find<AppStoreVersionCheckService>(),

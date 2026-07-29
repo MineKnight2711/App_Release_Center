@@ -114,4 +114,48 @@ void main() {
       },
     );
   });
+
+  group('generated release note validation', () {
+    test('accepts complete user-facing notes', () {
+      expect(
+        isUsableGeneratedReleaseNote(
+          notes:
+              'Cảm ơn bạn đã tin tưởng sử dụng VNeTrip. Phiên bản mới cải thiện '
+              'trải nghiệm tìm đường và hỗ trợ đa ngôn ngữ thuận tiện hơn. '
+              'Hãy cập nhật phiên bản mới để trải nghiệm nhé.',
+          appDisplayName: 'VNeTrip',
+        ),
+        isTrue,
+      );
+    });
+
+    test('rejects truncated thank-you openings', () {
+      expect(
+        isUsableGeneratedReleaseNote(
+          notes: 'Cảm ơn bạn đã tin tưởng sử dụng',
+          appDisplayName: 'VNeTrip',
+        ),
+        isFalse,
+      );
+    });
+
+    test('rejects hash-only and planning leak outputs', () {
+      expect(
+        isUsableGeneratedReleaseNote(
+          notes: '`1f4ef85`, `',
+          appDisplayName: 'VNeTrip',
+        ),
+        isFalse,
+      );
+      expect(
+        isUsableGeneratedReleaseNote(
+          notes:
+              '4. **Final Polish (No markdown, plain text):**\n'
+              'Cảm ơn bạn đã tin tưởng sử dụng VNeTrip.',
+          appDisplayName: 'VNeTrip',
+        ),
+        isFalse,
+      );
+    });
+  });
 }
