@@ -63,10 +63,46 @@ void main() {
       harness.client.uploads.single.fileName,
       'FizaHUB_v2.0.1_21_07_2026.apk',
     );
+    expect(
+      harness.client.uploads.single.contentType,
+      'application/vnd.android.package-archive',
+    );
     expect(harness.client.sharedFileIds, ['file-id']);
     expect(result.downloadUrl, 'https://drive.google.com/file/d/file-id/view');
     expect(result.fileSizeBytes, 3);
     expect(await harness.credentials.readCredentialsJson(), 'updated-json');
+  });
+
+  test('generic artifact upload supports installer content type', () async {
+    final harness = await _DriveHarness.create();
+    await harness.saveConnectedSettings(folderId: 'folder-id');
+    final temp = await Directory.systemTemp.createTemp('arc_drive_upload_');
+    addTearDown(() => temp.delete(recursive: true));
+    final installer = await File(
+      p.join(temp.path, 'AppReleaseCenter_Setup_v0.1.0.exe'),
+    ).writeAsBytes([1, 2, 3]);
+
+    final result = await harness.service.uploadReleaseArtifact(
+      file: installer,
+      contentType: 'application/vnd.microsoft.portable-executable',
+      appDisplayName: 'App Release Center',
+      version: '0.1.0+1',
+      buildDate: DateTime(2026, 8, 3),
+    );
+
+    expect(harness.client.uploads.single.folderId, 'folder-id');
+    expect(
+      harness.client.uploads.single.fileName,
+      'AppReleaseCenter_Setup_v0.1.0.exe',
+    );
+    expect(
+      harness.client.uploads.single.contentType,
+      'application/vnd.microsoft.portable-executable',
+    );
+    expect(harness.client.sharedFileIds, ['file-id']);
+    expect(result.fileName, 'AppReleaseCenter_Setup_v0.1.0.exe');
+    expect(result.appDisplayName, 'App Release Center');
+    expect(result.version, '0.1.0+1');
   });
 
   test('requires Drive credentials before upload', () async {
@@ -439,10 +475,12 @@ class _FakeGoogleDriveUpload {
   const _FakeGoogleDriveUpload({
     required this.fileName,
     required this.folderId,
+    required this.contentType,
   });
 
   final String fileName;
   final String folderId;
+  final String contentType;
 }
 
 class _FakeGoogleDriveApiClient implements GoogleDriveApiClient {
@@ -465,14 +503,21 @@ class _FakeGoogleDriveApiClient implements GoogleDriveApiClient {
   }
 
   @override
-  Future<GoogleDriveRemoteFile> uploadApk({
+  Future<GoogleDriveRemoteFile> uploadFile({
     required File file,
     required String fileName,
     required String folderId,
+    required String contentType,
   }) async {
     final currentError = error;
     if (currentError != null) throw currentError;
-    uploads.add(_FakeGoogleDriveUpload(fileName: fileName, folderId: folderId));
+    uploads.add(
+      _FakeGoogleDriveUpload(
+        fileName: fileName,
+        folderId: folderId,
+        contentType: contentType,
+      ),
+    );
     return const GoogleDriveRemoteFile(
       id: 'file-id',
       name: 'FizaHUB_v2.0.1_21_07_2026.apk',

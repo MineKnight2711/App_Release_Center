@@ -148,7 +148,7 @@ class DartTelegramHttpClient implements TelegramHttpClient {
       );
     } on FileSystemException catch (error) {
       throw TelegramReleaseNotificationException(
-        'Failed to read APK for Telegram upload: ${error.message}',
+        'Failed to read file for Telegram upload: ${error.message}',
       );
     } on HttpException {
       throw const TelegramReleaseNotificationException(
@@ -250,48 +250,42 @@ class TelegramReleaseNotificationService extends GetxService {
     required String version,
     required DateTime buildDate,
   }) async {
-    if (!apkFile.existsSync()) {
-      throw const TelegramReleaseNotificationException(
-        'Release APK file does not exist.',
-      );
-    }
-    final fileSize = await apkFile.length();
-    if (fileSize > telegramDocumentMaxBytes) {
-      throw TelegramReleaseNotificationException(
-        'APK is ${_formatMegabytes(fileSize)} MB; Telegram Bot API allows '
-        'documents up to 50 MB.',
-      );
-    }
-
-    final currentSettings = settings;
-    final chatId = currentSettings.chatId.trim();
-    if (chatId.isEmpty) {
-      throw const TelegramReleaseNotificationException(
-        'Telegram chat ID is required.',
-      );
-    }
-    final token = (await readBotToken())?.trim() ?? '';
-    if (token.isEmpty) {
-      throw const TelegramReleaseNotificationException(
-        'Telegram bot token is required.',
-      );
-    }
-
     final day = buildDate.day.toString().padLeft(2, '0');
     final month = buildDate.month.toString().padLeft(2, '0');
     final caption =
         '📦 APK ${appDisplayName.trim()}\n'
         '🏷 Phiên bản: ${version.trim()}\n'
         '📅 Ngày build: $day/$month/${buildDate.year}';
-    final response = await _httpClient.postMultipartFile(
-      Uri.https('api.telegram.org', '/bot$token/sendDocument'),
-      fields: {'chat_id': chatId, 'caption': caption},
-      fileField: 'document',
+    return _sendDocument(
       file: apkFile,
       fileName: p.basename(apkFile.path),
-      contentType: 'application/vnd.android.package-archive',
+      caption: caption,
+      contentType: androidApkContentType,
+      missingFileMessage: 'Release APK file does not exist.',
+      oversizedFileLabel: 'APK',
     );
-    _ensureTelegramSuccess(response, token);
+  }
+
+  Future<void> sendReleaseInstaller({
+    required File installerFile,
+    required String appDisplayName,
+    required String version,
+    required DateTime buildDate,
+  }) {
+    final day = buildDate.day.toString().padLeft(2, '0');
+    final month = buildDate.month.toString().padLeft(2, '0');
+    final caption =
+        'Installer: ${appDisplayName.trim()}\n'
+        'Version: ${version.trim()}\n'
+        'Build date: $day/$month/${buildDate.year}';
+    return _sendDocument(
+      file: installerFile,
+      fileName: p.basename(installerFile.path),
+      caption: caption,
+      contentType: windowsInstallerContentType,
+      missingFileMessage: 'Windows installer file does not exist.',
+      oversizedFileLabel: 'Installer',
+    );
   }
 
   Future<void> sendReleaseApkLink({
@@ -342,6 +336,97 @@ class TelegramReleaseNotificationService extends GetxService {
         '$trimmedUrl'
         '${trimmedReleaseNotes.isEmpty ? '' : '\n\nRelease notes:\n$trimmedReleaseNotes'}';
     return _sendText(message);
+  }
+
+  Future<void> sendReleaseInstallerLink({
+    required String appDisplayName,
+    required String version,
+    required String fileName,
+    required int fileSizeBytes,
+    required String downloadUrl,
+    bool oversized = false,
+  }) {
+    final trimmedAppName = appDisplayName.trim();
+    final trimmedVersion = version.trim();
+    final trimmedFileName = fileName.trim();
+    final trimmedUrl = downloadUrl.trim();
+    if (trimmedAppName.isEmpty) {
+      throw const TelegramReleaseNotificationException(
+        'App display name is required.',
+      );
+    }
+    if (trimmedVersion.isEmpty) {
+      throw const TelegramReleaseNotificationException(
+        'Installer version is required.',
+      );
+    }
+    if (trimmedFileName.isEmpty) {
+      throw const TelegramReleaseNotificationException(
+        'Installer file name is required.',
+      );
+    }
+    if (trimmedUrl.isEmpty) {
+      throw const TelegramReleaseNotificationException(
+        'Google Drive download link is required.',
+      );
+    }
+
+    final intro = oversized
+        ? 'Installer is over Telegram 50 MB limit, so it was uploaded to Google Drive.'
+        : 'Windows installer uploaded to Google Drive.';
+    final message =
+        '$intro\n\n'
+        'App: $trimmedAppName\n'
+        'Version: $trimmedVersion\n'
+        'File: $trimmedFileName\n'
+        'Size: ${_formatMegabytes(fileSizeBytes)} MB\n\n'
+        'Download link:\n'
+        '$trimmedUrl';
+    return _sendText(message);
+  }
+
+  Future<void> _sendDocument({
+    required File file,
+    required String fileName,
+    required String caption,
+    required String contentType,
+    required String missingFileMessage,
+    required String oversizedFileLabel,
+  }) async {
+    if (!file.existsSync()) {
+      throw TelegramReleaseNotificationException(missingFileMessage);
+    }
+    final fileSize = await file.length();
+    if (fileSize > telegramDocumentMaxBytes) {
+      throw TelegramReleaseNotificationException(
+        '$oversizedFileLabel is ${_formatMegabytes(fileSize)} MB; Telegram Bot API allows '
+        'documents up to 50 MB.',
+      );
+    }
+
+    final currentSettings = settings;
+    final chatId = currentSettings.chatId.trim();
+    if (chatId.isEmpty) {
+      throw const TelegramReleaseNotificationException(
+        'Telegram chat ID is required.',
+      );
+    }
+    final token = (await readBotToken())?.trim() ?? '';
+    if (token.isEmpty) {
+      throw const TelegramReleaseNotificationException(
+        'Telegram bot token is required.',
+      );
+    }
+
+    final response = await _httpClient.postMultipartFile(
+      Uri.https('api.telegram.org', '/bot$token/sendDocument'),
+      fields: {'chat_id': chatId, 'caption': caption},
+      fileField: 'document',
+      file: file,
+      fileName: fileName,
+      contentType: contentType,
+    );
+    _ensureTelegramSuccess(response, token);
   }
 
   Future<void> _sendText(String text) async {
@@ -421,6 +506,9 @@ class TelegramReleaseNotificationException implements Exception {
 
 const telegramMessageCharacterLimit = 4096;
 const telegramDocumentMaxBytes = 50 * 1024 * 1024;
+const androidApkContentType = 'application/vnd.android.package-archive';
+const windowsInstallerContentType =
+    'application/vnd.microsoft.portable-executable';
 const _connectionTimeout = Duration(seconds: 20);
 const _requestTimeout = Duration(seconds: 30);
 const _uploadRequestTimeout = Duration(minutes: 5);

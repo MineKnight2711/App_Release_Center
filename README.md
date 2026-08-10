@@ -16,6 +16,28 @@ Desktop release automation console with an Android remote-control surface.
 Remote shell execution is constrained to recent project folders plus any roots
 saved in Remote Control > Allowed roots.
 
+## Firebase Auth and Teams
+
+The Windows desktop app can use Firebase Auth and Cloud Firestore for team
+login and shared HTTP Tools.
+
+1. Create a Firebase project, enable Email/Password sign-in, and enable Cloud
+   Firestore.
+2. Copy `.env.example` to `.env` and fill the `FIREBASE_*` values.
+3. Deploy `firestore.rules` to the same Firebase project.
+4. Start the app. The first user can register and create a team as Admin.
+5. Admin users can open the Team menu in the app header to create invite codes
+   for Admin or Dev members.
+
+HTTP Tool collections, folders, requests, and environments are shared per team.
+HTTP response history stays local on each machine.
+
+For Windows release/installer builds, `installer\windows\build_installer.ps1`
+copies only the `FIREBASE_*` values from `.env` or process environment into a
+generated `firebase.env` beside the installed executable. It deliberately does
+not package the full `.env`, so secrets such as `GEMINI_API_KEY` are not bundled.
+You can also compile Firebase config directly with `--dart-define` values.
+
 ## Telegram Release Notes
 
 1. Create a bot with `@BotFather` by running `/newbot` and keep its token
@@ -93,11 +115,18 @@ runtime under `%LOCALAPPDATA%\Programs\App Release Center`, creates Desktop and
 Start Menu shortcuts, and registers an uninstall entry without requiring
 administrator permission.
 
+To build and deliver the installer from the app, select this App Release Center
+repo in the Project panel, configure Telegram, then use Options > Telegram >
+Windows installer > Build/Send Installer. Installers up to Telegram's 50 MB Bot
+API document limit are uploaded directly. Larger installers are uploaded with
+the existing Google Drive connection and sent to Telegram as a Drive link.
+
 ## Checks
 
 ```powershell
 flutter analyze
 flutter test
+flutter build windows --release
 flutter build apk --debug
 cd serverless\notifications
 npm test -- --runInBand

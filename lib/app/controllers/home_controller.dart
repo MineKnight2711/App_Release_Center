@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:app_release_center/app/data/release_center_connect.dart';
@@ -7,12 +8,15 @@ import 'package:app_release_center/app/models/app_store_version_snapshot.dart';
 import 'package:app_release_center/app/models/ch_play_credentials.dart';
 import 'package:app_release_center/app/models/ch_play_project.dart';
 import 'package:app_release_center/app/models/ch_play_version_snapshot.dart';
+import 'package:app_release_center/app/models/cicd_dependency.dart';
 import 'package:app_release_center/app/models/google_drive_release_settings.dart';
 import 'package:app_release_center/app/models/release_fastlane_lane.dart';
 import 'package:app_release_center/app/models/release_notification.dart';
 import 'package:app_release_center/app/models/release_project.dart';
 import 'package:app_release_center/app/models/release_script.dart';
 import 'package:app_release_center/app/models/release_workflow.dart';
+import 'package:app_release_center/app/models/resource_catalog.dart';
+import 'package:app_release_center/app/models/resource_collection.dart';
 import 'package:app_release_center/app/models/telegram_release_settings.dart';
 import 'package:app_release_center/app/services/android_cicd_clone_service.dart';
 import 'package:app_release_center/app/services/android_keystore_generation_service.dart';
@@ -22,23 +26,37 @@ import 'package:app_release_center/app/services/app_store_version_check_service.
 import 'package:app_release_center/app/services/ch_play_credential_store_service.dart';
 import 'package:app_release_center/app/services/ch_play_project_inspector_service.dart';
 import 'package:app_release_center/app/services/ch_play_version_check_service.dart';
+import 'package:app_release_center/app/services/cicd_dependency_doctor_service.dart';
+import 'package:app_release_center/app/services/cicd_dependency_installer_service.dart';
 import 'package:app_release_center/app/services/command_notification_service.dart';
 import 'package:app_release_center/app/services/gemini_env_service.dart';
 import 'package:app_release_center/app/services/google_drive_release_upload_service.dart';
 import 'package:app_release_center/app/services/project_store_service.dart';
 import 'package:app_release_center/app/services/release_apk_artifact_service.dart';
+import 'package:app_release_center/app/services/release_installer_artifact_service.dart';
 import 'package:app_release_center/app/services/release_note_generation_service.dart';
 import 'package:app_release_center/app/services/release_runner_service.dart';
 import 'package:app_release_center/app/services/release_workflow_service.dart';
+import 'package:app_release_center/app/services/resource_catalog_crypto_service.dart';
+import 'package:app_release_center/app/services/resource_catalog_excel_service.dart';
+import 'package:app_release_center/app/services/resource_catalog_password_store_service.dart';
+import 'package:app_release_center/app/services/resource_credential_resolver.dart';
+import 'package:app_release_center/app/services/resource_discovery_service.dart';
+import 'package:app_release_center/app/services/resource_export_service.dart';
 import 'package:app_release_center/app/services/script_catalog_service.dart';
 import 'package:app_release_center/app/services/telegram_release_notification_service.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:file_selector/file_selector.dart' as file_selector;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:path/path.dart' as p;
+import 'package:url_launcher/url_launcher.dart';
+import 'package:uuid/uuid.dart';
 
 enum PlayUploadChoice { ask, upload, skip }
+
+enum ResourcePanelMode { catalog, collector }
 
 class HomeController extends GetxController {
   HomeController({
@@ -52,6 +70,7 @@ class HomeController extends GetxController {
     required this.geminiEnv,
     required this.releaseNotesGenerator,
     required this.releaseApkArtifacts,
+    required this.releaseInstallerArtifacts,
     required this.telegramReleaseNotifications,
     required this.googleDriveReleaseUploads,
     required this.chPlayInspector,
@@ -61,6 +80,14 @@ class HomeController extends GetxController {
     required this.appStoreInspector,
     required this.appStoreCredentialStore,
     required this.appStoreVersionChecker,
+    ResourceDiscoveryService? resourceDiscovery,
+    ResourceExportService? resourceExports,
+    ResourceCredentialResolver? resourceCredentials,
+    ResourceCatalogPasswordStoreService? resourceCatalogPasswords,
+    ResourceCatalogExcelService? resourceCatalogExcel,
+    CiCdDependencyDoctorService? cicdDoctor,
+    CiCdDependencyInstallerService? cicdInstaller,
+    Uuid? uuid,
   }) : releaseWorkflow =
            releaseWorkflow ??
            ReleaseWorkflowService(
@@ -69,7 +96,25 @@ class HomeController extends GetxController {
              chPlayInspector: chPlayInspector,
              chPlayVersionChecker: chPlayVersionChecker,
              releaseNotesGenerator: releaseNotesGenerator,
-           );
+           ),
+       resourceDiscovery = resourceDiscovery ?? ResourceDiscoveryService(),
+       resourceExports = resourceExports ?? ResourceExportService(),
+       resourceCredentials =
+           resourceCredentials ??
+           ResourceCredentialResolver(store: chPlayCredentialStore),
+       cicdDoctor = cicdDoctor ?? CiCdDependencyDoctorService(),
+       cicdInstaller = cicdInstaller ?? const CiCdDependencyInstallerService() {
+    final passwordStore =
+        resourceCatalogPasswords ?? ResourceCatalogPasswordStoreService();
+    this.resourceCatalogPasswords = passwordStore;
+    this.resourceCatalogExcel =
+        resourceCatalogExcel ??
+        ResourceCatalogExcelService(
+          crypto: ResourceCatalogCryptoService(env: geminiEnv),
+          passwordStore: passwordStore,
+        );
+    _uuid = uuid ?? const Uuid();
+  }
 
   final ProjectStoreService store;
   final ScriptCatalogService catalog;
@@ -81,6 +126,7 @@ class HomeController extends GetxController {
   final GeminiEnvService geminiEnv;
   final ReleaseNoteGenerationService releaseNotesGenerator;
   final ReleaseApkArtifactService releaseApkArtifacts;
+  final ReleaseInstallerArtifactService releaseInstallerArtifacts;
   final TelegramReleaseNotificationService telegramReleaseNotifications;
   final GoogleDriveReleaseUploadService googleDriveReleaseUploads;
   final ChPlayProjectInspectorService chPlayInspector;
@@ -90,6 +136,14 @@ class HomeController extends GetxController {
   final AppStoreProjectInspectorService appStoreInspector;
   final AppStoreCredentialStoreService appStoreCredentialStore;
   final AppStoreVersionCheckService appStoreVersionChecker;
+  final ResourceDiscoveryService resourceDiscovery;
+  final ResourceExportService resourceExports;
+  final ResourceCredentialResolver resourceCredentials;
+  final CiCdDependencyDoctorService cicdDoctor;
+  final CiCdDependencyInstallerService cicdInstaller;
+  late final ResourceCatalogPasswordStoreService resourceCatalogPasswords;
+  late final ResourceCatalogExcelService resourceCatalogExcel;
+  late final Uuid _uuid;
 
   final project = Rxn<ReleaseProject>();
   final recentPaths = <String>[].obs;
@@ -120,6 +174,8 @@ class HomeController extends GetxController {
   final hasReleaseNoteText = false.obs;
   final hasTelegramReleaseContext = false.obs;
   final telegramReleaseStatus = ''.obs;
+  final isBuildingInstaller = false.obs;
+  final installerDeliveryStatus = ''.obs;
   final googleDriveReleaseSettings = const GoogleDriveReleaseSettings().obs;
   final isConnectingGoogleDrive = false.obs;
   final isTestingGoogleDrive = false.obs;
@@ -128,6 +184,42 @@ class HomeController extends GetxController {
   final hasGoogleDriveOAuthClientSecret = false.obs;
   final hasGoogleDriveCredentials = false.obs;
   final googleDriveReleaseStatus = ''.obs;
+  final resourceCollectionSettings = const ResourceCollectionSettings().obs;
+  final resourcePreset = ResourceCollectionPreset.allRecommended.obs;
+  final resourceCustomKinds = <ResourceTargetKind>{
+    ...resourceRecommendedTargetKinds,
+  }.obs;
+  final resourceFindings = <ResourceFinding>[].obs;
+  final selectedResourceFindingIds = <String>{}.obs;
+  final resourceExcludedPaths = <String>[].obs;
+  final isScanningResources = false.obs;
+  final isExportingResources = false.obs;
+  final resourceIncludeSigningCredentials = true.obs;
+  final resourceSigningCredentials =
+      <String, SigningCredentialBundleEntry>{}.obs;
+  final activeResourceSigningFindingId = ''.obs;
+  final resourceStatus = ''.obs;
+  final resourcePanelMode = ResourcePanelMode.catalog.obs;
+  final resourceCatalogItems = <ResourceCatalogItem>[].obs;
+  final resourcePasswordEntries = <ResourcePasswordEntry>[].obs;
+  final selectedResourceCatalogKind = Rxn<ResourceCatalogKind>();
+  final resourceCatalogSearch = ''.obs;
+  final revealedResourcePasswordIds = <String>{}.obs;
+  final revealedResourcePasswords = <String, String>{}.obs;
+  final isExportingResourceCatalog = false.obs;
+  final isImportingResourceCatalog = false.obs;
+  final resourceCatalogStatus = ''.obs;
+  final cicdDependencySnapshot = Rxn<CiCdDependencySnapshot>();
+  final selectedCiCdSetupGroups = <CiCdSetupGroup>{
+    CiCdSetupGroup.core,
+    CiCdSetupGroup.android,
+    CiCdSetupGroup.rubyFastlane,
+  }.obs;
+  final cicdInstallSteps = <CiCdInstallStep>[].obs;
+  final selectedCiCdInstallStep = Rxn<CiCdInstallStep>();
+  final isCheckingCiCdDependencies = false.obs;
+  final isRunningCiCdInstallStep = false.obs;
+  final cicdSetupStatus = ''.obs;
 
   final releaseNotesController = TextEditingController();
   final geminiApiKeyController = TextEditingController();
@@ -142,17 +234,33 @@ class HomeController extends GetxController {
   final stdinController = TextEditingController();
   final notificationEndpointController = TextEditingController();
   final notificationTokenController = TextEditingController();
+  final resourceSourcePathController = TextEditingController();
+  final resourceTargetPathController = TextEditingController();
+  final resourceKeyAliasController = TextEditingController();
+  final resourceStorePasswordController = TextEditingController();
+  final resourceKeyPasswordController = TextEditingController();
+  final resourceCatalogSearchController = TextEditingController();
   final _sessionChPlayCredentials = <String, ChPlayCredentials>{};
   final _sessionAppStoreCredentials = <String, AppStoreCredentials>{};
+  final _manualResourceSigningCredentials =
+      <String, SigningCredentialBundleEntry>{};
   _GeneratedReleaseContext? _generatedReleaseContext;
+  bool _syncingResourceSigningCredentialFields = false;
 
   bool get _isGoogleDriveBusy =>
       isConnectingGoogleDrive.value ||
       isTestingGoogleDrive.value ||
       isUploadingGoogleDriveApk.value ||
       isSendingTelegram.value ||
+      isBuildingInstaller.value ||
       isGeneratingReleaseNotes.value ||
       runner.isBusy;
+
+  bool get hasSelectedAppReleaseCenterProject {
+    final currentProject = project.value;
+    if (currentProject == null) return false;
+    return releaseInstallerArtifacts.isAppReleaseCenterProject(currentProject);
+  }
 
   @override
   void onInit() {
@@ -165,11 +273,15 @@ class HomeController extends GetxController {
       _syncGoogleDriveFormState,
     );
     releaseNotesController.addListener(_syncReleaseNoteState);
+    resourceSourcePathController.addListener(_persistResourceCollectionState);
+    resourceTargetPathController.addListener(_persistResourceCollectionState);
+    resourceCatalogSearchController.addListener(_syncResourceCatalogSearch);
     recentPaths.assignAll(_initialProjectPaths());
     _loadGeminiApiKey();
     _loadTelegramReleaseState();
     _loadGoogleDriveReleaseState();
     _loadNotificationState();
+    _loadResourceCollectionState();
     _loadManagedStoreProjects();
     final savedPath = store.lastProjectPath;
     if (savedPath != null && Directory(savedPath).existsSync()) {
@@ -189,6 +301,13 @@ class HomeController extends GetxController {
       _syncGoogleDriveFormState,
     );
     releaseNotesController.removeListener(_syncReleaseNoteState);
+    resourceSourcePathController.removeListener(
+      _persistResourceCollectionState,
+    );
+    resourceTargetPathController.removeListener(
+      _persistResourceCollectionState,
+    );
+    resourceCatalogSearchController.removeListener(_syncResourceCatalogSearch);
     releaseNotesController.dispose();
     geminiApiKeyController.dispose();
     releaseNotePromptController.dispose();
@@ -200,6 +319,12 @@ class HomeController extends GetxController {
     stdinController.dispose();
     notificationEndpointController.dispose();
     notificationTokenController.dispose();
+    resourceSourcePathController.dispose();
+    resourceTargetPathController.dispose();
+    resourceKeyAliasController.dispose();
+    resourceStorePasswordController.dispose();
+    resourceKeyPasswordController.dispose();
+    resourceCatalogSearchController.dispose();
     super.onClose();
   }
 
@@ -366,6 +491,563 @@ class HomeController extends GetxController {
     );
   }
 
+  String get effectiveResourceSourcePath {
+    final configured = resourceSourcePathController.text.trim();
+    if (configured.isNotEmpty) return p.normalize(configured);
+    final currentProject = project.value;
+    if (currentProject != null) return currentProject.path;
+    return '';
+  }
+
+  Set<ResourceTargetKind> get activeResourceTargetKinds {
+    return switch (resourcePreset.value) {
+      ResourceCollectionPreset.allRecommended => resourceRecommendedTargetKinds,
+      ResourceCollectionPreset.envOnly => {ResourceTargetKind.envFile},
+      ResourceCollectionPreset.custom => resourceCustomKinds.toSet(),
+    };
+  }
+
+  List<ResourceFinding> get selectedResourceFindings {
+    final selected = selectedResourceFindingIds.toSet();
+    return resourceFindings
+        .where((finding) => selected.contains(finding.id))
+        .toList();
+  }
+
+  List<ResourceFinding> get resourceSigningFindings {
+    return resourceFindings
+        .where((finding) => finding.kind == ResourceTargetKind.signingKey)
+        .toList();
+  }
+
+  List<ResourceFinding> get selectedResourceSigningFindings {
+    final selected = selectedResourceFindingIds.toSet();
+    return resourceSigningFindings
+        .where((finding) => selected.contains(finding.id))
+        .toList();
+  }
+
+  SigningCredentialBundleEntry? get activeResourceSigningCredential {
+    final activeId = activeResourceSigningFindingId.value;
+    if (activeId.isEmpty) return null;
+    return resourceSigningCredentials[activeId];
+  }
+
+  bool get canIncludeResourceSigningCredentials {
+    return selectedResourceSigningFindings.isNotEmpty;
+  }
+
+  List<SigningCredentialBundleEntry> _selectedSigningCredentialsForExport(
+    Iterable<ResourceFinding> findings,
+  ) {
+    if (!resourceIncludeSigningCredentials.value) {
+      return const [];
+    }
+    final selectedIds = findings.map((finding) => finding.id).toSet();
+    return resourceSigningCredentials.entries
+        .where((entry) => selectedIds.contains(entry.key))
+        .map((entry) => entry.value)
+        .toList();
+  }
+
+  bool get canExportResourceBundle {
+    if (isScanningResources.value || isExportingResources.value) return false;
+    if (selectedResourceFindings.isEmpty) return false;
+    return true;
+  }
+
+  bool get canUseResourceCatalog => project.value != null;
+
+  bool get isResourceCatalogBusy {
+    return isExportingResourceCatalog.value || isImportingResourceCatalog.value;
+  }
+
+  List<ResourceCatalogItem> get filteredResourceCatalogItems {
+    final query = resourceCatalogSearch.value.trim().toLowerCase();
+    final kind = selectedResourceCatalogKind.value;
+    return resourceCatalogItems
+        .where((entry) => kind == null || entry.kind == kind)
+        .where((entry) => _matchesResourceCatalogItem(entry, query))
+        .toList();
+  }
+
+  List<ResourcePasswordEntry> get filteredResourcePasswordEntries {
+    final query = resourceCatalogSearch.value.trim().toLowerCase();
+    return resourcePasswordEntries
+        .where((entry) => _matchesResourcePasswordEntry(entry, query))
+        .toList();
+  }
+
+  void setResourcePanelMode(ResourcePanelMode mode) {
+    resourcePanelMode.value = mode;
+  }
+
+  void setResourceCatalogKindFilter(ResourceCatalogKind? kind) {
+    selectedResourceCatalogKind.value = kind;
+  }
+
+  Future<void> upsertResourceCatalogItem(ResourceCatalogItem item) async {
+    final currentProject = project.value;
+    if (currentProject == null) {
+      resourceCatalogStatus.value = 'Select a project before saving resources.';
+      return;
+    }
+
+    final title = item.title.trim();
+    final url = item.url.trim();
+    final localPath = item.localPath.trim();
+    if (title.isEmpty && url.isEmpty && localPath.isEmpty) {
+      resourceCatalogStatus.value = 'Add a title, link, or path.';
+      return;
+    }
+
+    final now = DateTime.now().toUtc();
+    final updated = item.copyWith(
+      id: item.id.trim().isEmpty ? _uuid.v4() : item.id.trim(),
+      title: title.isEmpty
+          ? url.isEmpty
+                ? localPath
+                : url
+          : title,
+      url: url,
+      localPath: localPath,
+      environment: item.environment.trim(),
+      owner: item.owner.trim(),
+      notes: item.notes.trim(),
+      tags: _normalizedTags(item.tags),
+      updatedAt: now,
+    );
+
+    final entries = resourceCatalogItems.toList();
+    final index = entries.indexWhere((entry) => entry.id == updated.id);
+    if (index >= 0) {
+      entries[index] = updated;
+    } else {
+      entries.add(updated);
+    }
+    entries.sort(_compareResourceCatalogItems);
+    resourceCatalogItems.assignAll(entries);
+    await _saveResourceCatalogForProject(currentProject.path);
+    resourceCatalogStatus.value = 'Resource saved.';
+  }
+
+  Future<void> deleteResourceCatalogItem(ResourceCatalogItem item) async {
+    final currentProject = project.value;
+    if (currentProject == null) return;
+    resourceCatalogItems.removeWhere((entry) => entry.id == item.id);
+    await _saveResourceCatalogForProject(currentProject.path);
+    resourceCatalogStatus.value = 'Resource removed.';
+  }
+
+  Future<void> upsertResourcePasswordEntry(
+    ResourcePasswordEntry entry, {
+    String? password,
+  }) async {
+    final currentProject = project.value;
+    if (currentProject == null) {
+      resourceCatalogStatus.value = 'Select a project before saving passwords.';
+      return;
+    }
+
+    final site = entry.site.trim();
+    final loginUrl = entry.loginUrl.trim();
+    final username = entry.username.trim();
+    if (site.isEmpty && loginUrl.isEmpty && username.isEmpty) {
+      resourceCatalogStatus.value = 'Add a site, login URL, or username.';
+      return;
+    }
+
+    final secretKey = entry.secretKey.trim().isEmpty
+        ? _uuid.v4()
+        : entry.secretKey.trim();
+    final updated = entry.copyWith(
+      id: entry.id.trim().isEmpty ? _uuid.v4() : entry.id.trim(),
+      secretKey: secretKey,
+      site: site.isEmpty ? loginUrl : site,
+      loginUrl: loginUrl,
+      username: username,
+      environment: entry.environment.trim(),
+      owner: entry.owner.trim(),
+      twoFactorLocation: entry.twoFactorLocation.trim(),
+      notes: entry.notes.trim(),
+      tags: _normalizedTags(entry.tags),
+      updatedAt: DateTime.now().toUtc(),
+    );
+
+    if (password != null) {
+      await resourceCatalogPasswords.save(secretKey, password);
+      if (revealedResourcePasswordIds.contains(updated.id)) {
+        if (password.isEmpty) {
+          hideResourcePassword(updated.id);
+        } else {
+          revealedResourcePasswords[updated.id] = password;
+        }
+      }
+    }
+
+    final entries = resourcePasswordEntries.toList();
+    final index = entries.indexWhere((entry) => entry.id == updated.id);
+    if (index >= 0) {
+      final previous = entries[index];
+      if (previous.secretKey != updated.secretKey) {
+        await resourceCatalogPasswords.delete(previous.secretKey);
+      }
+      entries[index] = updated;
+    } else {
+      entries.add(updated);
+    }
+    entries.sort(_compareResourcePasswordEntries);
+    resourcePasswordEntries.assignAll(entries);
+    await _saveResourceCatalogForProject(currentProject.path);
+    resourceCatalogStatus.value = 'Password entry saved.';
+  }
+
+  Future<void> deleteResourcePasswordEntry(ResourcePasswordEntry entry) async {
+    final currentProject = project.value;
+    if (currentProject == null) return;
+    resourcePasswordEntries.removeWhere(
+      (candidate) => candidate.id == entry.id,
+    );
+    hideResourcePassword(entry.id);
+    await resourceCatalogPasswords.delete(entry.secretKey);
+    await _saveResourceCatalogForProject(currentProject.path);
+    resourceCatalogStatus.value = 'Password entry removed.';
+  }
+
+  Future<String?> revealResourcePassword(ResourcePasswordEntry entry) async {
+    final password = await resourceCatalogPasswords.read(entry.secretKey);
+    if (password == null || password.isEmpty) {
+      hideResourcePassword(entry.id);
+      resourceCatalogStatus.value = 'No password saved for this entry.';
+      return null;
+    }
+
+    revealedResourcePasswordIds.add(entry.id);
+    revealedResourcePasswords[entry.id] = password;
+    return password;
+  }
+
+  void hideResourcePassword(String entryId) {
+    revealedResourcePasswordIds.remove(entryId);
+    revealedResourcePasswords.remove(entryId);
+  }
+
+  Future<void> copyResourcePassword(ResourcePasswordEntry entry) async {
+    final password = await resourceCatalogPasswords.read(entry.secretKey);
+    if (password == null || password.isEmpty) {
+      resourceCatalogStatus.value = 'No password saved for this entry.';
+      return;
+    }
+
+    await Clipboard.setData(ClipboardData(text: password));
+    resourceCatalogStatus.value = 'Password copied.';
+  }
+
+  Future<void> copyResourceCatalogValue(String value) async {
+    final text = value.trim();
+    if (text.isEmpty) return;
+    await Clipboard.setData(ClipboardData(text: text));
+    resourceCatalogStatus.value = 'Copied.';
+  }
+
+  Future<void> openResourceCatalogItem(ResourceCatalogItem item) async {
+    if (item.hasUrl) {
+      final launched = await _launchUrlText(item.url);
+      resourceCatalogStatus.value = launched
+          ? 'Resource opened.'
+          : 'Could not open resource URL.';
+      return;
+    }
+
+    if (item.hasLocalPath) {
+      final opened = await _openLocalPath(item.localPath);
+      resourceCatalogStatus.value = opened
+          ? 'Resource path opened.'
+          : 'Could not open resource path.';
+    }
+  }
+
+  Future<void> openResourcePasswordLogin(ResourcePasswordEntry entry) async {
+    if (!entry.hasLoginUrl) return;
+    final launched = await _launchUrlText(entry.loginUrl);
+    resourceCatalogStatus.value = launched
+        ? 'Login page opened.'
+        : 'Could not open login URL.';
+  }
+
+  Future<ResourceCatalogExcelExportResult?> exportResourceCatalogExcel() async {
+    final currentProject = project.value;
+    if (currentProject == null) {
+      resourceCatalogStatus.value = 'Select a project before export.';
+      return null;
+    }
+    if (resourceCatalogItems.isEmpty && resourcePasswordEntries.isEmpty) {
+      resourceCatalogStatus.value = 'Add at least one catalog entry.';
+      return null;
+    }
+
+    final outputPath = await _pickSaveFilePath(
+      dialogTitle: 'Export resource catalog',
+      suggestedName: '${_safeFileName(currentProject.name)}_resources.xlsx',
+      extensions: const ['xlsx'],
+    );
+    if (outputPath == null) return null;
+
+    isExportingResourceCatalog.value = true;
+    resourceCatalogStatus.value = 'Exporting resource catalog...';
+    try {
+      final result = await resourceCatalogExcel.exportCatalog(
+        outputPath: _withExtension(outputPath, '.xlsx'),
+        resources: resourceCatalogItems.toList(),
+        passwords: resourcePasswordEntries.toList(),
+      );
+      resourceCatalogStatus.value =
+          'Exported ${result.resourceCount} resource(s) and ${result.passwordCount} password entry(s).';
+      return result;
+    } catch (error) {
+      resourceCatalogStatus.value = 'Resource catalog export failed: $error';
+      return null;
+    } finally {
+      isExportingResourceCatalog.value = false;
+    }
+  }
+
+  Future<ResourceCatalogExcelImportResult?> importResourceCatalogExcel() async {
+    final currentProject = project.value;
+    if (currentProject == null) {
+      resourceCatalogStatus.value = 'Select a project before import.';
+      return null;
+    }
+
+    final inputPath = await _pickFilePath(
+      dialogTitle: 'Import resource catalog',
+      extensions: const ['xlsx'],
+    );
+    if (inputPath == null) return null;
+
+    isImportingResourceCatalog.value = true;
+    resourceCatalogStatus.value = 'Importing resource catalog...';
+    try {
+      final previousSecrets = resourcePasswordEntries
+          .map((entry) => entry.secretKey)
+          .toSet();
+      final result = await resourceCatalogExcel.importCatalog(
+        projectPath: currentProject.path,
+        inputPath: inputPath,
+      );
+      resourceCatalogItems.assignAll(result.bundle.resources);
+      resourcePasswordEntries.assignAll(result.bundle.passwords);
+      final importedSecrets = result.bundle.passwords
+          .map((entry) => entry.secretKey)
+          .toSet();
+      for (final secretKey in previousSecrets.difference(importedSecrets)) {
+        await resourceCatalogPasswords.delete(secretKey);
+      }
+      revealedResourcePasswordIds.clear();
+      revealedResourcePasswords.clear();
+      await _saveResourceCatalogForProject(currentProject.path);
+      resourceCatalogStatus.value =
+          'Imported ${result.resourceCount} resource(s) and ${result.passwordCount} password entry(s).';
+      return result;
+    } catch (error) {
+      resourceCatalogStatus.value = 'Resource catalog import failed: $error';
+      return null;
+    } finally {
+      isImportingResourceCatalog.value = false;
+    }
+  }
+
+  Future<void> pickResourceSourceDirectory() async {
+    final selectedPath = await _pickDirectoryPath(
+      dialogTitle: 'Select resource source directory',
+      initialDirectory: effectiveResourceSourcePath.isNotEmpty
+          ? effectiveResourceSourcePath
+          : _initialDirectory(),
+    );
+
+    if (selectedPath == null) return;
+    resourceSourcePathController.text = p.normalize(selectedPath);
+    resourceStatus.value = '';
+    await scanResources();
+  }
+
+  Future<void> pickResourceTargetDirectory() async {
+    final selectedPath = await _pickDirectoryPath(
+      dialogTitle: 'Select resource export directory',
+      initialDirectory: resourceTargetPathController.text.trim().isNotEmpty
+          ? resourceTargetPathController.text.trim()
+          : Directory.current.parent.path,
+    );
+
+    if (selectedPath == null) return;
+    resourceTargetPathController.text = p.normalize(selectedPath);
+  }
+
+  Future<void> scanResources() async {
+    if (isScanningResources.value || isExportingResources.value) return;
+    final sourcePath = effectiveResourceSourcePath;
+    if (sourcePath.isEmpty) {
+      resourceStatus.value = 'Select a source folder before scanning.';
+      return;
+    }
+
+    _commitActiveResourceSigningCredentialFields();
+    isScanningResources.value = true;
+    resourceStatus.value = 'Scanning resources...';
+    try {
+      final result = await resourceDiscovery.scan(
+        sourceRoot: sourcePath,
+        preset: resourcePreset.value,
+        customKinds: resourceCustomKinds.toSet(),
+      );
+      if (resourceSourcePathController.text.trim().isEmpty) {
+        resourceSourcePathController.text = result.sourceRoot;
+      }
+      _pruneManualResourceSigningCredentials(result.findings);
+      final signingCredentials = await resourceCredentials.resolve(
+        sourceRoot: result.sourceRoot,
+        findings: result.findings,
+        chPlayProjects: chPlayProjects.toList(),
+        manualCredentials: _manualResourceSigningCredentials,
+      );
+      resourceSigningCredentials.assignAll(signingCredentials);
+      resourceFindings.assignAll(
+        result.findings.map((finding) {
+          if (finding.kind != ResourceTargetKind.signingKey) return finding;
+          return finding.withSigningCredential(signingCredentials[finding.id]);
+        }),
+      );
+      selectedResourceFindingIds.assignAll(
+        result.findings.map((finding) => finding.id),
+      );
+      _syncActiveResourceSigningFinding();
+      resourceExcludedPaths.assignAll(result.excludedPaths);
+      final count = result.findings.length;
+      resourceStatus.value = count == 0
+          ? 'No matching resource files found.'
+          : '$count resource file(s) found.';
+      runner.appendSystemLog(
+        'Resource scan completed: $count file(s), '
+        '${result.excludedPaths.length} excluded path(s).',
+      );
+      await _saveResourceCollectionState();
+    } catch (error) {
+      resourceStatus.value = 'Resource scan failed: $error';
+      runner.appendSystemLog('Resource scan failed: $error');
+    } finally {
+      isScanningResources.value = false;
+    }
+  }
+
+  void setResourcePreset(ResourceCollectionPreset preset) {
+    if (resourcePreset.value == preset) return;
+    resourcePreset.value = preset;
+    resourceFindings.clear();
+    selectedResourceFindingIds.clear();
+    resourceSigningCredentials.clear();
+    activeResourceSigningFindingId.value = '';
+    _syncResourceSigningCredentialFields(null);
+    resourceStatus.value = '';
+    _persistResourceCollectionState();
+  }
+
+  void toggleResourceTargetKind(ResourceTargetKind kind, bool selected) {
+    final next = resourceCustomKinds.toSet();
+    if (selected) {
+      next.add(kind);
+    } else {
+      next.remove(kind);
+    }
+    resourceCustomKinds.assignAll(next);
+    resourceFindings.clear();
+    selectedResourceFindingIds.clear();
+    resourceSigningCredentials.clear();
+    activeResourceSigningFindingId.value = '';
+    _syncResourceSigningCredentialFields(null);
+    resourceStatus.value = '';
+    _persistResourceCollectionState();
+  }
+
+  void toggleResourceFinding(ResourceFinding finding, bool selected) {
+    final next = selectedResourceFindingIds.toSet();
+    if (selected) {
+      next.add(finding.id);
+    } else {
+      next.remove(finding.id);
+    }
+    selectedResourceFindingIds.assignAll(next);
+    _syncActiveResourceSigningFinding();
+  }
+
+  void setAllResourceFindingsSelected(bool selected) {
+    selectedResourceFindingIds.assignAll(
+      selected ? resourceFindings.map((finding) => finding.id) : const [],
+    );
+    _syncActiveResourceSigningFinding();
+  }
+
+  void setResourceIncludeSigningCredentials(bool enabled) {
+    resourceIncludeSigningCredentials.value = enabled;
+    _persistResourceCollectionState();
+  }
+
+  void setActiveResourceSigningFinding(String? findingId) {
+    final id = findingId ?? '';
+    if (activeResourceSigningFindingId.value == id) return;
+    _commitActiveResourceSigningCredentialFields();
+    activeResourceSigningFindingId.value = id;
+    _syncResourceSigningCredentialFields(
+      id.isEmpty ? null : resourceSigningCredentials[id],
+    );
+  }
+
+  Future<ResourceExportResult?> exportResources() async {
+    if (isScanningResources.value || isExportingResources.value) return null;
+    final sourcePath = effectiveResourceSourcePath;
+    if (sourcePath.isEmpty) {
+      resourceStatus.value = 'Select a source folder before export.';
+      return null;
+    }
+    _commitActiveResourceSigningCredentialFields();
+    final findingsForExport = selectedResourceFindings;
+    if (findingsForExport.isEmpty) {
+      resourceStatus.value = 'Select at least one resource file.';
+      return null;
+    }
+    final signingCredentialsForExport = _selectedSigningCredentialsForExport(
+      findingsForExport,
+    );
+    if (resourceTargetPathController.text.trim().isEmpty) {
+      await pickResourceTargetDirectory();
+      if (resourceTargetPathController.text.trim().isEmpty) {
+        resourceStatus.value = 'Select an export folder before export.';
+        return null;
+      }
+    }
+    isExportingResources.value = true;
+    resourceStatus.value = 'Exporting resources...';
+    try {
+      await _saveResourceCollectionState();
+      final result = await resourceExports.export(
+        sourceRoot: sourcePath,
+        targetRoot: resourceTargetPathController.text.trim(),
+        findings: findingsForExport,
+        signingCredentials: signingCredentialsForExport,
+      );
+      resourceStatus.value =
+          'Exported ${result.fileCount} resource file(s)'
+          '${result.signingCredentialCount > 0 ? ' with ${result.signingCredentialCount} signing credential(s)' : ''}.';
+      runner.appendSystemLog('Resource bundle exported: ${result.archivePath}');
+      return result;
+    } catch (error) {
+      resourceStatus.value = 'Resource export failed: $error';
+      runner.appendSystemLog('Resource export failed: $error');
+      return null;
+    } finally {
+      isExportingResources.value = false;
+    }
+  }
+
   Future<ChPlayCredentials> readChPlayCredentials(String projectId) async {
     return _sessionChPlayCredentials[projectId] ??
         await chPlayCredentialStore.read(projectId);
@@ -489,6 +1171,10 @@ class HomeController extends GetxController {
         _clearGeneratedReleaseContext(clearReleaseNotes: true);
       }
       project.value = loadedProject;
+      _loadResourceCatalogForProject(loadedProject.path);
+      if (resourceSourcePathController.text.trim().isEmpty) {
+        resourceSourcePathController.text = loadedProject.path;
+      }
       includeFirebaseDeploy.value = loadedProject.hasFirebaseDeployTools;
       playUploadChoice.value = loadedProject.hasPlayReleaseTools
           ? PlayUploadChoice.ask
@@ -497,17 +1183,126 @@ class HomeController extends GetxController {
       validatePlayImages.value = loadedProject.imageValidator != null;
       await store.saveProjectPath(loadedProject.path);
       recentPaths.assignAll(_initialProjectPaths());
+      _refreshCiCdInstallPlan();
     } on FileSystemException catch (error) {
       _clearGeneratedReleaseContext(clearReleaseNotes: true);
       project.value = null;
+      _clearResourceCatalogState();
       projectError.value = error.message;
+      _refreshCiCdInstallPlan();
     } catch (error) {
       _clearGeneratedReleaseContext(clearReleaseNotes: true);
       project.value = null;
+      _clearResourceCatalogState();
       projectError.value = error.toString();
+      _refreshCiCdInstallPlan();
     } finally {
       isLoadingProject.value = false;
     }
+  }
+
+  Future<void> checkCiCdDependencies() async {
+    if (isCheckingCiCdDependencies.value) return;
+
+    isCheckingCiCdDependencies.value = true;
+    cicdSetupStatus.value = 'Checking CI/CD dependencies...';
+    try {
+      final snapshot = await cicdDoctor.checkAll(
+        projectPath: project.value?.path,
+      );
+      cicdDependencySnapshot.value = snapshot;
+      _refreshCiCdInstallPlan();
+      final actionableCount = snapshot.checks
+          .where((check) => check.isActionable)
+          .length;
+      cicdSetupStatus.value = actionableCount == 0
+          ? 'All checked dependencies look ready.'
+          : '$actionableCount item(s) need attention.';
+    } catch (error) {
+      cicdSetupStatus.value = 'Doctor failed: $error';
+      runner.appendSystemLog('CI/CD doctor failed: $error');
+    } finally {
+      isCheckingCiCdDependencies.value = false;
+    }
+  }
+
+  void toggleCiCdSetupGroup(CiCdSetupGroup group, bool selected) {
+    if (selected) {
+      selectedCiCdSetupGroups.add(group);
+    } else {
+      selectedCiCdSetupGroups.remove(group);
+    }
+    _refreshCiCdInstallPlan();
+  }
+
+  void selectCiCdInstallStep(CiCdInstallStep step) {
+    selectedCiCdInstallStep.value = step;
+  }
+
+  Future<int> runCiCdInstallStep(CiCdInstallStep step) async {
+    if (runner.isBusy || isRunningCiCdInstallStep.value) {
+      runner.appendSystemLog('Wait for the active command before setup.');
+      return -1;
+    }
+
+    isRunningCiCdInstallStep.value = true;
+    cicdSetupStatus.value = 'Running ${step.label}...';
+    try {
+      final exitCode = await cicdInstaller.runInstallStep(
+        step: step,
+        runner: runner,
+      );
+      if (exitCode == 0) {
+        cicdSetupStatus.value = 'Finished ${step.label}. Rechecking...';
+        await checkCiCdDependencies();
+      } else {
+        cicdSetupStatus.value =
+            '${step.label} failed with exit code $exitCode.';
+      }
+      return exitCode;
+    } catch (error) {
+      cicdSetupStatus.value = '${step.label} failed: $error';
+      runner.appendSystemLog('CI/CD setup step failed: $error');
+      return -1;
+    } finally {
+      isRunningCiCdInstallStep.value = false;
+    }
+  }
+
+  Future<void> openCiCdInstallFallback(CiCdInstallStep step) async {
+    final fallbackUrl = step.fallbackUrl.trim();
+    if (fallbackUrl.isEmpty) {
+      cicdSetupStatus.value = 'Manual step: ${step.description}';
+      return;
+    }
+
+    final opened = await launchUrl(
+      Uri.parse(fallbackUrl),
+      mode: LaunchMode.externalApplication,
+    );
+    cicdSetupStatus.value = opened
+        ? 'Opened guide for ${step.label}.'
+        : 'Could not open guide for ${step.label}.';
+  }
+
+  void _refreshCiCdInstallPlan() {
+    final snapshot = cicdDependencySnapshot.value;
+    if (snapshot == null) {
+      cicdInstallSteps.clear();
+      selectedCiCdInstallStep.value = null;
+      return;
+    }
+
+    final steps = cicdInstaller.buildInstallPlan(
+      snapshot: snapshot,
+      selectedGroups: selectedCiCdSetupGroups.toSet(),
+      projectPath: project.value?.path ?? snapshot.projectPath,
+    );
+    cicdInstallSteps.assignAll(steps);
+    final selected = selectedCiCdInstallStep.value;
+    if (selected == null) return;
+    final stillExists = steps.any((step) => step.id == selected.id);
+    if (!stillExists) selectedCiCdInstallStep.value = null;
   }
 
   Future<void> removeRecentProject(String path) async {
@@ -1013,6 +1808,57 @@ class HomeController extends GetxController {
       releaseNotes: notes,
       automatic: false,
     );
+  }
+
+  Future<void> buildAndSendWindowsInstallerToTelegram() async {
+    if (isBuildingInstaller.value || isSendingTelegram.value || runner.isBusy) {
+      return;
+    }
+
+    final currentProject = project.value;
+    if (currentProject == null) {
+      installerDeliveryStatus.value =
+          'Select the App Release Center project before building an installer.';
+      return;
+    }
+
+    final telegramSaved = await _persistTelegramConfiguration(
+      requireComplete: true,
+    );
+    if (!telegramSaved) {
+      installerDeliveryStatus.value = telegramReleaseStatus.value;
+      return;
+    }
+
+    isBuildingInstaller.value = true;
+    installerDeliveryStatus.value = 'Building Windows installer...';
+    var workflowStarted = false;
+    try {
+      runner.beginWorkflow(
+        totalSteps: 3,
+        label: 'Build and send Windows installer',
+      );
+      workflowStarted = true;
+
+      final artifact = await releaseInstallerArtifacts.build(
+        project: currentProject,
+      );
+      runner.appendSystemLog('Windows installer ready: ${artifact.file.path}');
+
+      await _deliverReleaseInstaller(artifact);
+      installerDeliveryStatus.value = 'Windows installer sent to Telegram.';
+      runner.finishWorkflow(success: true);
+    } catch (error) {
+      installerDeliveryStatus.value =
+          'Windows installer workflow failed: $error';
+      runner.appendSystemLog('Windows installer workflow failed: $error');
+      if (workflowStarted) {
+        runner.finishWorkflow(success: false);
+      }
+    } finally {
+      isBuildingInstaller.value = false;
+      await _refreshProjectSnapshot(currentProject.path);
+    }
   }
 
   Future<bool> _sendTelegramRelease({
@@ -1768,6 +2614,87 @@ class HomeController extends GetxController {
     }
   }
 
+  Future<void> _deliverReleaseInstaller(
+    ReleaseInstallerArtifact artifact,
+  ) async {
+    runner.beginWorkflowStep('Deliver installer');
+    isSendingTelegram.value = true;
+    installerDeliveryStatus.value = 'Delivering Windows installer...';
+    var succeeded = false;
+    var usingDriveLink = false;
+    try {
+      final fileSize = await artifact.file.length();
+      final oversized = fileSize > telegramDocumentMaxBytes;
+      usingDriveLink = oversized;
+
+      if (oversized) {
+        final hasDriveClientId = googleDriveReleaseSettings.value.oauthClientId
+            .trim()
+            .isNotEmpty;
+        final hasDriveCredentials = await googleDriveReleaseUploads
+            .hasCredentials();
+        hasGoogleDriveCredentials.value = hasDriveCredentials;
+        if (!hasDriveClientId || !hasDriveCredentials) {
+          throw TelegramReleaseNotificationException(
+            'Installer is ${formatGoogleDriveReleaseMegabytes(fileSize)} MB; '
+            'connect Google Drive before sending oversized installers. '
+            'Installer kept at ${artifact.file.path}.',
+          );
+        }
+
+        installerDeliveryStatus.value =
+            'Uploading oversized installer to Google Drive...';
+        final upload = await googleDriveReleaseUploads.uploadReleaseArtifact(
+          file: artifact.file,
+          contentType: windowsInstallerContentType,
+          appDisplayName: artifact.appDisplayName,
+          version: artifact.fullVersion,
+          buildDate: artifact.buildDate,
+          missingFileMessage: 'Windows installer file does not exist.',
+        );
+        await telegramReleaseNotifications.sendReleaseInstallerLink(
+          appDisplayName: artifact.appDisplayName,
+          version: artifact.fullVersion,
+          fileName: upload.fileName,
+          fileSizeBytes: upload.fileSizeBytes,
+          downloadUrl: upload.downloadUrl,
+          oversized: true,
+        );
+        installerDeliveryStatus.value =
+            'Windows installer Drive link sent to Telegram.';
+        runner.appendSystemLog(
+          'Windows installer uploaded to Google Drive and link sent to Telegram: '
+          '${upload.downloadUrl}',
+        );
+      } else {
+        installerDeliveryStatus.value =
+            'Uploading Windows installer to Telegram...';
+        await telegramReleaseNotifications.sendReleaseInstaller(
+          installerFile: artifact.file,
+          appDisplayName: artifact.appDisplayName,
+          version: artifact.fullVersion,
+          buildDate: artifact.buildDate,
+        );
+        installerDeliveryStatus.value = 'Windows installer sent to Telegram.';
+        runner.appendSystemLog(
+          'Windows installer sent to Telegram: ${artifact.file.path}',
+        );
+      }
+
+      succeeded = true;
+    } catch (error) {
+      final channel = usingDriveLink
+          ? 'Google Drive installer delivery'
+          : 'Telegram installer upload';
+      installerDeliveryStatus.value = '$channel failed: $error';
+      runner.appendSystemLog('$channel failed: $error');
+      rethrow;
+    } finally {
+      runner.completeWorkflowStep(success: succeeded);
+      isSendingTelegram.value = false;
+    }
+  }
+
   Future<bool> _deliverReleaseApk(ReleaseApkArtifact artifact) async {
     runner.beginWorkflowStep('Deliver APK');
     isSendingTelegram.value = true;
@@ -1923,6 +2850,30 @@ class HomeController extends GetxController {
     return result?.files.single.path;
   }
 
+  Future<String?> _pickSaveFilePath({
+    required String dialogTitle,
+    required String suggestedName,
+    required List<String> extensions,
+  }) async {
+    if (Platform.isWindows) {
+      final location = await file_selector.getSaveLocation(
+        acceptedTypeGroups: [file_selector.XTypeGroup(extensions: extensions)],
+        initialDirectory: _existingDirectoryOrNull(_initialDirectory()),
+        suggestedName: suggestedName,
+        confirmButtonText: 'Save',
+      );
+      return location?.path;
+    }
+
+    return FilePicker.platform.saveFile(
+      dialogTitle: dialogTitle,
+      fileName: suggestedName,
+      initialDirectory: _initialDirectory(),
+      type: FileType.custom,
+      allowedExtensions: extensions,
+    );
+  }
+
   String? _existingDirectoryOrNull(String? path) {
     if (path == null || path.trim().isEmpty) return null;
     final normalizedPath = p.normalize(path);
@@ -2042,6 +2993,318 @@ class HomeController extends GetxController {
 
   void _syncReleaseNoteState() {
     hasReleaseNoteText.value = releaseNotesController.text.trim().isNotEmpty;
+  }
+
+  void _commitActiveResourceSigningCredentialFields() {
+    if (_syncingResourceSigningCredentialFields) return;
+    final activeId = activeResourceSigningFindingId.value;
+    if (activeId.isEmpty) return;
+    final finding = _resourceFindingById(activeId);
+    if (finding == null) return;
+    final existing = resourceSigningCredentials[activeId];
+    final keyAliasInput = resourceKeyAliasController.text.trim();
+    final storePasswordInput = resourceStorePasswordController.text.trim();
+    final keyPasswordInput = resourceKeyPasswordController.text.trim();
+    final keyAlias = keyAliasInput.isNotEmpty
+        ? keyAliasInput
+        : existing?.keyAlias;
+    final storePassword = storePasswordInput.isNotEmpty
+        ? storePasswordInput
+        : existing?.storePassword;
+    final keyPassword = keyPasswordInput.isNotEmpty
+        ? keyPasswordInput
+        : existing?.keyPassword ?? storePassword;
+
+    final entry = SigningCredentialBundleEntry(
+      relativePath: finding.relativePath,
+      source: SigningCredentialSource.manual,
+      keyAlias: keyAlias,
+      storePassword: storePassword,
+      keyPassword: keyPassword,
+      maskedPreview: _resourceSigningMaskedPreview(
+        keyAlias: keyAlias ?? '',
+        storePassword: storePassword ?? '',
+        keyPassword: keyPassword ?? '',
+      ),
+    );
+
+    if (entry.hasAnyCredential) {
+      _manualResourceSigningCredentials[activeId] = entry;
+      resourceSigningCredentials[activeId] = entry;
+    } else {
+      _manualResourceSigningCredentials.remove(activeId);
+      resourceSigningCredentials[activeId] = SigningCredentialBundleEntry(
+        relativePath: finding.relativePath,
+        source: SigningCredentialSource.projectFile,
+      );
+    }
+    _applyResourceSigningCredentialState();
+  }
+
+  void _syncActiveResourceSigningFinding() {
+    final selectedIds = selectedResourceFindingIds.toSet();
+    final candidates = resourceSigningFindings
+        .where((finding) => selectedIds.contains(finding.id))
+        .toList();
+    final currentId = activeResourceSigningFindingId.value;
+    final nextId = candidates.any((finding) => finding.id == currentId)
+        ? currentId
+        : candidates.isNotEmpty
+        ? candidates.first.id
+        : '';
+    if (activeResourceSigningFindingId.value != nextId) {
+      activeResourceSigningFindingId.value = nextId;
+    }
+    _syncResourceSigningCredentialFields(
+      nextId.isEmpty ? null : resourceSigningCredentials[nextId],
+    );
+  }
+
+  void _syncResourceSigningCredentialFields(
+    SigningCredentialBundleEntry? entry,
+  ) {
+    _syncingResourceSigningCredentialFields = true;
+    try {
+      resourceKeyAliasController.text = entry?.keyAlias ?? '';
+      resourceStorePasswordController.clear();
+      resourceKeyPasswordController.clear();
+    } finally {
+      _syncingResourceSigningCredentialFields = false;
+    }
+  }
+
+  void _pruneManualResourceSigningCredentials(List<ResourceFinding> findings) {
+    final validIds = findings
+        .where((finding) => finding.kind == ResourceTargetKind.signingKey)
+        .map((finding) => finding.id)
+        .toSet();
+    _manualResourceSigningCredentials.removeWhere(
+      (id, _) => !validIds.contains(id),
+    );
+  }
+
+  void _applyResourceSigningCredentialState() {
+    final updatedFindings = resourceFindings
+        .map((finding) {
+          if (finding.kind != ResourceTargetKind.signingKey) return finding;
+          return finding.withSigningCredential(
+            resourceSigningCredentials[finding.id],
+          );
+        })
+        .toList(growable: false);
+    resourceFindings.assignAll(updatedFindings);
+  }
+
+  ResourceFinding? _resourceFindingById(String id) {
+    for (final finding in resourceFindings) {
+      if (finding.id == id) return finding;
+    }
+    return null;
+  }
+
+  List<String> _resourceSigningMaskedPreview({
+    required String keyAlias,
+    required String storePassword,
+    required String keyPassword,
+  }) {
+    return [
+      if (keyAlias.trim().isNotEmpty) 'alias=${keyAlias.trim()}',
+      if (storePassword.trim().isNotEmpty)
+        'storePassword=${_maskResourceSecret(storePassword)}',
+      if (keyPassword.trim().isNotEmpty)
+        'keyPassword=${_maskResourceSecret(keyPassword)}',
+    ];
+  }
+
+  String _maskResourceSecret(String value) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) return '********';
+    if (trimmed.length <= 4) return '****';
+    if (trimmed.length <= 8) {
+      return '${trimmed.substring(0, 1)}***${trimmed.substring(trimmed.length - 1)}';
+    }
+    return '${trimmed.substring(0, 3)}***${trimmed.substring(trimmed.length - 3)}';
+  }
+
+  void _syncResourceCatalogSearch() {
+    resourceCatalogSearch.value = resourceCatalogSearchController.text.trim();
+  }
+
+  void _loadResourceCatalogForProject(String projectPath) {
+    final catalog = store.resourceCatalogForProject(projectPath);
+    resourceCatalogItems.assignAll(
+      catalog.resources.toList()..sort(_compareResourceCatalogItems),
+    );
+    resourcePasswordEntries.assignAll(
+      catalog.passwords.toList()..sort(_compareResourcePasswordEntries),
+    );
+    revealedResourcePasswordIds.clear();
+    revealedResourcePasswords.clear();
+    resourceCatalogStatus.value = '';
+  }
+
+  void _clearResourceCatalogState() {
+    resourceCatalogItems.clear();
+    resourcePasswordEntries.clear();
+    revealedResourcePasswordIds.clear();
+    revealedResourcePasswords.clear();
+    selectedResourceCatalogKind.value = null;
+    resourceCatalogStatus.value = '';
+  }
+
+  Future<void> _saveResourceCatalogForProject(String projectPath) async {
+    await store.saveResourceCatalog(
+      ResourceCatalogBundle(
+        projectPath: projectPath,
+        resources: resourceCatalogItems.toList(),
+        passwords: resourcePasswordEntries.toList(),
+      ),
+    );
+  }
+
+  bool _matchesResourceCatalogItem(ResourceCatalogItem entry, String query) {
+    if (query.isEmpty) return true;
+    return _searchSource([
+      entry.kind.label,
+      entry.title,
+      entry.url,
+      entry.localPath,
+      entry.environment,
+      entry.owner,
+      entry.notes,
+      ...entry.tags,
+    ]).contains(query);
+  }
+
+  bool _matchesResourcePasswordEntry(
+    ResourcePasswordEntry entry,
+    String query,
+  ) {
+    if (query.isEmpty) return true;
+    return _searchSource([
+      entry.site,
+      entry.loginUrl,
+      entry.username,
+      entry.environment,
+      entry.owner,
+      entry.twoFactorLocation,
+      entry.notes,
+      ...entry.tags,
+    ]).contains(query);
+  }
+
+  String _searchSource(Iterable<String> values) {
+    return values.join(' ').toLowerCase();
+  }
+
+  List<String> _normalizedTags(Iterable<String> tags) {
+    final seen = <String>{};
+    return tags
+        .expand((entry) => entry.split(','))
+        .map((entry) => entry.trim())
+        .where((entry) => entry.isNotEmpty)
+        .where((entry) => seen.add(entry.toLowerCase()))
+        .toList();
+  }
+
+  int _compareResourceCatalogItems(
+    ResourceCatalogItem a,
+    ResourceCatalogItem b,
+  ) {
+    final byKind = a.kind.index.compareTo(b.kind.index);
+    if (byKind != 0) return byKind;
+    return a.title.toLowerCase().compareTo(b.title.toLowerCase());
+  }
+
+  int _compareResourcePasswordEntries(
+    ResourcePasswordEntry a,
+    ResourcePasswordEntry b,
+  ) {
+    return a.site.toLowerCase().compareTo(b.site.toLowerCase());
+  }
+
+  Future<bool> _launchUrlText(String value) async {
+    final uri = _urlFromInput(value);
+    if (uri == null) return false;
+    return launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  Uri? _urlFromInput(String value) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) return null;
+    final parsed = Uri.tryParse(trimmed);
+    if (parsed != null &&
+        parsed.hasScheme &&
+        (parsed.scheme == 'http' || parsed.scheme == 'https')) {
+      return parsed;
+    }
+    return Uri.tryParse('https://$trimmed');
+  }
+
+  Future<bool> _openLocalPath(String value) async {
+    final resolvedPath = _resolvedCatalogPath(value);
+    if (!File(resolvedPath).existsSync() &&
+        !Directory(resolvedPath).existsSync()) {
+      return false;
+    }
+
+    if (Platform.isWindows) {
+      await Process.start('explorer.exe', [resolvedPath]);
+      return true;
+    }
+
+    return launchUrl(
+      Uri.file(resolvedPath),
+      mode: LaunchMode.externalApplication,
+    );
+  }
+
+  String _resolvedCatalogPath(String value) {
+    final trimmed = value.trim();
+    if (p.isAbsolute(trimmed)) return p.normalize(trimmed);
+    final currentProject = project.value;
+    if (currentProject == null) return p.normalize(trimmed);
+    return p.normalize(p.join(currentProject.path, trimmed));
+  }
+
+  String _safeFileName(String value) {
+    final sanitized = value.replaceAll(RegExp(r'[<>:"/\\|?*\x00-\x1F]'), '_');
+    return sanitized.trim().isEmpty ? 'resources' : sanitized.trim();
+  }
+
+  String _withExtension(String path, String extension) {
+    final normalized = p.normalize(path);
+    if (p.extension(normalized).toLowerCase() == extension.toLowerCase()) {
+      return normalized;
+    }
+    return '$normalized$extension';
+  }
+
+  void _loadResourceCollectionState() {
+    final settings = store.resourceCollectionSettings;
+    resourceCollectionSettings.value = settings;
+    resourcePreset.value = settings.preset;
+    resourceCustomKinds.assignAll(settings.customKinds);
+    resourceIncludeSigningCredentials.value =
+        settings.includeSigningCredentials;
+    resourceSourcePathController.text = settings.sourcePath;
+    resourceTargetPathController.text = settings.targetPath;
+  }
+
+  void _persistResourceCollectionState() {
+    unawaited(_saveResourceCollectionState());
+  }
+
+  Future<void> _saveResourceCollectionState() async {
+    final settings = ResourceCollectionSettings(
+      sourcePath: resourceSourcePathController.text.trim(),
+      targetPath: resourceTargetPathController.text.trim(),
+      preset: resourcePreset.value,
+      customKinds: resourceCustomKinds.toSet(),
+      includeSigningCredentials: resourceIncludeSigningCredentials.value,
+    );
+    resourceCollectionSettings.value = settings;
+    await store.saveResourceCollectionSettings(settings);
   }
 
   void _clearGeneratedReleaseContext({bool clearReleaseNotes = false}) {

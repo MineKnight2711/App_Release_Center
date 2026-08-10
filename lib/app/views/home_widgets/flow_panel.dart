@@ -531,6 +531,7 @@ class _FlowPanelHeader extends GetView<HomeController> {
               alignment: WrapAlignment.end,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
+                const _ApiToolButton(),
                 const _ReleaseWorkflowButton(),
                 const _ThemeSwitchMenu(),
                 Obx(

@@ -228,10 +228,11 @@ class _TimeoutHttpClient extends http.BaseClient {
 abstract class GoogleDriveApiClient {
   Future<GoogleDriveRemoteFile> createFolder({required String folderName});
 
-  Future<GoogleDriveRemoteFile> uploadApk({
+  Future<GoogleDriveRemoteFile> uploadFile({
     required File file,
     required String fileName,
     required String folderId,
+    required String contentType,
   });
 
   Future<void> makeAnyoneReadable(String fileId);
@@ -293,10 +294,11 @@ class GoogleDriveApiClientImpl implements GoogleDriveApiClient {
   }
 
   @override
-  Future<GoogleDriveRemoteFile> uploadApk({
+  Future<GoogleDriveRemoteFile> uploadFile({
     required File file,
     required String fileName,
     required String folderId,
+    required String contentType,
   }) async {
     final metadata = drive.File()
       ..name = fileName
@@ -304,7 +306,7 @@ class GoogleDriveApiClientImpl implements GoogleDriveApiClient {
     final media = drive.Media(
       file.openRead(),
       await file.length(),
-      contentType: 'application/vnd.android.package-archive',
+      contentType: contentType,
     );
     final uploaded = await _driveApi.files
         .create(
@@ -429,26 +431,53 @@ class GoogleDriveReleaseUploadService extends GetxService {
     required String version,
     required DateTime buildDate,
   }) async {
-    if (!apkFile.existsSync()) {
+    return uploadReleaseArtifact(
+      file: apkFile,
+      contentType: 'application/vnd.android.package-archive',
+      appDisplayName: appDisplayName,
+      version: version,
+      buildDate: buildDate,
+      missingFileMessage: 'Release APK file does not exist.',
+    );
+  }
+
+  Future<GoogleDriveReleaseUploadResult> uploadReleaseArtifact({
+    required File file,
+    required String contentType,
+    required String appDisplayName,
+    required String version,
+    required DateTime buildDate,
+    String? fileName,
+    String missingFileMessage = 'Release file does not exist.',
+  }) async {
+    if (!file.existsSync()) {
+      throw GoogleDriveReleaseUploadException(missingFileMessage);
+    }
+
+    final trimmedContentType = contentType.trim();
+    if (trimmedContentType.isEmpty) {
       throw const GoogleDriveReleaseUploadException(
-        'Release APK file does not exist.',
+        'Google Drive upload content type is required.',
       );
     }
 
     return _withApiClient((client) async {
       final folder = await _ensureFolder(client);
-      final fileSize = await apkFile.length();
-      final fileName = p.basename(apkFile.path);
-      final uploaded = await client.uploadApk(
-        file: apkFile,
-        fileName: fileName,
+      final fileSize = await file.length();
+      final uploadName = (fileName?.trim().isNotEmpty ?? false)
+          ? fileName!.trim()
+          : p.basename(file.path);
+      final uploaded = await client.uploadFile(
+        file: file,
+        fileName: uploadName,
         folderId: folder.id,
+        contentType: trimmedContentType,
       );
       await client.makeAnyoneReadable(uploaded.id);
 
       return GoogleDriveReleaseUploadResult(
         fileId: uploaded.id,
-        fileName: fileName,
+        fileName: uploadName,
         downloadUrl: uploaded.link,
         fileSizeBytes: fileSize,
         appDisplayName: appDisplayName.trim(),
@@ -512,7 +541,7 @@ class GoogleDriveReleaseUploadService extends GetxService {
       );
     } on FileSystemException catch (error) {
       throw GoogleDriveReleaseUploadException(
-        'Failed to read APK for Google Drive upload: ${error.message}',
+        'Failed to read file for Google Drive upload: ${error.message}',
       );
     } finally {
       if (client != null) {

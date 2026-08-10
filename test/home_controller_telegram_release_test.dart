@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:archive/archive_io.dart';
 import 'package:app_release_center/app/controllers/home_controller.dart';
 import 'package:app_release_center/app/data/release_center_connect.dart';
 import 'package:app_release_center/app/models/ch_play_project.dart';
@@ -20,6 +21,7 @@ import 'package:app_release_center/app/services/google_drive_release_upload_serv
 import 'package:app_release_center/app/services/notification_credential_store_service.dart';
 import 'package:app_release_center/app/services/project_store_service.dart';
 import 'package:app_release_center/app/services/release_apk_artifact_service.dart';
+import 'package:app_release_center/app/services/release_installer_artifact_service.dart';
 import 'package:app_release_center/app/services/release_note_generation_service.dart';
 import 'package:app_release_center/app/services/release_runner_service.dart';
 import 'package:app_release_center/app/services/script_catalog_service.dart';
@@ -320,6 +322,119 @@ void main() {
     },
   );
 
+  test(
+    'installer action requires Telegram configuration before build',
+    () async {
+      final harness = await _ControllerHarness.create();
+      addTearDown(harness.dispose);
+
+      await harness.controller.buildAndSendWindowsInstallerToTelegram();
+
+      expect(harness.installerExecutor.buildCallCount, 0);
+      expect(harness.installerExecutor.packageCallCount, 0);
+      expect(harness.telegramClient.requests, isEmpty);
+      expect(harness.telegramClient.uploads, isEmpty);
+      expect(
+        harness.controller.installerDeliveryStatus.value,
+        contains('Telegram bot token is required'),
+      );
+    },
+  );
+
+  test('installer action builds and sends direct Telegram document', () async {
+    final harness = await _ControllerHarness.create();
+    addTearDown(harness.dispose);
+    harness.telegramClient.responses.add(
+      const TelegramHttpResponse(statusCode: 200, body: {'ok': true}),
+    );
+    await harness.saveTelegramConfiguration();
+
+    await harness.controller.buildAndSendWindowsInstallerToTelegram();
+
+    expect(harness.installerExecutor.buildCallCount, 1);
+    expect(harness.installerExecutor.packageCallCount, 1);
+    expect(harness.telegramClient.requests, isEmpty);
+    expect(harness.telegramClient.uploads, hasLength(1));
+    expect(
+      harness.telegramClient.uploads.single.fileName,
+      'AppReleaseCenter_Setup_v2.0.1.exe',
+    );
+    expect(
+      harness.telegramClient.uploads.single.contentType,
+      windowsInstallerContentType,
+    );
+    expect(harness.controller.runner.workflowTotalSteps.value, 3);
+    expect(harness.controller.runner.status.value, 'Completed');
+    expect(
+      harness.controller.installerDeliveryStatus.value,
+      'Windows installer sent to Telegram.',
+    );
+  });
+
+  test(
+    'oversized installer uploads to Drive and sends Telegram link',
+    () async {
+      final harness = await _ControllerHarness.create();
+      addTearDown(harness.dispose);
+      harness.installerExecutor.installerSizeBytes = 151 * 1024 * 1024;
+      harness.telegramClient.responses.add(
+        const TelegramHttpResponse(statusCode: 200, body: {'ok': true}),
+      );
+      await harness.saveTelegramConfiguration();
+      await harness.connectGoogleDriveOnly();
+
+      await harness.controller.buildAndSendWindowsInstallerToTelegram();
+
+      expect(harness.installerExecutor.buildCallCount, 1);
+      expect(harness.telegramClient.uploads, isEmpty);
+      expect(harness.googleDriveApiClient.uploads, [
+        'AppReleaseCenter_Setup_v2.0.1.exe',
+      ]);
+      expect(harness.googleDriveApiClient.uploadContentTypes, [
+        windowsInstallerContentType,
+      ]);
+      final message = harness.telegramClient.requests.single.body['text'];
+      expect(message, contains('Installer is over Telegram 50 MB limit'));
+      expect(message, contains('App Release Center'));
+      expect(message, contains('2.0.1+45'));
+      expect(
+        message,
+        contains('https://drive.google.com/file/d/drive-file-id/view'),
+      );
+      expect(harness.controller.runner.status.value, 'Completed');
+    },
+  );
+
+  test(
+    'oversized installer without Drive config fails after keeping local file',
+    () async {
+      final harness = await _ControllerHarness.create();
+      addTearDown(harness.dispose);
+      harness.installerExecutor.installerSizeBytes = 151 * 1024 * 1024;
+      await harness.saveTelegramConfiguration();
+
+      await harness.controller.buildAndSendWindowsInstallerToTelegram();
+
+      final installer = File(
+        p.join(
+          harness.root.path,
+          'build',
+          'installer',
+          'AppReleaseCenter_Setup_v2.0.1.exe',
+        ),
+      );
+      expect(installer.existsSync(), isTrue);
+      expect(harness.telegramClient.requests, isEmpty);
+      expect(harness.telegramClient.uploads, isEmpty);
+      expect(harness.googleDriveApiClient.uploads, isEmpty);
+      expect(
+        harness.controller.installerDeliveryStatus.value,
+        contains('Installer kept at'),
+      );
+      expect(harness.controller.runner.status.value, 'Failed');
+    },
+  );
+
   test('failed CH Play deploy does not build or upload an APK', () async {
     final harness = await _ControllerHarness.create();
     addTearDown(harness.dispose);
@@ -422,6 +537,7 @@ class _ControllerHarness {
     required this.controller,
     required this.telegramClient,
     required this.apkExecutor,
+    required this.installerExecutor,
     required this.googleDriveCredentials,
     required this.googleDriveApiClient,
   });
@@ -430,6 +546,7 @@ class _ControllerHarness {
   final HomeController controller;
   final _FakeTelegramHttpClient telegramClient;
   final _FakeReleaseApkBuildExecutor apkExecutor;
+  final _FakeReleaseInstallerBuildExecutor installerExecutor;
   final GoogleDriveCredentialStoreService googleDriveCredentials;
   final _FakeGoogleDriveApiClient googleDriveApiClient;
 
@@ -438,6 +555,16 @@ class _ControllerHarness {
     final root = await Directory.systemTemp.createTemp(
       'app_release_center_telegram_controller_',
     );
+    await File(p.join(root.path, 'pubspec.yaml')).writeAsString(
+      'name: app_release_center\n'
+      'version: 2.0.1+45\n',
+    );
+    final installerScriptDirectory = await Directory(
+      p.join(root.path, 'installer', 'windows'),
+    ).create(recursive: true);
+    await File(
+      p.join(installerScriptDirectory.path, 'build_installer.ps1'),
+    ).writeAsString('# test installer script\n');
     final store = await ProjectStoreService().init();
     final secureStore = _MemorySecureKeyValueStore();
     final telegramCredentials = TelegramCredentialStoreService(
@@ -445,6 +572,7 @@ class _ControllerHarness {
     );
     final telegramClient = _FakeTelegramHttpClient();
     final apkExecutor = _FakeReleaseApkBuildExecutor();
+    final installerExecutor = _FakeReleaseInstallerBuildExecutor();
     final googleDriveCredentials = GoogleDriveCredentialStoreService(
       secureStore: _MemorySecureKeyValueStore(),
     );
@@ -484,6 +612,11 @@ class _ControllerHarness {
         buildExecutor: apkExecutor,
         now: () => DateTime(2026, 7, 21),
       ),
+      releaseInstallerArtifacts: ReleaseInstallerArtifactService(
+        buildExecutor: installerExecutor,
+        now: () => DateTime(2026, 8, 3),
+        isWindows: () => true,
+      ),
       telegramReleaseNotifications: telegramService,
       googleDriveReleaseUploads: googleDriveService,
       chPlayInspector: chPlayInspector,
@@ -518,6 +651,7 @@ class _ControllerHarness {
       controller: controller,
       telegramClient: telegramClient,
       apkExecutor: apkExecutor,
+      installerExecutor: installerExecutor,
       googleDriveCredentials: googleDriveCredentials,
       googleDriveApiClient: googleDriveApiClient,
     );
@@ -605,9 +739,13 @@ class _TelegramRequest {
 }
 
 class _TelegramUploadRequest {
-  const _TelegramUploadRequest({required this.fileName});
+  const _TelegramUploadRequest({
+    required this.fileName,
+    required this.contentType,
+  });
 
   final String fileName;
+  final String contentType;
 }
 
 class _FakeTelegramHttpClient implements TelegramHttpClient {
@@ -633,7 +771,9 @@ class _FakeTelegramHttpClient implements TelegramHttpClient {
     required String fileName,
     required String contentType,
   }) async {
-    uploads.add(_TelegramUploadRequest(fileName: fileName));
+    uploads.add(
+      _TelegramUploadRequest(fileName: fileName, contentType: contentType),
+    );
     return responses.removeAt(0);
   }
 }
@@ -659,6 +799,73 @@ class _FakeReleaseApkBuildExecutor implements ReleaseApkBuildExecutor {
     return 0;
   }
 }
+
+class _FakeReleaseInstallerBuildExecutor
+    implements ReleaseInstallerBuildExecutor {
+  int installerSizeBytes = 3;
+  int buildCallCount = 0;
+  int packageCallCount = 0;
+
+  @override
+  Future<int> buildWindowsRelease(ReleaseProject project) async {
+    buildCallCount++;
+    return 0;
+  }
+
+  @override
+  Future<int> packageWindowsInstaller({
+    required ReleaseProject project,
+    required String versionName,
+  }) async {
+    packageCallCount++;
+    final output = await Directory(
+      p.join(project.path, 'build', 'installer'),
+    ).create(recursive: true);
+    final installer = File(
+      p.join(output.path, 'AppReleaseCenter_Setup_v$versionName.exe'),
+    );
+    if (installerSizeBytes <= 3) {
+      await installer.writeAsBytes(List<int>.filled(installerSizeBytes, 1));
+    } else {
+      final handle = await installer.open(mode: FileMode.write);
+      await handle.truncate(installerSizeBytes);
+      await handle.close();
+    }
+    await _writeInstallerPayload(project);
+    return 0;
+  }
+
+  Future<void> _writeInstallerPayload(ReleaseProject project) async {
+    final buildRoot = Directory(p.join(project.path, 'build', 'installer'));
+    final payloadRoot = Directory(p.join(buildRoot.path, 'payload'));
+    final stageRoot = Directory(p.join(buildRoot.path, 'stage'));
+    await payloadRoot.create(recursive: true);
+    await stageRoot.create(recursive: true);
+
+    final archive = Archive();
+    for (final path in _requiredInstallerPayloadFiles) {
+      final bytes = [1, 2, 3];
+      final file = File(p.joinAll([payloadRoot.path, ...path.split('/')]));
+      await file.parent.create(recursive: true);
+      await file.writeAsBytes(bytes);
+      archive.add(ArchiveFile(path, bytes.length, bytes));
+    }
+
+    await File(
+      p.join(stageRoot.path, 'payload.zip'),
+    ).writeAsBytes(ZipEncoder().encode(archive));
+  }
+}
+
+const _requiredInstallerPayloadFiles = [
+  'app_release_center.exe',
+  'flutter_windows.dll',
+  'data/app.so',
+  'data/icudtl.dat',
+  'data/flutter_assets/AssetManifest.bin',
+  'data/flutter_assets/FontManifest.json',
+  'data/flutter_assets/NativeAssetsManifest.json',
+];
 
 class _FakeGoogleDriveOAuthFlow implements GoogleDriveOAuthFlow {
   @override
@@ -687,6 +894,7 @@ class _FakeGoogleDriveApiClientFactory implements GoogleDriveApiClientFactory {
 
 class _FakeGoogleDriveApiClient implements GoogleDriveApiClient {
   final uploads = <String>[];
+  final uploadContentTypes = <String>[];
   final sharedFileIds = <String>[];
   int folderCreateCount = 0;
   Object? error;
@@ -705,14 +913,16 @@ class _FakeGoogleDriveApiClient implements GoogleDriveApiClient {
   }
 
   @override
-  Future<GoogleDriveRemoteFile> uploadApk({
+  Future<GoogleDriveRemoteFile> uploadFile({
     required File file,
     required String fileName,
     required String folderId,
+    required String contentType,
   }) async {
     final currentError = error;
     if (currentError != null) throw currentError;
     uploads.add(fileName);
+    uploadContentTypes.add(contentType);
     return const GoogleDriveRemoteFile(
       id: 'drive-file-id',
       name: 'FizaHUB_v2.0.1_21_07_2026.apk',

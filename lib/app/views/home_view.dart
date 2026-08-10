@@ -2,24 +2,35 @@ import 'dart:async';
 import 'dart:ui' show ImageFilter;
 
 import 'package:app_release_center/app/controllers/home_controller.dart';
+import 'package:app_release_center/app/models/api_tool.dart';
 import 'package:app_release_center/app/models/app_store_credentials.dart';
 import 'package:app_release_center/app/models/app_store_project.dart';
 import 'package:app_release_center/app/models/app_store_version_snapshot.dart';
 import 'package:app_release_center/app/models/ch_play_credentials.dart';
 import 'package:app_release_center/app/models/ch_play_project.dart';
 import 'package:app_release_center/app/models/ch_play_version_snapshot.dart';
+import 'package:app_release_center/app/models/cicd_dependency.dart';
 import 'package:app_release_center/app/models/release_fastlane_lane.dart';
 import 'package:app_release_center/app/models/release_notification.dart';
 import 'package:app_release_center/app/models/release_project.dart';
 import 'package:app_release_center/app/models/release_script.dart';
 import 'package:app_release_center/app/models/release_workflow.dart';
+import 'package:app_release_center/app/models/resource_catalog.dart';
+import 'package:app_release_center/app/models/resource_collection.dart';
 import 'package:app_release_center/app/services/android_cicd_clone_service.dart';
 import 'package:app_release_center/app/services/android_keystore_generation_service.dart';
+import 'package:app_release_center/app/services/api_tool_postman_import_service.dart';
+import 'package:app_release_center/app/services/api_tool_repository_service.dart';
+import 'package:app_release_center/app/services/api_tool_service.dart';
+import 'package:app_release_center/app/services/auth_service.dart';
+import 'package:app_release_center/app/services/project_store_service.dart';
 import 'package:app_release_center/app/services/release_runner_service.dart';
 import 'package:app_release_center/app/services/release_workflow_service.dart';
 import 'package:app_release_center/app/services/remote_control_service.dart';
 import 'package:app_release_center/app/services/theme_service.dart';
 import 'package:app_release_center/app/theme/cyber_theme.dart';
+import 'package:app_release_center/app/views/team_management_dialog.dart';
+import 'package:file_selector/file_selector.dart' as file_selector;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
@@ -27,6 +38,7 @@ import 'package:path/path.dart' as p;
 import 'package:qr_flutter/qr_flutter.dart';
 
 part 'home_widgets/flow_panel.dart';
+part 'home_widgets/api_tool_dialog.dart';
 part 'home_widgets/fastlane_panel.dart';
 part 'home_widgets/ch_play_versions_panel.dart';
 part 'home_widgets/log_panel.dart';
@@ -119,6 +131,8 @@ class _HomeScaffoldState extends State<_HomeScaffold> {
                 },
               ),
             ),
+            if (Get.isRegistered<AuthService>())
+              const Positioned(top: 24, right: 24, child: _AccountHud()),
           ],
         ),
       );
@@ -183,6 +197,85 @@ class _HomeScaffoldState extends State<_HomeScaffold> {
       return fallbackCurrent;
     }
     return adjusted.toDouble();
+  }
+}
+
+class _AccountHud extends StatelessWidget {
+  const _AccountHud();
+
+  @override
+  Widget build(BuildContext context) {
+    final auth = Get.find<AuthService>();
+    return Obx(() {
+      final profile = auth.profile.value;
+      if (profile == null) return const SizedBox.shrink();
+      return Material(
+        color: Colors.transparent,
+        child: PopupMenuButton<String>(
+          tooltip: 'Account',
+          onSelected: (value) {
+            if (value == 'team') {
+              unawaited(showTeamManagementDialog(context));
+            } else if (value == 'logout') {
+              unawaited(auth.signOut());
+            }
+          },
+          itemBuilder: (context) => [
+            PopupMenuItem(
+              enabled: false,
+              child: Text(profile.email, overflow: TextOverflow.ellipsis),
+            ),
+            const PopupMenuDivider(),
+            const PopupMenuItem(
+              value: 'team',
+              child: ListTile(
+                leading: Icon(Icons.groups_outlined),
+                title: Text('Team'),
+                contentPadding: EdgeInsets.zero,
+              ),
+            ),
+            const PopupMenuItem(
+              value: 'logout',
+              child: ListTile(
+                leading: Icon(Icons.logout_outlined),
+                title: Text('Logout'),
+                contentPadding: EdgeInsets.zero,
+              ),
+            ),
+          ],
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: AppCyberTheme.panelBackgroundStrong.withValues(alpha: 0.9),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: AppCyberTheme.electricBlue.withValues(alpha: 0.42),
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.account_circle_outlined, size: 18),
+                const SizedBox(width: 7),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 160),
+                  child: Text(
+                    profile.teamName.isEmpty ? profile.email : profile.teamName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppCyberTheme.dataTextStyle(
+                      size: 10.8,
+                      color: AppCyberTheme.textPrimary,
+                      weight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    });
   }
 }
 

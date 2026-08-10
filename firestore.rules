@@ -1,0 +1,113 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function memberPath(teamId) {
+      return /databases/$(database)/documents/teams/$(teamId)/members/$(request.auth.uid);
+    }
+
+    function teamPath(teamId) {
+      return /databases/$(database)/documents/teams/$(teamId);
+    }
+
+    function invitePath(teamId, inviteId) {
+      return /databases/$(database)/documents/teams/$(teamId)/invites/$(inviteId);
+    }
+
+    function isActiveMember(teamId) {
+      return signedIn() &&
+        exists(memberPath(teamId)) &&
+        get(memberPath(teamId)).data.status == 'active';
+    }
+
+    function role(teamId) {
+      return get(memberPath(teamId)).data.role;
+    }
+
+    function canEditApiTools(teamId) {
+      return isActiveMember(teamId) && role(teamId) in ['admin', 'dev'];
+    }
+
+    function isAdmin(teamId) {
+      return isActiveMember(teamId) && role(teamId) == 'admin';
+    }
+
+    function isBootstrapAdminCreate(teamId, uid) {
+      return signedIn() &&
+        uid == request.auth.uid &&
+        request.resource.data.status == 'active' &&
+        request.resource.data.role == 'admin' &&
+        getAfter(teamPath(teamId)).data.createdByUid == request.auth.uid;
+    }
+
+    function isInviteMemberCreate(teamId, uid) {
+      let inviteId = request.resource.data.joinedViaInviteId;
+      return signedIn() &&
+        uid == request.auth.uid &&
+        inviteId is string &&
+        request.resource.data.status == 'active' &&
+        getAfter(invitePath(teamId, inviteId)).data.status == 'used' &&
+        getAfter(invitePath(teamId, inviteId)).data.usedByUid == request.auth.uid &&
+        getAfter(invitePath(teamId, inviteId)).data.role == request.resource.data.role;
+    }
+
+    function isInviteUse() {
+      return signedIn() &&
+        resource.data.status == 'active' &&
+        resource.data.expiresAt is timestamp &&
+        resource.data.expiresAt > request.time &&
+        request.resource.data.status == 'used' &&
+        request.resource.data.usedByUid == request.auth.uid &&
+        request.resource.data.usedAt == request.time &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['status', 'usedByUid', 'usedAt']);
+    }
+
+    match /users/{uid} {
+      allow read: if signedIn() && (uid == request.auth.uid || request.auth.uid != null);
+      allow create, update: if signedIn() && uid == request.auth.uid;
+      allow delete: if false;
+    }
+
+    match /teams/{teamId} {
+      allow get: if signedIn();
+      allow list: if false;
+      allow create: if signedIn() && request.resource.data.createdByUid == request.auth.uid;
+      allow update: if isAdmin(teamId);
+      allow delete: if false;
+
+      match /members/{uid} {
+        allow read: if isActiveMember(teamId);
+        allow create: if isAdmin(teamId) ||
+          isBootstrapAdminCreate(teamId, uid) ||
+          isInviteMemberCreate(teamId, uid);
+        allow update, delete: if isAdmin(teamId);
+      }
+
+      match /invites/{inviteId} {
+        allow read: if signedIn();
+        allow create, delete: if isAdmin(teamId);
+        allow update: if isAdmin(teamId) || isInviteUse();
+      }
+
+      match /apiToolCollections/{collectionId} {
+        allow read: if isActiveMember(teamId);
+        allow write: if canEditApiTools(teamId);
+      }
+
+      match /apiToolFolders/{folderId} {
+        allow read: if isActiveMember(teamId);
+        allow write: if canEditApiTools(teamId);
+      }
+
+      match /apiToolRequests/{requestId} {
+        allow read: if isActiveMember(teamId);
+        allow write: if canEditApiTools(teamId);
+      }
+    }
+  }
+}

@@ -19,7 +19,18 @@ class _OptionsPanel extends GetView<HomeController> {
               child: TabBarView(
                 children: [
                   _OptionsTabShell(child: _ReleaseOptions()),
-                  _OptionsTabShell(child: _TelegramReleaseOptions()),
+                  _OptionsTabShell(child: _CiCdSetupOptions()),
+                  _OptionsTabShell(child: _ResourceOptions()),
+                  _OptionsTabShell(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _TelegramReleaseOptions(),
+                        SizedBox(height: 10),
+                        _InstallerTelegramOptions(),
+                      ],
+                    ),
+                  ),
                   _OptionsTabShell(child: _NotificationOptions()),
                   _OptionsTabShell(child: _RemoteControlOptions()),
                 ],
@@ -34,12 +45,14 @@ class _OptionsPanel extends GetView<HomeController> {
   }
 }
 
-enum _OptionsTab { release, telegram, push, remote }
+enum _OptionsTab { release, setup, resources, telegram, push, remote }
 
 extension _OptionsTabMeta on _OptionsTab {
   IconData get icon {
     return switch (this) {
       _OptionsTab.release => Icons.rocket_launch_outlined,
+      _OptionsTab.setup => Icons.construction_outlined,
+      _OptionsTab.resources => Icons.inventory_2_outlined,
       _OptionsTab.telegram => Icons.send_outlined,
       _OptionsTab.push => Icons.notifications_active_outlined,
       _OptionsTab.remote => Icons.settings_remote_outlined,
@@ -49,6 +62,8 @@ extension _OptionsTabMeta on _OptionsTab {
   String get label {
     return switch (this) {
       _OptionsTab.release => 'Release',
+      _OptionsTab.setup => 'Setup',
+      _OptionsTab.resources => 'Resources',
       _OptionsTab.telegram => 'Telegram',
       _OptionsTab.push => 'Push',
       _OptionsTab.remote => 'Remote',
@@ -90,54 +105,49 @@ class _OptionsTabSelectorState extends State<_OptionsTabSelector> {
   Widget build(BuildContext context) {
     final selectedIndex = _controller?.index ?? 0;
     const spacing = 8.0;
+    final rows = <Widget>[];
+    final tabs = _OptionsTab.values;
 
-    return Column(
-      children: [
+    for (var index = 0; index < tabs.length; index += 2) {
+      final first = tabs[index];
+      final second = index + 1 < tabs.length ? tabs[index + 1] : null;
+      rows.add(
         Row(
           children: [
             Expanded(
               child: _OptionsTabButton(
-                tab: _OptionsTab.release,
-                selected: selectedIndex == _OptionsTab.release.index,
+                tab: first,
+                selected: selectedIndex == first.index,
                 onTap: _select,
               ),
             ),
-            const SizedBox(width: spacing),
-            Expanded(
-              child: _OptionsTabButton(
-                tab: _OptionsTab.telegram,
-                selected: selectedIndex == _OptionsTab.telegram.index,
-                onTap: _select,
+            if (second != null) ...[
+              const SizedBox(width: spacing),
+              Expanded(
+                child: _OptionsTabButton(
+                  tab: second,
+                  selected: selectedIndex == second.index,
+                  onTap: _select,
+                ),
               ),
-            ),
+            ] else ...[
+              const SizedBox(width: spacing),
+              const Expanded(child: SizedBox.shrink()),
+            ],
           ],
         ),
-        const SizedBox(height: spacing),
-        Row(
-          children: [
-            Expanded(
-              child: _OptionsTabButton(
-                tab: _OptionsTab.push,
-                selected: selectedIndex == _OptionsTab.push.index,
-                onTap: _select,
-              ),
-            ),
-            const SizedBox(width: spacing),
-            Expanded(
-              child: _OptionsTabButton(
-                tab: _OptionsTab.remote,
-                selected: selectedIndex == _OptionsTab.remote.index,
-                onTap: _select,
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
+      );
+      if (index + 2 < tabs.length) {
+        rows.add(const SizedBox(height: spacing));
+      }
+    }
+
+    return Column(children: rows);
   }
 
   void _select(_OptionsTab tab) {
-    _controller?.animateTo(tab.index);
+    final controller = DefaultTabController.maybeOf(context) ?? _controller;
+    controller?.animateTo(tab.index);
   }
 }
 
@@ -171,8 +181,16 @@ class _OptionsTabButton extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
+          key: Key('options-tab-${tab.name}'),
           borderRadius: BorderRadius.circular(8),
-          onTap: () => onTap(tab),
+          onTap: () {
+            final controller = DefaultTabController.maybeOf(context);
+            if (controller != null) {
+              controller.animateTo(tab.index);
+            } else {
+              onTap(tab);
+            }
+          },
           child: AnimatedContainer(
             height: 42,
             duration: const Duration(milliseconds: 160),
@@ -298,6 +316,603 @@ class _ReleaseOptions extends GetView<HomeController> {
       );
     });
   }
+}
+
+class _CiCdSetupOptions extends GetView<HomeController> {
+  const _CiCdSetupOptions();
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final snapshot = controller.cicdDependencySnapshot.value;
+      final isChecking = controller.isCheckingCiCdDependencies.value;
+      final isRunning = controller.isRunningCiCdInstallStep.value;
+      final setupBusy = isChecking || isRunning;
+      final steps = controller.cicdInstallSteps.toList(growable: false);
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _HudCardShell(
+            active: setupBusy,
+            padding: const EdgeInsets.all(10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Expanded(
+                      child: _PanelTitle(
+                        icon: Icons.health_and_safety_outlined,
+                        title: 'Doctor',
+                      ),
+                    ),
+                    OutlinedButton.icon(
+                      key: const Key('cicd-doctor-check'),
+                      onPressed: setupBusy
+                          ? null
+                          : controller.checkCiCdDependencies,
+                      icon: isChecking
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.manage_search_outlined),
+                      label: Text(isChecking ? 'Checking' : 'Run Doctor'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _MetaChip(
+                      icon: Icons.desktop_windows_outlined,
+                      label: snapshot?.platform.label ?? 'Not checked',
+                      highlighted: snapshot != null,
+                    ),
+                    if (snapshot != null)
+                      _MetaChip(
+                        icon: Icons.schedule_outlined,
+                        label: _ciCdCheckedAtLabel(snapshot.checkedAt),
+                      ),
+                  ],
+                ),
+                if (controller.cicdSetupStatus.value.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    controller.cicdSetupStatus.value,
+                    style: AppCyberTheme.dataTextStyle(
+                      size: 10.8,
+                      color: AppCyberTheme.textMuted,
+                      weight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 10),
+                if (snapshot == null)
+                  const _CiCdEmptyState(
+                    icon: Icons.search_outlined,
+                    message: 'Run Doctor to scan CI/CD dependencies.',
+                  )
+                else
+                  _CiCdDoctorList(snapshot: snapshot),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          _HudCardShell(
+            padding: const EdgeInsets.all(10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const _PanelTitle(
+                  icon: Icons.playlist_add_check_outlined,
+                  title: 'Install queue',
+                ),
+                const SizedBox(height: 10),
+                ...CiCdSetupGroup.values.map(
+                  (group) => _CiCdSetupGroupToggle(group: group),
+                ),
+                const SizedBox(height: 8),
+                if (snapshot == null)
+                  const _CiCdEmptyState(
+                    icon: Icons.fact_check_outlined,
+                    message: 'Queue appears after a Doctor scan.',
+                  )
+                else if (steps.isEmpty)
+                  const _CiCdEmptyState(
+                    icon: Icons.verified_outlined,
+                    message: 'No install steps for the selected groups.',
+                  )
+                else
+                  ...steps.map((step) => _CiCdInstallStepTile(step: step)),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          const _CiCdSetupLogs(),
+        ],
+      );
+    });
+  }
+}
+
+class _CiCdDoctorList extends StatelessWidget {
+  const _CiCdDoctorList({required this.snapshot});
+
+  final CiCdDependencySnapshot snapshot;
+
+  @override
+  Widget build(BuildContext context) {
+    final children = <Widget>[];
+    for (final group in CiCdSetupGroup.values) {
+      final checks = snapshot.checksForGroup(group);
+      if (checks.isEmpty) continue;
+      if (children.isNotEmpty) children.add(const SizedBox(height: 8));
+      children.add(
+        Text(
+          group.label,
+          style: AppCyberTheme.dataTextStyle(
+            size: 11.4,
+            color: AppCyberTheme.textPrimary,
+            weight: FontWeight.w800,
+          ),
+        ),
+      );
+      children.add(const SizedBox(height: 4));
+      for (final check in checks) {
+        children.add(_CiCdDependencyRow(check: check));
+      }
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: children,
+    );
+  }
+}
+
+class _CiCdDependencyRow extends StatelessWidget {
+  const _CiCdDependencyRow({required this.check});
+
+  final CiCdDependencyCheck check;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _ciCdStatusColor(check.status);
+    final detailParts = [
+      if (check.version.trim().isNotEmpty) check.version.trim(),
+      if (check.detail.trim().isNotEmpty) check.detail.trim(),
+    ];
+
+    return Container(
+      key: Key('cicd-check-${check.id}'),
+      padding: const EdgeInsets.symmetric(vertical: 7),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(
+            color: AppCyberTheme.lineBlue.withValues(alpha: 0.22),
+          ),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(_ciCdStatusIcon(check.status), size: 18, color: color),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        check.label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppCyberTheme.dataTextStyle(
+                          size: 11.4,
+                          color: AppCyberTheme.textPrimary,
+                          weight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    _CiCdStatusChip(status: check.status),
+                  ],
+                ),
+                if (detailParts.isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    detailParts.join(' - '),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppCyberTheme.dataTextStyle(
+                      size: 10.4,
+                      color: AppCyberTheme.textMuted,
+                      weight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CiCdSetupGroupToggle extends GetView<HomeController> {
+  const _CiCdSetupGroupToggle({required this.group});
+
+  final CiCdSetupGroup group;
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final selected = controller.selectedCiCdSetupGroups.contains(group);
+      return InkWell(
+        key: Key('cicd-group-${group.name}'),
+        borderRadius: BorderRadius.circular(8),
+        onTap: () => controller.toggleCiCdSetupGroup(group, !selected),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Checkbox(
+                value: selected,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                visualDensity: VisualDensity.compact,
+                onChanged: (value) {
+                  controller.toggleCiCdSetupGroup(group, value ?? true);
+                },
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      group.label,
+                      style: AppCyberTheme.dataTextStyle(
+                        size: 11.4,
+                        color: AppCyberTheme.textPrimary,
+                        weight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      group.description,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppCyberTheme.dataTextStyle(
+                        size: 10.2,
+                        color: AppCyberTheme.textMuted,
+                        weight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    });
+  }
+}
+
+class _CiCdInstallStepTile extends GetView<HomeController> {
+  const _CiCdInstallStepTile({required this.step});
+
+  final CiCdInstallStep step;
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final isBusy =
+          controller.runner.isBusy ||
+          controller.isRunningCiCdInstallStep.value ||
+          controller.isCheckingCiCdDependencies.value;
+
+      return Container(
+        key: Key('cicd-step-${step.id}'),
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(
+              color: AppCyberTheme.lineBlue.withValues(alpha: 0.22),
+            ),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  step.isManual
+                      ? Icons.open_in_new_outlined
+                      : Icons.terminal_outlined,
+                  size: 18,
+                  color: AppCyberTheme.electricBlue,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        step.label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppCyberTheme.dataTextStyle(
+                          size: 11.4,
+                          color: AppCyberTheme.textPrimary,
+                          weight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      _CiCdCommandPreview(command: step.commandPreview),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            if (step.description.trim().isNotEmpty) ...[
+              const SizedBox(height: 5),
+              Text(
+                step.description,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: AppCyberTheme.dataTextStyle(
+                  size: 10.2,
+                  color: AppCyberTheme.textMuted,
+                  weight: FontWeight.w600,
+                ),
+              ),
+            ],
+            const SizedBox(height: 7),
+            Align(
+              alignment: Alignment.centerRight,
+              child: step.isManual
+                  ? OutlinedButton.icon(
+                      key: Key('cicd-open-${step.id}'),
+                      onPressed: isBusy
+                          ? null
+                          : () => controller.openCiCdInstallFallback(step),
+                      icon: const Icon(Icons.open_in_new_outlined),
+                      label: const Text('Open guide'),
+                    )
+                  : FilledButton.tonalIcon(
+                      key: Key('cicd-run-${step.id}'),
+                      onPressed: isBusy
+                          ? null
+                          : () => _confirmCiCdInstallStep(context, step),
+                      icon: const Icon(Icons.play_arrow_outlined),
+                      label: const Text('Run'),
+                    ),
+            ),
+          ],
+        ),
+      );
+    });
+  }
+}
+
+class _CiCdSetupLogs extends GetView<HomeController> {
+  const _CiCdSetupLogs();
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final logs = controller.runner.logLines.toList(growable: false);
+      final visibleLogs = logs.length > 8
+          ? logs.sublist(logs.length - 8)
+          : logs;
+
+      return _HudCardShell(
+        active: controller.runner.isRunning.value,
+        padding: const EdgeInsets.all(10),
+        child: Column(
+          key: const Key('cicd-setup-log-preview'),
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const _PanelTitle(icon: Icons.subject_outlined, title: 'Logs'),
+            const SizedBox(height: 8),
+            if (visibleLogs.isEmpty)
+              const _CiCdEmptyState(
+                icon: Icons.notes_outlined,
+                message: 'Logs will appear here while setup steps run.',
+              )
+            else
+              ...visibleLogs.map(
+                (line) => Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text(
+                    line,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppCyberTheme.dataTextStyle(
+                      size: 10.2,
+                      color: AppCyberTheme.textMuted,
+                      weight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      );
+    });
+  }
+}
+
+class _CiCdStatusChip extends StatelessWidget {
+  const _CiCdStatusChip({required this.status});
+
+  final CiCdDependencyStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _ciCdStatusColor(status);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: AppCyberTheme.isCyber ? 0.13 : 0.08),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withValues(alpha: 0.5)),
+      ),
+      child: Text(
+        status.label,
+        style: AppCyberTheme.dataTextStyle(
+          size: 9.8,
+          color: color,
+          weight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+}
+
+class _CiCdCommandPreview extends StatelessWidget {
+  const _CiCdCommandPreview({required this.command});
+
+  final String command;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppCyberTheme.panelBackgroundStrong.withValues(alpha: 0.7),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: AppCyberTheme.lineBlue.withValues(alpha: 0.25),
+        ),
+      ),
+      child: Text(
+        command,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: AppCyberTheme.dataTextStyle(
+          size: 10.1,
+          color: AppCyberTheme.textPrimary,
+          weight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
+class _CiCdEmptyState extends StatelessWidget {
+  const _CiCdEmptyState({required this.icon, required this.message});
+
+  final IconData icon;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 17, color: AppCyberTheme.textMuted),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            message,
+            style: AppCyberTheme.dataTextStyle(
+              size: 10.8,
+              color: AppCyberTheme.textMuted,
+              weight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+Future<void> _confirmCiCdInstallStep(
+  BuildContext context,
+  CiCdInstallStep step,
+) async {
+  final controller = Get.find<HomeController>();
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) {
+      return AlertDialog(
+        title: Text(step.label),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Preview command'),
+            const SizedBox(height: 8),
+            _CiCdCommandPreview(command: step.commandPreview),
+            if (step.workingDirectory.trim().isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text('Working directory: ${step.workingDirectory}'),
+            ],
+            if (step.requiresConfirmation) ...[
+              const SizedBox(height: 10),
+              const Text(
+                'This may install tools, update packages, or open an interactive prompt.',
+              ),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton.icon(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            icon: const Icon(Icons.play_arrow_outlined),
+            label: const Text('Run'),
+          ),
+        ],
+      );
+    },
+  );
+  if (confirmed == true) {
+    await controller.runCiCdInstallStep(step);
+  }
+}
+
+Color _ciCdStatusColor(CiCdDependencyStatus status) {
+  return switch (status) {
+    CiCdDependencyStatus.installed => AppCyberTheme.neonGreen,
+    CiCdDependencyStatus.missing => Colors.orangeAccent,
+    CiCdDependencyStatus.outdated => Colors.amberAccent,
+    CiCdDependencyStatus.manual => AppCyberTheme.electricBlue,
+    CiCdDependencyStatus.unsupported => AppCyberTheme.textMuted,
+    CiCdDependencyStatus.error => Colors.redAccent,
+  };
+}
+
+IconData _ciCdStatusIcon(CiCdDependencyStatus status) {
+  return switch (status) {
+    CiCdDependencyStatus.installed => Icons.check_circle_outline,
+    CiCdDependencyStatus.missing => Icons.error_outline,
+    CiCdDependencyStatus.outdated => Icons.update_outlined,
+    CiCdDependencyStatus.manual => Icons.touch_app_outlined,
+    CiCdDependencyStatus.unsupported => Icons.block_outlined,
+    CiCdDependencyStatus.error => Icons.report_gmailerrorred_outlined,
+  };
+}
+
+String _ciCdCheckedAtLabel(DateTime value) {
+  String twoDigits(int number) => number.toString().padLeft(2, '0');
+  return '${twoDigits(value.hour)}:${twoDigits(value.minute)}';
 }
 
 class _PlayUploadOptions extends GetView<HomeController> {
@@ -840,6 +1455,1424 @@ class _GoogleDriveFallbackOptions extends GetView<HomeController> {
   }
 }
 
+class _ResourceOptions extends GetView<HomeController> {
+  const _ResourceOptions();
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      return Column(
+        key: const Key('resource-options'),
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _PanelTitle(
+            icon: Icons.inventory_2_outlined,
+            title: 'Resources',
+          ),
+          const SizedBox(height: 10),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: SegmentedButton<ResourcePanelMode>(
+              key: const Key('resource-panel-mode'),
+              showSelectedIcon: false,
+              segments: const [
+                ButtonSegment(
+                  value: ResourcePanelMode.catalog,
+                  icon: Icon(Icons.view_list_outlined, size: 16),
+                  label: Text('Catalog'),
+                ),
+                ButtonSegment(
+                  value: ResourcePanelMode.collector,
+                  icon: Icon(Icons.archive_outlined, size: 16),
+                  label: Text('Collector'),
+                ),
+              ],
+              selected: {controller.resourcePanelMode.value},
+              onSelectionChanged: (selected) =>
+                  controller.setResourcePanelMode(selected.first),
+            ),
+          ),
+          const SizedBox(height: 10),
+          if (controller.resourcePanelMode.value == ResourcePanelMode.catalog)
+            const _ResourceCatalogOptions()
+          else
+            const _ResourceCollectorOptions(),
+        ],
+      );
+    });
+  }
+}
+
+class _ResourceCollectorOptions extends GetView<HomeController> {
+  const _ResourceCollectorOptions();
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final findings = controller.resourceFindings.toList();
+      final selectedIds = controller.selectedResourceFindingIds.toSet();
+      final isBusy =
+          controller.isScanningResources.value ||
+          controller.isExportingResources.value;
+      final selectedCount = findings
+          .where((finding) => selectedIds.contains(finding.id))
+          .length;
+      final hasSigningFindings = controller.resourceSigningFindings.isNotEmpty;
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _HudCardShell(
+            active: controller.isScanningResources.value,
+            padding: const EdgeInsets.all(10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _ResourcePathField(
+                  key: const Key('resource-source-path'),
+                  controller: controller.resourceSourcePathController,
+                  label: 'Source folder',
+                  icon: Icons.folder_open_outlined,
+                  onPick: isBusy
+                      ? null
+                      : controller.pickResourceSourceDirectory,
+                ),
+                const SizedBox(height: 10),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: SegmentedButton<ResourceCollectionPreset>(
+                    key: const Key('resource-preset-selector'),
+                    showSelectedIcon: false,
+                    segments: [
+                      for (final preset in ResourceCollectionPreset.values)
+                        ButtonSegment(
+                          value: preset,
+                          icon: Icon(_resourcePresetIcon(preset), size: 16),
+                          label: Text(preset.label),
+                        ),
+                    ],
+                    selected: {controller.resourcePreset.value},
+                    onSelectionChanged: isBusy
+                        ? null
+                        : (selected) =>
+                              controller.setResourcePreset(selected.first),
+                  ),
+                ),
+                if (controller.resourcePreset.value ==
+                    ResourceCollectionPreset.custom) ...[
+                  const SizedBox(height: 8),
+                  for (final kind in ResourceTargetKind.values)
+                    CheckboxListTile(
+                      key: Key('resource-kind-${kind.name}'),
+                      value: controller.resourceCustomKinds.contains(kind),
+                      onChanged: isBusy
+                          ? null
+                          : (value) => controller.toggleResourceTargetKind(
+                              kind,
+                              value ?? false,
+                            ),
+                      contentPadding: EdgeInsets.zero,
+                      dense: true,
+                      title: Text(kind.label),
+                      controlAffinity: ListTileControlAffinity.leading,
+                    ),
+                ],
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: FilledButton.icon(
+                        key: const Key('resource-scan'),
+                        onPressed: isBusy ? null : controller.scanResources,
+                        icon: controller.isScanningResources.value
+                            ? const SizedBox.square(
+                                dimension: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.manage_search_outlined),
+                        label: const Text('Scan'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        key: const Key('resource-select-all'),
+                        onPressed:
+                            findings.isEmpty ||
+                                isBusy ||
+                                selectedCount == findings.length
+                            ? null
+                            : () => controller.setAllResourceFindingsSelected(
+                                true,
+                              ),
+                        icon: const Icon(Icons.check_box_outlined),
+                        label: const Text('All'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton.outlined(
+                      key: const Key('resource-clear-selection'),
+                      tooltip: 'Clear resource selection',
+                      onPressed:
+                          findings.isEmpty || isBusy || selectedCount == 0
+                          ? null
+                          : () => controller.setAllResourceFindingsSelected(
+                              false,
+                            ),
+                      icon: const Icon(Icons.check_box_outline_blank),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          _HudCardShell(
+            active: controller.isExportingResources.value,
+            padding: const EdgeInsets.all(10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _ResourcePathField(
+                  key: const Key('resource-target-path'),
+                  controller: controller.resourceTargetPathController,
+                  label: 'Export folder',
+                  icon: Icons.drive_folder_upload_outlined,
+                  onPick: isBusy
+                      ? null
+                      : controller.pickResourceTargetDirectory,
+                ),
+                if (hasSigningFindings) ...[
+                  const SizedBox(height: 10),
+                  _ResourceSigningCredentialOptions(isBusy: isBusy),
+                  const SizedBox(height: 10),
+                ],
+                Row(
+                  children: [
+                    Expanded(
+                      child: FilledButton.icon(
+                        key: const Key('resource-export-bundle'),
+                        onPressed: controller.canExportResourceBundle
+                            ? _export
+                            : null,
+                        icon: controller.isExportingResources.value
+                            ? const SizedBox.square(
+                                dimension: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.archive_outlined),
+                        label: Text(
+                          selectedCount > 0 ? 'Zip $selectedCount' : 'Zip',
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          if (controller.resourceStatus.value.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              controller.resourceStatus.value,
+              style: AppCyberTheme.dataTextStyle(
+                size: 10.6,
+                color: AppCyberTheme.textMuted,
+                weight: FontWeight.w600,
+              ),
+            ),
+          ],
+          const SizedBox(height: 10),
+          if (findings.isEmpty)
+            _HudCardShell(
+              padding: const EdgeInsets.all(10),
+              child: Row(
+                children: [
+                  const Icon(Icons.search_off_outlined, size: 17),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'No resource files scanned',
+                      style: AppCyberTheme.dataTextStyle(
+                        size: 10.8,
+                        color: AppCyberTheme.textMuted,
+                        weight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else
+            Column(
+              children: [
+                for (final finding in findings)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: _ResourceFindingTile(
+                      finding: finding,
+                      selected: selectedIds.contains(finding.id),
+                      onChanged: isBusy
+                          ? null
+                          : (value) => controller.toggleResourceFinding(
+                              finding,
+                              value ?? false,
+                            ),
+                    ),
+                  ),
+              ],
+            ),
+        ],
+      );
+    });
+  }
+
+  Future<void> _export() async {
+    await controller.exportResources();
+  }
+}
+
+class _ResourceCatalogOptions extends GetView<HomeController> {
+  const _ResourceCatalogOptions();
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final resources = controller.filteredResourceCatalogItems;
+      final passwords = controller.filteredResourcePasswordEntries;
+      final hasProject = controller.canUseResourceCatalog;
+      final isBusy = controller.isResourceCatalogBusy;
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _HudCardShell(
+            active: isBusy,
+            padding: const EdgeInsets.all(10),
+            child: Column(
+              children: [
+                TextField(
+                  key: const Key('resource-catalog-search'),
+                  controller: controller.resourceCatalogSearchController,
+                  enabled: hasProject,
+                  style: AppCyberTheme.dataTextStyle(
+                    size: 11.3,
+                    color: AppCyberTheme.textPrimary,
+                  ),
+                  decoration: const InputDecoration(
+                    labelText: 'Search catalog',
+                    prefixIcon: Icon(Icons.search_outlined),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<ResourceCatalogKind?>(
+                  key: const Key('resource-catalog-kind-filter'),
+                  initialValue: controller.selectedResourceCatalogKind.value,
+                  isExpanded: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Type',
+                    prefixIcon: Icon(Icons.category_outlined),
+                  ),
+                  items: [
+                    const DropdownMenuItem<ResourceCatalogKind?>(
+                      value: null,
+                      child: Text('All types'),
+                    ),
+                    for (final kind in ResourceCatalogKind.values)
+                      DropdownMenuItem<ResourceCatalogKind?>(
+                        value: kind,
+                        child: Text(kind.label),
+                      ),
+                  ],
+                  onChanged: hasProject
+                      ? controller.setResourceCatalogKindFilter
+                      : null,
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: FilledButton.icon(
+                        key: const Key('resource-catalog-add-resource'),
+                        onPressed: hasProject && !isBusy
+                            ? () => _editResource(context)
+                            : null,
+                        icon: const Icon(Icons.add_link_outlined),
+                        label: const Text('Resource'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: FilledButton.icon(
+                        key: const Key('resource-catalog-add-password'),
+                        onPressed: hasProject && !isBusy
+                            ? () => _editPassword(context)
+                            : null,
+                        icon: const Icon(Icons.password_outlined),
+                        label: const Text('Password'),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        key: const Key('resource-catalog-import'),
+                        onPressed: hasProject && !isBusy
+                            ? controller.importResourceCatalogExcel
+                            : null,
+                        icon: controller.isImportingResourceCatalog.value
+                            ? const SizedBox.square(
+                                dimension: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.upload_file_outlined),
+                        label: const Text('Import'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        key: const Key('resource-catalog-export'),
+                        onPressed: hasProject && !isBusy
+                            ? controller.exportResourceCatalogExcel
+                            : null,
+                        icon: controller.isExportingResourceCatalog.value
+                            ? const SizedBox.square(
+                                dimension: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.download_outlined),
+                        label: const Text('Export'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          if (controller.resourceCatalogStatus.value.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              controller.resourceCatalogStatus.value,
+              style: AppCyberTheme.dataTextStyle(
+                size: 10.6,
+                color: AppCyberTheme.textMuted,
+                weight: FontWeight.w600,
+              ),
+            ),
+          ],
+          const SizedBox(height: 10),
+          if (!hasProject)
+            _ResourceEmptyState(
+              icon: Icons.folder_open_outlined,
+              label: 'Select a project to manage catalog',
+            )
+          else ...[
+            _ResourceCatalogSectionHeader(
+              icon: Icons.link_outlined,
+              label: 'Resources',
+              count: resources.length,
+            ),
+            const SizedBox(height: 8),
+            if (resources.isEmpty)
+              const _ResourceEmptyState(
+                icon: Icons.link_off_outlined,
+                label: 'No catalog resources',
+              )
+            else
+              for (final item in resources)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: _ResourceCatalogItemTile(
+                    item: item,
+                    onEdit: () => _editResource(context, item),
+                  ),
+                ),
+            const SizedBox(height: 2),
+            _ResourceCatalogSectionHeader(
+              icon: Icons.password_outlined,
+              label: 'Passwords',
+              count: passwords.length,
+            ),
+            const SizedBox(height: 8),
+            if (passwords.isEmpty)
+              const _ResourceEmptyState(
+                icon: Icons.no_encryption_outlined,
+                label: 'No password entries',
+              )
+            else
+              for (final entry in passwords)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: _ResourcePasswordEntryTile(
+                    entry: entry,
+                    onEdit: () => _editPassword(context, entry),
+                  ),
+                ),
+          ],
+        ],
+      );
+    });
+  }
+
+  Future<void> _editResource(
+    BuildContext context, [
+    ResourceCatalogItem? item,
+  ]) async {
+    final result = await showDialog<ResourceCatalogItem>(
+      context: context,
+      builder: (_) => _ResourceCatalogItemDialog(item: item),
+    );
+    if (result != null) {
+      await controller.upsertResourceCatalogItem(result);
+    }
+  }
+
+  Future<void> _editPassword(
+    BuildContext context, [
+    ResourcePasswordEntry? entry,
+  ]) async {
+    final result = await showDialog<_ResourcePasswordDialogResult>(
+      context: context,
+      builder: (_) => _ResourcePasswordEntryDialog(entry: entry),
+    );
+    if (result != null) {
+      await controller.upsertResourcePasswordEntry(
+        result.entry,
+        password: result.password,
+      );
+    }
+  }
+}
+
+class _ResourceCatalogSectionHeader extends StatelessWidget {
+  const _ResourceCatalogSectionHeader({
+    required this.icon,
+    required this.label,
+    required this.count,
+  });
+
+  final IconData icon;
+  final String label;
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: AppCyberTheme.textMuted),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: AppCyberTheme.dataTextStyle(
+            size: 11.3,
+            color: AppCyberTheme.textPrimary,
+            weight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(width: 6),
+        _MetaChip(icon: Icons.tag_outlined, label: count.toString()),
+      ],
+    );
+  }
+}
+
+class _ResourceEmptyState extends StatelessWidget {
+  const _ResourceEmptyState({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return _HudCardShell(
+      padding: const EdgeInsets.all(10),
+      child: Row(
+        children: [
+          Icon(icon, size: 17),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              label,
+              style: AppCyberTheme.dataTextStyle(
+                size: 10.8,
+                color: AppCyberTheme.textMuted,
+                weight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ResourceCatalogItemTile extends GetView<HomeController> {
+  const _ResourceCatalogItemTile({required this.item, required this.onEdit});
+
+  final ResourceCatalogItem item;
+  final VoidCallback onEdit;
+
+  @override
+  Widget build(BuildContext context) {
+    final location = item.hasUrl ? item.url : item.localPath;
+
+    return _HudCardShell(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(_resourceCatalogKindIcon(item.kind), size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppCyberTheme.dataTextStyle(
+                    size: 11.1,
+                    color: AppCyberTheme.textPrimary,
+                    weight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    _MetaChip(
+                      icon: _resourceCatalogKindIcon(item.kind),
+                      label: item.kind.label,
+                      highlighted: true,
+                    ),
+                    if (item.environment.trim().isNotEmpty)
+                      _MetaChip(
+                        icon: Icons.public_outlined,
+                        label: item.environment,
+                      ),
+                    if (item.owner.trim().isNotEmpty)
+                      _MetaChip(icon: Icons.person_outline, label: item.owner),
+                  ],
+                ),
+                if (location.trim().isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    location,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppCyberTheme.dataTextStyle(
+                      size: 10.4,
+                      color: AppCyberTheme.textMuted,
+                      weight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+                if (item.tags.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    item.tags.join(', '),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppCyberTheme.dataTextStyle(
+                      size: 10.2,
+                      color: AppCyberTheme.textMuted,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 6),
+          Column(
+            children: [
+              IconButton(
+                tooltip: 'Open resource',
+                onPressed: location.trim().isEmpty
+                    ? null
+                    : () => controller.openResourceCatalogItem(item),
+                icon: const Icon(Icons.open_in_new_outlined),
+              ),
+              IconButton(
+                tooltip: 'Copy resource',
+                onPressed: location.trim().isEmpty
+                    ? null
+                    : () => controller.copyResourceCatalogValue(location),
+                icon: const Icon(Icons.copy_outlined),
+              ),
+              IconButton(
+                tooltip: 'Edit resource',
+                onPressed: onEdit,
+                icon: const Icon(Icons.edit_outlined),
+              ),
+              IconButton(
+                tooltip: 'Delete resource',
+                onPressed: () => controller.deleteResourceCatalogItem(item),
+                icon: const Icon(Icons.delete_outline),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ResourcePasswordEntryTile extends GetView<HomeController> {
+  const _ResourcePasswordEntryTile({required this.entry, required this.onEdit});
+
+  final ResourcePasswordEntry entry;
+  final VoidCallback onEdit;
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final revealed = controller.revealedResourcePasswordIds.contains(
+        entry.id,
+      );
+      final password = controller.revealedResourcePasswords[entry.id] ?? '';
+
+      return _HudCardShell(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(Icons.password_outlined, size: 18),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    entry.site,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppCyberTheme.dataTextStyle(
+                      size: 11.1,
+                      color: AppCyberTheme.textPrimary,
+                      weight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Table(
+                    columnWidths: const {
+                      0: FixedColumnWidth(82),
+                      1: FlexColumnWidth(),
+                    },
+                    defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+                    children: [
+                      _passwordTableRow('URL', entry.loginUrl),
+                      _passwordTableRow('User', entry.username),
+                      _passwordTableRow(
+                        'Password',
+                        revealed ? password : '********',
+                      ),
+                      _passwordTableRow('Env', entry.environment),
+                      _passwordTableRow('Owner', entry.owner),
+                      _passwordTableRow('2FA', entry.twoFactorLocation),
+                    ],
+                  ),
+                  if (entry.tags.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      entry.tags.join(', '),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppCyberTheme.dataTextStyle(
+                        size: 10.2,
+                        color: AppCyberTheme.textMuted,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(width: 6),
+            Column(
+              children: [
+                IconButton(
+                  tooltip: 'Open login',
+                  onPressed: entry.hasLoginUrl
+                      ? () => controller.openResourcePasswordLogin(entry)
+                      : null,
+                  icon: const Icon(Icons.open_in_new_outlined),
+                ),
+                IconButton(
+                  tooltip: 'Copy password',
+                  onPressed: () => controller.copyResourcePassword(entry),
+                  icon: const Icon(Icons.copy_outlined),
+                ),
+                IconButton(
+                  tooltip: revealed ? 'Hide password' : 'Reveal password',
+                  onPressed: () => revealed
+                      ? controller.hideResourcePassword(entry.id)
+                      : controller.revealResourcePassword(entry),
+                  icon: Icon(
+                    revealed
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Edit password',
+                  onPressed: onEdit,
+                  icon: const Icon(Icons.edit_outlined),
+                ),
+                IconButton(
+                  tooltip: 'Delete password',
+                  onPressed: () =>
+                      controller.deleteResourcePasswordEntry(entry),
+                  icon: const Icon(Icons.delete_outline),
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+    });
+  }
+
+  TableRow _passwordTableRow(String label, String value) {
+    return TableRow(
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 4),
+          child: Text(
+            label,
+            style: AppCyberTheme.dataTextStyle(
+              size: 10,
+              color: AppCyberTheme.textMuted,
+              weight: FontWeight.w700,
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 4),
+          child: Text(
+            value.trim().isEmpty ? '-' : value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AppCyberTheme.dataTextStyle(
+              size: 10.4,
+              color: AppCyberTheme.textPrimary,
+              weight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ResourceCatalogItemDialog extends StatefulWidget {
+  const _ResourceCatalogItemDialog({this.item});
+
+  final ResourceCatalogItem? item;
+
+  @override
+  State<_ResourceCatalogItemDialog> createState() =>
+      _ResourceCatalogItemDialogState();
+}
+
+class _ResourceCatalogItemDialogState
+    extends State<_ResourceCatalogItemDialog> {
+  late ResourceCatalogKind _kind;
+  late final TextEditingController _titleController;
+  late final TextEditingController _urlController;
+  late final TextEditingController _pathController;
+  late final TextEditingController _environmentController;
+  late final TextEditingController _ownerController;
+  late final TextEditingController _notesController;
+  late final TextEditingController _tagsController;
+
+  @override
+  void initState() {
+    super.initState();
+    final item = widget.item;
+    _kind = item?.kind ?? ResourceCatalogKind.summaryLink;
+    _titleController = TextEditingController(text: item?.title ?? '');
+    _urlController = TextEditingController(text: item?.url ?? '');
+    _pathController = TextEditingController(text: item?.localPath ?? '');
+    _environmentController = TextEditingController(
+      text: item?.environment ?? '',
+    );
+    _ownerController = TextEditingController(text: item?.owner ?? '');
+    _notesController = TextEditingController(text: item?.notes ?? '');
+    _tagsController = TextEditingController(text: item?.tags.join(', ') ?? '');
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _urlController.dispose();
+    _pathController.dispose();
+    _environmentController.dispose();
+    _ownerController.dispose();
+    _notesController.dispose();
+    _tagsController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.item == null ? 'Resource' : 'Edit resource'),
+      content: SingleChildScrollView(
+        child: SizedBox(
+          width: 420,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButtonFormField<ResourceCatalogKind>(
+                initialValue: _kind,
+                isExpanded: true,
+                decoration: const InputDecoration(
+                  labelText: 'Type',
+                  prefixIcon: Icon(Icons.category_outlined),
+                ),
+                items: [
+                  for (final kind in ResourceCatalogKind.values)
+                    DropdownMenuItem<ResourceCatalogKind>(
+                      value: kind,
+                      child: Text(kind.label),
+                    ),
+                ],
+                onChanged: (value) {
+                  if (value != null) setState(() => _kind = value);
+                },
+              ),
+              const SizedBox(height: 8),
+              _dialogField(_titleController, 'Title', Icons.title_outlined),
+              const SizedBox(height: 8),
+              _dialogField(_urlController, 'URL', Icons.link_outlined),
+              const SizedBox(height: 8),
+              _dialogField(
+                _pathController,
+                'Local path',
+                Icons.folder_outlined,
+              ),
+              const SizedBox(height: 8),
+              _dialogField(
+                _environmentController,
+                'Environment',
+                Icons.public_outlined,
+              ),
+              const SizedBox(height: 8),
+              _dialogField(_ownerController, 'Owner', Icons.person_outline),
+              const SizedBox(height: 8),
+              _dialogField(_notesController, 'Notes', Icons.notes_outlined),
+              const SizedBox(height: 8),
+              _dialogField(_tagsController, 'Tags', Icons.tag_outlined),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(onPressed: _save, child: const Text('Save')),
+      ],
+    );
+  }
+
+  Widget _dialogField(
+    TextEditingController controller,
+    String label,
+    IconData icon,
+  ) {
+    return TextField(
+      controller: controller,
+      decoration: InputDecoration(labelText: label, prefixIcon: Icon(icon)),
+    );
+  }
+
+  void _save() {
+    Navigator.of(context).pop(
+      ResourceCatalogItem(
+        id: widget.item?.id ?? '',
+        kind: _kind,
+        title: _titleController.text,
+        url: _urlController.text,
+        localPath: _pathController.text,
+        environment: _environmentController.text,
+        owner: _ownerController.text,
+        notes: _notesController.text,
+        tags: _tagsController.text.split(','),
+        updatedAt: widget.item?.updatedAt ?? DateTime.now().toUtc(),
+      ),
+    );
+  }
+}
+
+class _ResourcePasswordEntryDialog extends StatefulWidget {
+  const _ResourcePasswordEntryDialog({this.entry});
+
+  final ResourcePasswordEntry? entry;
+
+  @override
+  State<_ResourcePasswordEntryDialog> createState() =>
+      _ResourcePasswordEntryDialogState();
+}
+
+class _ResourcePasswordEntryDialogState
+    extends State<_ResourcePasswordEntryDialog> {
+  late final TextEditingController _siteController;
+  late final TextEditingController _urlController;
+  late final TextEditingController _usernameController;
+  late final TextEditingController _passwordController;
+  late final TextEditingController _environmentController;
+  late final TextEditingController _ownerController;
+  late final TextEditingController _twoFactorController;
+  late final TextEditingController _notesController;
+  late final TextEditingController _tagsController;
+
+  @override
+  void initState() {
+    super.initState();
+    final entry = widget.entry;
+    _siteController = TextEditingController(text: entry?.site ?? '');
+    _urlController = TextEditingController(text: entry?.loginUrl ?? '');
+    _usernameController = TextEditingController(text: entry?.username ?? '');
+    _passwordController = TextEditingController();
+    _environmentController = TextEditingController(
+      text: entry?.environment ?? '',
+    );
+    _ownerController = TextEditingController(text: entry?.owner ?? '');
+    _twoFactorController = TextEditingController(
+      text: entry?.twoFactorLocation ?? '',
+    );
+    _notesController = TextEditingController(text: entry?.notes ?? '');
+    _tagsController = TextEditingController(text: entry?.tags.join(', ') ?? '');
+  }
+
+  @override
+  void dispose() {
+    _siteController.dispose();
+    _urlController.dispose();
+    _usernameController.dispose();
+    _passwordController.dispose();
+    _environmentController.dispose();
+    _ownerController.dispose();
+    _twoFactorController.dispose();
+    _notesController.dispose();
+    _tagsController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.entry == null ? 'Password' : 'Edit password'),
+      content: SingleChildScrollView(
+        child: SizedBox(
+          width: 420,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _dialogField(_siteController, 'Site', Icons.language_outlined),
+              const SizedBox(height: 8),
+              _dialogField(_urlController, 'Login URL', Icons.link_outlined),
+              const SizedBox(height: 8),
+              _dialogField(
+                _usernameController,
+                'Username/email',
+                Icons.person_outline,
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _passwordController,
+                obscureText: true,
+                enableSuggestions: false,
+                autocorrect: false,
+                decoration: const InputDecoration(
+                  labelText: 'Password',
+                  prefixIcon: Icon(Icons.password_outlined),
+                ),
+              ),
+              const SizedBox(height: 8),
+              _dialogField(
+                _environmentController,
+                'Environment',
+                Icons.public_outlined,
+              ),
+              const SizedBox(height: 8),
+              _dialogField(_ownerController, 'Owner', Icons.person_outline),
+              const SizedBox(height: 8),
+              _dialogField(
+                _twoFactorController,
+                '2FA location',
+                Icons.verified_user_outlined,
+              ),
+              const SizedBox(height: 8),
+              _dialogField(_notesController, 'Notes', Icons.notes_outlined),
+              const SizedBox(height: 8),
+              _dialogField(_tagsController, 'Tags', Icons.tag_outlined),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(onPressed: _save, child: const Text('Save')),
+      ],
+    );
+  }
+
+  Widget _dialogField(
+    TextEditingController controller,
+    String label,
+    IconData icon,
+  ) {
+    return TextField(
+      controller: controller,
+      decoration: InputDecoration(labelText: label, prefixIcon: Icon(icon)),
+    );
+  }
+
+  void _save() {
+    final existing = widget.entry;
+    final rawPassword = _passwordController.text;
+    Navigator.of(context).pop(
+      _ResourcePasswordDialogResult(
+        entry: ResourcePasswordEntry(
+          id: existing?.id ?? '',
+          secretKey: existing?.secretKey ?? '',
+          site: _siteController.text,
+          loginUrl: _urlController.text,
+          username: _usernameController.text,
+          environment: _environmentController.text,
+          owner: _ownerController.text,
+          twoFactorLocation: _twoFactorController.text,
+          notes: _notesController.text,
+          tags: _tagsController.text.split(','),
+          updatedAt: existing?.updatedAt ?? DateTime.now().toUtc(),
+        ),
+        password: existing != null && rawPassword.isEmpty ? null : rawPassword,
+      ),
+    );
+  }
+}
+
+class _ResourcePasswordDialogResult {
+  const _ResourcePasswordDialogResult({
+    required this.entry,
+    required this.password,
+  });
+
+  final ResourcePasswordEntry entry;
+  final String? password;
+}
+
+class _ResourceSigningCredentialOptions extends GetView<HomeController> {
+  const _ResourceSigningCredentialOptions({required this.isBusy});
+
+  final bool isBusy;
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final signingFindings = controller.resourceSigningFindings;
+      final selectedSigningFindings =
+          controller.selectedResourceSigningFindings;
+      final activeId = controller.activeResourceSigningFindingId.value;
+      final activeCredential = controller.activeResourceSigningCredential;
+      final includeEnabled = controller.canIncludeResourceSigningCredentials;
+      final includeValue =
+          controller.resourceIncludeSigningCredentials.value &&
+          selectedSigningFindings.isNotEmpty;
+      final status =
+          activeCredential?.status ?? SigningCredentialStatus.missing;
+      final statusLabel = activeCredential == null
+          ? SigningCredentialStatus.missing.label
+          : '${status.label} - ${activeCredential.source.label}';
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SwitchListTile.adaptive(
+            key: const Key('resource-include-signing-credentials'),
+            value: includeValue,
+            onChanged: isBusy || !includeEnabled
+                ? null
+                : controller.setResourceIncludeSigningCredentials,
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Include signing credentials'),
+            subtitle: const Text(
+              'Adds signing_credentials.txt to the plain ZIP.',
+            ),
+          ),
+          if (signingFindings.isNotEmpty) ...[
+            DropdownButtonFormField<String>(
+              key: const Key('resource-signing-file-selector'),
+              initialValue: activeId.isEmpty ? null : activeId,
+              isExpanded: true,
+              decoration: const InputDecoration(
+                labelText: 'Signing file',
+                prefixIcon: Icon(Icons.vpn_key_outlined),
+              ),
+              items: [
+                for (final finding in signingFindings)
+                  DropdownMenuItem(
+                    value: finding.id,
+                    child: Text(
+                      finding.relativePath,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+              ],
+              onChanged: isBusy
+                  ? null
+                  : controller.setActiveResourceSigningFinding,
+            ),
+            const SizedBox(height: 8),
+            _MetaChip(
+              icon: _signingCredentialStatusIcon(status),
+              label: statusLabel,
+              highlighted: status == SigningCredentialStatus.resolved,
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              key: const Key('resource-key-alias'),
+              controller: controller.resourceKeyAliasController,
+              enabled: !isBusy && activeId.isNotEmpty,
+              style: AppCyberTheme.dataTextStyle(
+                size: 11.5,
+                color: AppCyberTheme.textPrimary,
+              ),
+              decoration: const InputDecoration(
+                labelText: 'Key alias',
+                prefixIcon: Icon(Icons.badge_outlined),
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              key: const Key('resource-store-password'),
+              controller: controller.resourceStorePasswordController,
+              enabled: !isBusy && activeId.isNotEmpty,
+              obscureText: true,
+              enableSuggestions: false,
+              autocorrect: false,
+              style: AppCyberTheme.dataTextStyle(
+                size: 11.5,
+                color: AppCyberTheme.textPrimary,
+              ),
+              decoration: const InputDecoration(
+                labelText: 'Store password',
+                prefixIcon: Icon(Icons.password_outlined),
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              key: const Key('resource-key-password'),
+              controller: controller.resourceKeyPasswordController,
+              enabled: !isBusy && activeId.isNotEmpty,
+              obscureText: true,
+              enableSuggestions: false,
+              autocorrect: false,
+              style: AppCyberTheme.dataTextStyle(
+                size: 11.5,
+                color: AppCyberTheme.textPrimary,
+              ),
+              decoration: const InputDecoration(
+                labelText: 'Key password',
+                prefixIcon: Icon(Icons.password_outlined),
+              ),
+            ),
+          ],
+        ],
+      );
+    });
+  }
+}
+
+class _ResourcePathField extends StatelessWidget {
+  const _ResourcePathField({
+    super.key,
+    required this.controller,
+    required this.label,
+    required this.icon,
+    required this.onPick,
+  });
+
+  final TextEditingController controller;
+  final String label;
+  final IconData icon;
+  final VoidCallback? onPick;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: TextField(
+            controller: controller,
+            style: AppCyberTheme.dataTextStyle(
+              size: 11.3,
+              color: AppCyberTheme.textPrimary,
+            ),
+            decoration: InputDecoration(
+              labelText: label,
+              prefixIcon: Icon(icon),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        IconButton.filled(
+          tooltip: 'Choose $label',
+          onPressed: onPick,
+          icon: const Icon(Icons.folder_open_outlined),
+        ),
+      ],
+    );
+  }
+}
+
+class _ResourceFindingTile extends StatelessWidget {
+  const _ResourceFindingTile({
+    required this.finding,
+    required this.selected,
+    required this.onChanged,
+  });
+
+  final ResourceFinding finding;
+  final bool selected;
+  final ValueChanged<bool?>? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final keyNames = finding.detectedKeyNames.take(4).join(', ');
+    final preview = finding.maskedPreview.take(3).toList();
+    final signingStatus = finding.signingCredentialStatus;
+    final signingSource = finding.signingCredentialSource;
+    final signingPreview = finding.signingCredentialMaskedPreview
+        .take(3)
+        .toList();
+
+    return _HudCardShell(
+      active: selected,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Checkbox(value: selected, onChanged: onChanged),
+          const SizedBox(width: 4),
+          Icon(
+            _resourceKindIcon(finding.kind),
+            size: 18,
+            color: selected ? AppCyberTheme.neonGreen : AppCyberTheme.textMuted,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  finding.relativePath,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppCyberTheme.dataTextStyle(
+                    size: 11.1,
+                    color: AppCyberTheme.textPrimary,
+                    weight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    _MetaChip(
+                      icon: _resourceKindIcon(finding.kind),
+                      label: finding.kind.label,
+                      highlighted: selected,
+                    ),
+                    _MetaChip(
+                      icon: Icons.data_object_outlined,
+                      label: _formatResourceBytes(finding.sizeBytes),
+                    ),
+                    if (finding.isBinary)
+                      const _MetaChip(
+                        icon: Icons.lock_outline,
+                        label: 'Binary',
+                      ),
+                    if (signingStatus != null)
+                      _MetaChip(
+                        icon: _signingCredentialStatusIcon(signingStatus),
+                        label: signingSource == null
+                            ? signingStatus.label
+                            : '${signingStatus.label} - ${signingSource.label}',
+                        highlighted:
+                            signingStatus == SigningCredentialStatus.resolved,
+                      ),
+                  ],
+                ),
+                if (keyNames.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    keyNames,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppCyberTheme.dataTextStyle(
+                      size: 10.4,
+                      color: AppCyberTheme.textMuted,
+                      weight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+                if (preview.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  for (final line in preview)
+                    Text(
+                      line,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppCyberTheme.dataTextStyle(
+                        size: 10.1,
+                        color: AppCyberTheme.textMuted,
+                      ),
+                    ),
+                ],
+                if (signingPreview.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  for (final line in signingPreview)
+                    Text(
+                      line,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppCyberTheme.dataTextStyle(
+                        size: 10.1,
+                        color: AppCyberTheme.textMuted,
+                      ),
+                    ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _TelegramReleaseOptions extends GetView<HomeController> {
   const _TelegramReleaseOptions();
 
@@ -973,6 +3006,131 @@ class _TelegramReleaseOptions extends GetView<HomeController> {
               ),
             ],
           ],
+        ),
+      );
+    });
+  }
+}
+
+class _InstallerTelegramOptions extends GetView<HomeController> {
+  const _InstallerTelegramOptions();
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final isInstallerBusy = controller.isBuildingInstaller.value;
+      final isBusy =
+          controller.isGeneratingReleaseNotes.value ||
+          controller.isSendingTelegram.value ||
+          isInstallerBusy ||
+          controller.isConnectingGoogleDrive.value ||
+          controller.isTestingGoogleDrive.value ||
+          controller.isUploadingGoogleDriveApk.value ||
+          controller.runner.isBusy;
+      final hasTelegramConfiguration =
+          controller.hasTelegramBotToken.value &&
+          controller.hasTelegramChatId.value;
+      final hasDriveConfiguration =
+          controller.hasGoogleDriveOAuthClientId.value &&
+          controller.hasGoogleDriveCredentials.value;
+      final isWindowsSupported =
+          controller.releaseInstallerArtifacts.isWindowsSupported;
+      final hasInstallerProject = controller.hasSelectedAppReleaseCenterProject;
+      final canBuild =
+          isWindowsSupported &&
+          hasInstallerProject &&
+          hasTelegramConfiguration &&
+          !isBusy;
+
+      return KeyedSubtree(
+        key: const Key('installer-telegram-options'),
+        child: _HudCardShell(
+          active: isInstallerBusy,
+          padding: const EdgeInsets.all(10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.install_desktop_outlined, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Windows installer',
+                      style: AppCyberTheme.dataTextStyle(
+                        size: 11.8,
+                        color: AppCyberTheme.textPrimary,
+                        weight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  _MetaChip(
+                    icon: hasDriveConfiguration
+                        ? Icons.cloud_done_outlined
+                        : Icons.cloud_off_outlined,
+                    label: hasDriveConfiguration ? 'Drive ready' : 'Drive off',
+                    highlighted: hasDriveConfiguration,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _MetaChip(
+                    icon: isWindowsSupported
+                        ? Icons.check_circle_outline
+                        : Icons.block_outlined,
+                    label: isWindowsSupported ? 'Windows' : 'Windows only',
+                    highlighted: isWindowsSupported,
+                  ),
+                  _MetaChip(
+                    icon: hasInstallerProject
+                        ? Icons.inventory_2_outlined
+                        : Icons.folder_off_outlined,
+                    label: hasInstallerProject ? 'ARC repo' : 'Select ARC repo',
+                    highlighted: hasInstallerProject,
+                  ),
+                  _MetaChip(
+                    icon: hasTelegramConfiguration
+                        ? Icons.forum_outlined
+                        : Icons.sms_failed_outlined,
+                    label: hasTelegramConfiguration
+                        ? 'Telegram ready'
+                        : 'Telegram missing',
+                    highlighted: hasTelegramConfiguration,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              FilledButton.icon(
+                key: const Key('build-send-installer'),
+                onPressed: canBuild
+                    ? controller.buildAndSendWindowsInstallerToTelegram
+                    : null,
+                icon: isInstallerBusy
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.send_to_mobile_outlined),
+                label: const Text('Build/Send Installer'),
+              ),
+              if (controller.installerDeliveryStatus.value.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  controller.installerDeliveryStatus.value,
+                  style: AppCyberTheme.dataTextStyle(
+                    size: 10.6,
+                    color: AppCyberTheme.textMuted,
+                    weight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ],
+          ),
         ),
       );
     });
@@ -1630,6 +3788,71 @@ String _formatRemaining(Duration duration) {
     return '$hours:$minutes:$seconds';
   }
   return '$minutes:$seconds';
+}
+
+IconData _resourcePresetIcon(ResourceCollectionPreset preset) {
+  return switch (preset) {
+    ResourceCollectionPreset.allRecommended =>
+      Icons.auto_awesome_motion_outlined,
+    ResourceCollectionPreset.envOnly => Icons.tune_outlined,
+    ResourceCollectionPreset.custom => Icons.checklist_outlined,
+  };
+}
+
+IconData _resourceKindIcon(ResourceTargetKind kind) {
+  return switch (kind) {
+    ResourceTargetKind.envFile => Icons.tune_outlined,
+    ResourceTargetKind.properties => Icons.article_outlined,
+    ResourceTargetKind.fastlaneServiceAccount =>
+      Icons.admin_panel_settings_outlined,
+    ResourceTargetKind.firebaseConfig => Icons.local_fire_department_outlined,
+    ResourceTargetKind.signingKey => Icons.vpn_key_outlined,
+    ResourceTargetKind.appStoreKey => Icons.key_outlined,
+  };
+}
+
+IconData _resourceCatalogKindIcon(ResourceCatalogKind kind) {
+  return switch (kind) {
+    ResourceCatalogKind.summaryLink => Icons.dashboard_customize_outlined,
+    ResourceCatalogKind.googleSheet => Icons.table_chart_outlined,
+    ResourceCatalogKind.driveFolder => Icons.drive_folder_upload_outlined,
+    ResourceCatalogKind.driveFile => Icons.insert_drive_file_outlined,
+    ResourceCatalogKind.resourceDocument => Icons.inventory_2_outlined,
+    ResourceCatalogKind.figma => Icons.design_services_outlined,
+    ResourceCatalogKind.playConsole => Icons.shop_2_outlined,
+    ResourceCatalogKind.appStoreConnect => Icons.app_shortcut_outlined,
+    ResourceCatalogKind.firebase => Icons.local_fire_department_outlined,
+    ResourceCatalogKind.cicd => Icons.account_tree_outlined,
+    ResourceCatalogKind.repository => Icons.source_outlined,
+    ResourceCatalogKind.backendAdmin => Icons.admin_panel_settings_outlined,
+    ResourceCatalogKind.apiDocs => Icons.integration_instructions_outlined,
+    ResourceCatalogKind.analyticsCrash => Icons.monitor_heart_outlined,
+    ResourceCatalogKind.authProvider => Icons.verified_user_outlined,
+    ResourceCatalogKind.payment => Icons.payments_outlined,
+    ResourceCatalogKind.deepLinkDomain => Icons.link_outlined,
+    ResourceCatalogKind.signingCertificate => Icons.workspace_premium_outlined,
+    ResourceCatalogKind.qaDevice => Icons.devices_outlined,
+    ResourceCatalogKind.testAccount => Icons.manage_accounts_outlined,
+    ResourceCatalogKind.legal => Icons.policy_outlined,
+    ResourceCatalogKind.releaseRunbook => Icons.fact_check_outlined,
+    ResourceCatalogKind.other => Icons.bookmark_border_outlined,
+  };
+}
+
+IconData _signingCredentialStatusIcon(SigningCredentialStatus status) {
+  return switch (status) {
+    SigningCredentialStatus.resolved => Icons.verified_user_outlined,
+    SigningCredentialStatus.partial => Icons.report_gmailerrorred_outlined,
+    SigningCredentialStatus.missing => Icons.lock_open_outlined,
+  };
+}
+
+String _formatResourceBytes(int bytes) {
+  if (bytes < 1024) return '$bytes B';
+  final kib = bytes / 1024;
+  if (kib < 1024) return '${kib.toStringAsFixed(kib >= 10 ? 0 : 1)} KB';
+  final mib = kib / 1024;
+  return '${mib.toStringAsFixed(mib >= 10 ? 0 : 1)} MB';
 }
 
 class _YesNoPromptActions extends GetView<HomeController> {

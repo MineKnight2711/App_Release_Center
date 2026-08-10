@@ -6,6 +6,7 @@ import 'package:app_release_center/app/services/project_store_service.dart';
 import 'package:app_release_center/app/services/telegram_credential_store_service.dart';
 import 'package:app_release_center/app/services/telegram_release_notification_service.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -162,6 +163,39 @@ void main() {
     expect(upload.contentType, 'application/vnd.android.package-archive');
   });
 
+  test(
+    'uploads a Windows installer with sendDocument multipart fields',
+    () async {
+      final harness = await _TelegramHarness.create(chatId: '-1001234567890');
+      final temp = await Directory.systemTemp.createTemp(
+        'arc_telegram_installer_',
+      );
+      addTearDown(() => temp.delete(recursive: true));
+      final installer = await File(
+        p.join(temp.path, 'AppReleaseCenter_Setup_v0.1.0.exe'),
+      ).writeAsBytes([1, 2, 3]);
+      harness.client.responses.add(
+        const TelegramHttpResponse(statusCode: 200, body: {'ok': true}),
+      );
+
+      await harness.service.sendReleaseInstaller(
+        installerFile: installer,
+        appDisplayName: 'App Release Center',
+        version: '0.1.0+1',
+        buildDate: DateTime(2026, 8, 3),
+      );
+
+      final upload = harness.client.uploads.single;
+      expect(upload.url.path, '/botsecret-token/sendDocument');
+      expect(upload.fields['chat_id'], '-1001234567890');
+      expect(upload.fields['caption'], contains('App Release Center'));
+      expect(upload.fields['caption'], contains('0.1.0+1'));
+      expect(upload.fileField, 'document');
+      expect(upload.fileName, 'AppReleaseCenter_Setup_v0.1.0.exe');
+      expect(upload.contentType, windowsInstallerContentType);
+    },
+  );
+
   test('rejects APKs over the Bot API document size limit', () async {
     final harness = await _TelegramHarness.create(chatId: '-1001');
     final temp = await Directory.systemTemp.createTemp('arc_telegram_apk_');
@@ -177,6 +211,35 @@ void main() {
         appDisplayName: 'FizaHUB',
         version: '2.0.1+45',
         buildDate: DateTime(2026, 7, 21),
+      ),
+      throwsA(
+        isA<TelegramReleaseNotificationException>().having(
+          (error) => error.message,
+          'message',
+          contains('50 MB'),
+        ),
+      ),
+    );
+    expect(harness.client.uploads, isEmpty);
+  });
+
+  test('rejects installers over the Bot API document size limit', () async {
+    final harness = await _TelegramHarness.create(chatId: '-1001');
+    final temp = await Directory.systemTemp.createTemp(
+      'arc_telegram_installer_',
+    );
+    addTearDown(() => temp.delete(recursive: true));
+    final installer = File(p.join(temp.path, 'installer.exe'));
+    final handle = await installer.open(mode: FileMode.write);
+    await handle.truncate(telegramDocumentMaxBytes + 1);
+    await handle.close();
+
+    await expectLater(
+      harness.service.sendReleaseInstaller(
+        installerFile: installer,
+        appDisplayName: 'App Release Center',
+        version: '0.1.0+1',
+        buildDate: DateTime(2026, 8, 3),
       ),
       throwsA(
         isA<TelegramReleaseNotificationException>().having(
@@ -219,6 +282,36 @@ void main() {
     );
     expect(message, contains('Release notes:'));
     expect(message, contains('Fixed checkout crash.'));
+  });
+
+  test('sends a Drive installer link', () async {
+    final harness = await _TelegramHarness.create(chatId: '-1001234567890');
+    harness.client.responses.add(
+      const TelegramHttpResponse(statusCode: 200, body: {'ok': true}),
+    );
+
+    await harness.service.sendReleaseInstallerLink(
+      appDisplayName: 'App Release Center',
+      version: '0.1.0+1',
+      fileName: 'AppReleaseCenter_Setup_v0.1.0.exe',
+      fileSizeBytes: 151 * 1024 * 1024,
+      downloadUrl: 'https://drive.google.com/file/d/drive-file-id/view',
+      oversized: true,
+    );
+
+    final request = harness.client.requests.single;
+    expect(request.url.path, '/botsecret-token/sendMessage');
+    expect(request.body['chat_id'], '-1001234567890');
+    final message = request.body['text'] as String;
+    expect(message, contains('Installer is over Telegram 50 MB limit'));
+    expect(message, contains('App Release Center'));
+    expect(message, contains('0.1.0+1'));
+    expect(message, contains('AppReleaseCenter_Setup_v0.1.0.exe'));
+    expect(message, contains('151.0 MB'));
+    expect(
+      message,
+      contains('https://drive.google.com/file/d/drive-file-id/view'),
+    );
   });
 }
 

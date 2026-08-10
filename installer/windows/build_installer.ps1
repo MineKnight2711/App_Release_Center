@@ -20,6 +20,123 @@ function Assert-ChildPath {
   }
 }
 
+function Read-EnvFileValues {
+  param(
+    [Parameter(Mandatory = $true)][string]$Path,
+    [Parameter(Mandatory = $true)][string[]]$Keys
+  )
+
+  $values = @{}
+  if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+    return $values
+  }
+
+  Get-Content -LiteralPath $Path | ForEach-Object {
+    $match = [regex]::Match(
+      $_,
+      '^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$'
+    )
+    if ($match.Success) {
+      $key = $match.Groups[1].Value
+      if (($Keys -contains $key) -and -not $values.ContainsKey($key)) {
+        $values[$key] = $match.Groups[2].Value.Trim()
+      }
+    }
+  }
+
+  return $values
+}
+
+function Get-FirebaseConfigLines {
+  param([Parameter(Mandatory = $true)][string]$ProjectRoot)
+
+  $keys = @(
+    'FIREBASE_API_KEY',
+    'FIREBASE_APP_ID',
+    'FIREBASE_MESSAGING_SENDER_ID',
+    'FIREBASE_PROJECT_ID',
+    'FIREBASE_AUTH_DOMAIN',
+    'FIREBASE_STORAGE_BUCKET'
+  )
+  $requiredKeys = @(
+    'FIREBASE_API_KEY',
+    'FIREBASE_APP_ID',
+    'FIREBASE_MESSAGING_SENDER_ID',
+    'FIREBASE_PROJECT_ID'
+  )
+  $sourceValues = Read-EnvFileValues `
+    -Path (Join-Path $ProjectRoot '.env') `
+    -Keys $keys
+  $lines = @()
+  $missingRequired = @()
+
+  foreach ($key in $keys) {
+    $value = $null
+    if ($sourceValues.ContainsKey($key)) {
+      $value = $sourceValues[$key]
+    } else {
+      $value = [Environment]::GetEnvironmentVariable($key, 'Process')
+    }
+
+    if ([string]::IsNullOrWhiteSpace($value)) {
+      if ($requiredKeys -contains $key) {
+        $missingRequired += $key
+      }
+      continue
+    }
+
+    $lines += "$key=$value"
+  }
+
+  if (($lines.Count -gt 0) -and ($missingRequired.Count -gt 0)) {
+    Write-Warning (
+      'Firebase release config is incomplete. Missing: {0}' -f
+      ($missingRequired -join ', ')
+    )
+  }
+
+  return $lines
+}
+
+function Assert-PayloadArchive {
+  param([Parameter(Mandatory = $true)][string]$ArchivePath)
+
+  $requiredEntries = @(
+    'app_release_center.exe',
+    'flutter_windows.dll',
+    'data/app.so',
+    'data/icudtl.dat',
+    'data/flutter_assets/AssetManifest.bin',
+    'data/flutter_assets/FontManifest.json',
+    'data/flutter_assets/NativeAssetsManifest.json'
+  )
+
+  Add-Type -AssemblyName System.IO.Compression.FileSystem
+  $zip = [System.IO.Compression.ZipFile]::OpenRead($ArchivePath)
+  try {
+    $entries = @{}
+    foreach ($entry in $zip.Entries) {
+      $entries[$entry.FullName.Replace('\', '/')] = $true
+    }
+
+    $missing = @()
+    foreach ($entry in $requiredEntries) {
+      if (-not $entries.ContainsKey($entry)) {
+        $missing += $entry
+      }
+    }
+
+    if ($missing.Count -gt 0) {
+      throw (
+        'Installer payload is missing Flutter runtime files: {0}' -f
+        ($missing -join ', ')
+      )
+    }
+  } finally {
+    $zip.Dispose()
+  }
+}
+
 $projectRoot = [System.IO.Path]::GetFullPath(
   (Join-Path $PSScriptRoot '..\..')
 )
@@ -66,6 +183,18 @@ if (Test-Path -LiteralPath $payloadDirectory) {
 New-Item -ItemType Directory -Path $stageDirectory -Force | Out-Null
 New-Item -ItemType Directory -Path $payloadDirectory -Force | Out-Null
 
+$releaseFirebaseConfig = Join-Path $releaseDirectory 'firebase.env'
+$firebaseConfigLines = @(Get-FirebaseConfigLines -ProjectRoot $projectRoot)
+if ($firebaseConfigLines.Count -gt 0) {
+  Set-Content `
+    -LiteralPath $releaseFirebaseConfig `
+    -Value $firebaseConfigLines `
+    -Encoding Ascii
+  Write-Host "Firebase release config written: $releaseFirebaseConfig"
+} elseif (Test-Path -LiteralPath $releaseFirebaseConfig -PathType Leaf) {
+  Remove-Item -LiteralPath $releaseFirebaseConfig -Force
+}
+
 Get-ChildItem -LiteralPath $releaseDirectory -Force | ForEach-Object {
   Copy-Item -LiteralPath $_.FullName -Destination $payloadDirectory -Recurse -Force
 }
@@ -82,11 +211,17 @@ Set-Content `
   -Value $Version `
   -Encoding Ascii
 
-Compress-Archive `
-  -Path (Join-Path $payloadDirectory '*') `
-  -DestinationPath $payloadArchive `
-  -CompressionLevel Optimal `
-  -Force
+if (Test-Path -LiteralPath $payloadArchive -PathType Leaf) {
+  Remove-Item -LiteralPath $payloadArchive -Force
+}
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+[System.IO.Compression.ZipFile]::CreateFromDirectory(
+  $payloadDirectory,
+  $payloadArchive,
+  [System.IO.Compression.CompressionLevel]::Optimal,
+  $false
+)
+Assert-PayloadArchive -ArchivePath $payloadArchive
 
 if (Test-Path -LiteralPath $targetPath) {
   Remove-Item -LiteralPath $targetPath -Force
@@ -134,8 +269,8 @@ TargetName=$targetPath
 FriendlyName=App Release Center Setup
 AppLaunched=powershell.exe -NoProfile -ExecutionPolicy Bypass -File install.ps1
 PostInstallCmd=<None>
-AdminQuietInstCmd=
-UserQuietInstCmd=
+AdminQuietInstCmd=powershell.exe -NoProfile -ExecutionPolicy Bypass -File install.ps1
+UserQuietInstCmd=powershell.exe -NoProfile -ExecutionPolicy Bypass -File install.ps1
 FILE0="payload.zip"
 FILE1="install.ps1"
 FILE2="version.txt"
