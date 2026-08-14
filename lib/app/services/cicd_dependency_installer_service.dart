@@ -7,21 +7,23 @@ import 'package:path/path.dart' as p;
 class CiCdDependencyInstallerService {
   const CiCdDependencyInstallerService();
 
-  static const _androidSdkPackageIds = [
-    'platform-tools',
-    'build-tools;35.0.0',
-    'platforms;android-35',
-  ];
-
   List<CiCdInstallStep> buildInstallPlan({
     required CiCdDependencySnapshot snapshot,
     required Set<CiCdSetupGroup> selectedGroups,
+    Set<String>? selectedCheckIds,
     String projectPath = '',
   }) {
     final steps = <CiCdInstallStep>[];
     for (final group in CiCdSetupGroup.values) {
       if (!selectedGroups.contains(group)) continue;
-      steps.addAll(_stepsForGroup(snapshot, group, projectPath));
+      steps.addAll(
+        _stepsForGroup(
+          snapshot,
+          group,
+          projectPath,
+          selectedCheckIds: selectedCheckIds,
+        ),
+      );
     }
     return _dedupeSteps(steps);
   }
@@ -57,11 +59,16 @@ class CiCdDependencyInstallerService {
   List<CiCdInstallStep> _stepsForGroup(
     CiCdDependencySnapshot snapshot,
     CiCdSetupGroup group,
-    String projectPath,
-  ) {
+    String projectPath, {
+    Set<String>? selectedCheckIds,
+  }) {
     final actionable = snapshot
         .checksForGroup(group)
         .where((check) => check.isActionable)
+        .where(
+          (check) =>
+              selectedCheckIds == null || selectedCheckIds.contains(check.id),
+        )
         .toList(growable: false);
     if (actionable.isEmpty) return const [];
 
@@ -111,6 +118,14 @@ class CiCdDependencyInstallerService {
             group,
             'Google.Flutter',
           ),
+        if (_needs(checks, 'dart'))
+          _winget(
+            'install-dart',
+            'Install Dart SDK',
+            group,
+            'Dart.DartSDK',
+            fallbackUrl: 'https://dart.dev/get-dart',
+          ),
       ],
       CiCdSetupGroup.android => [
         if (_needs(checks, 'jdk'))
@@ -129,10 +144,32 @@ class CiCdDependencyInstallerService {
             fallbackUrl: 'https://developer.android.com/studio',
           ),
         if (snapshot.hasInstalled('android-sdkmanager') &&
-            (_needs(checks, 'android-platform-tools') ||
-                _needs(checks, 'android-build-tools') ||
-                _needs(checks, 'android-platforms')))
-          _windowsAndroidSdkPackages(group),
+            _needs(checks, 'android-platform-tools'))
+          _windowsAndroidSdkPackage(
+            id: 'install-android-platform-tools',
+            label: 'Install Android platform-tools',
+            group: group,
+            packageId: 'platform-tools',
+            expectedCheckId: 'android-platform-tools',
+          ),
+        if (snapshot.hasInstalled('android-sdkmanager') &&
+            _needs(checks, 'android-build-tools'))
+          _windowsAndroidSdkPackage(
+            id: 'install-android-build-tools',
+            label: 'Install Android build-tools',
+            group: group,
+            packageId: 'build-tools;35.0.0',
+            expectedCheckId: 'android-build-tools',
+          ),
+        if (snapshot.hasInstalled('android-sdkmanager') &&
+            _needs(checks, 'android-platforms'))
+          _windowsAndroidSdkPackage(
+            id: 'install-android-platform',
+            label: 'Install Android SDK platform',
+            group: group,
+            packageId: 'platforms;android-35',
+            expectedCheckId: 'android-platforms',
+          ),
         if (_needs(checks, 'android-licenses'))
           CiCdInstallStep(
             id: 'accept-android-licenses',
@@ -233,6 +270,14 @@ class CiCdDependencyInstallerService {
             'flutter',
             arguments: const ['install', '--cask', 'flutter'],
           ),
+        if (_needs(checks, 'dart'))
+          _brew(
+            'install-dart',
+            'Install Dart SDK',
+            group,
+            'dart',
+            fallbackUrl: 'https://dart.dev/get-dart',
+          ),
       ],
       CiCdSetupGroup.android => [
         if (_needs(checks, 'jdk'))
@@ -245,10 +290,32 @@ class CiCdDependencyInstallerService {
             'android-commandlinetools',
           ),
         if (snapshot.hasInstalled('android-sdkmanager') &&
-            (_needs(checks, 'android-platform-tools') ||
-                _needs(checks, 'android-build-tools') ||
-                _needs(checks, 'android-platforms')))
-          _macosAndroidSdkPackages(group),
+            _needs(checks, 'android-platform-tools'))
+          _macosAndroidSdkPackage(
+            id: 'install-android-platform-tools',
+            label: 'Install Android platform-tools',
+            group: group,
+            packageId: 'platform-tools',
+            expectedCheckId: 'android-platform-tools',
+          ),
+        if (snapshot.hasInstalled('android-sdkmanager') &&
+            _needs(checks, 'android-build-tools'))
+          _macosAndroidSdkPackage(
+            id: 'install-android-build-tools',
+            label: 'Install Android build-tools',
+            group: group,
+            packageId: 'build-tools;35.0.0',
+            expectedCheckId: 'android-build-tools',
+          ),
+        if (snapshot.hasInstalled('android-sdkmanager') &&
+            _needs(checks, 'android-platforms'))
+          _macosAndroidSdkPackage(
+            id: 'install-android-platform',
+            label: 'Install Android SDK platform',
+            group: group,
+            packageId: 'platforms;android-35',
+            expectedCheckId: 'android-platforms',
+          ),
         if (_needs(checks, 'android-licenses'))
           CiCdInstallStep(
             id: 'accept-android-licenses',
@@ -335,6 +402,7 @@ class CiCdDependencyInstallerService {
     CiCdSetupGroup group,
     String formula, {
     List<String>? arguments,
+    String fallbackUrl = 'https://brew.sh/',
   }) {
     return CiCdInstallStep(
       id: id,
@@ -343,43 +411,49 @@ class CiCdDependencyInstallerService {
       platform: CiCdSetupPlatform.macos,
       executable: 'brew',
       arguments: arguments ?? ['install', formula],
-      fallbackUrl: 'https://brew.sh/',
+      fallbackUrl: fallbackUrl,
       expectedCheckId: id.replaceFirst('install-', ''),
       description: 'Uses Homebrew. The command is shown before running.',
     );
   }
 
-  CiCdInstallStep _windowsAndroidSdkPackages(CiCdSetupGroup group) {
+  CiCdInstallStep _windowsAndroidSdkPackage({
+    required String id,
+    required String label,
+    required CiCdSetupGroup group,
+    required String packageId,
+    required String expectedCheckId,
+  }) {
     return CiCdInstallStep(
-      id: 'install-android-sdk-packages',
-      label: 'Install Android SDK packages',
+      id: id,
+      label: label,
       group: group,
       platform: CiCdSetupPlatform.windows,
       executable: 'cmd',
-      arguments: [
-        '/c',
-        [
-          'sdkmanager',
-          ..._androidSdkPackageIds.map((packageId) => '"$packageId"'),
-        ].join(' '),
-      ],
+      arguments: ['/c', 'sdkmanager "$packageId"'],
       fallbackUrl: 'https://developer.android.com/tools',
-      expectedCheckId: 'android-build-tools',
-      description: 'Installs platform-tools, build-tools and SDK platforms.',
+      expectedCheckId: expectedCheckId,
+      description: 'Installs one Android SDK package through sdkmanager.',
     );
   }
 
-  CiCdInstallStep _macosAndroidSdkPackages(CiCdSetupGroup group) {
+  CiCdInstallStep _macosAndroidSdkPackage({
+    required String id,
+    required String label,
+    required CiCdSetupGroup group,
+    required String packageId,
+    required String expectedCheckId,
+  }) {
     return CiCdInstallStep(
-      id: 'install-android-sdk-packages',
-      label: 'Install Android SDK packages',
+      id: id,
+      label: label,
       group: group,
       platform: CiCdSetupPlatform.macos,
       executable: 'sdkmanager',
-      arguments: _androidSdkPackageIds,
+      arguments: [packageId],
       fallbackUrl: 'https://developer.android.com/tools',
-      expectedCheckId: 'android-build-tools',
-      description: 'Installs platform-tools, build-tools and SDK platforms.',
+      expectedCheckId: expectedCheckId,
+      description: 'Installs one Android SDK package through sdkmanager.',
     );
   }
 

@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:app_release_center/app/controllers/home_controller.dart';
 import 'package:app_release_center/app/data/release_center_connect.dart';
 import 'package:app_release_center/app/models/api_tool.dart';
+import 'package:app_release_center/app/models/app_store_project.dart';
 import 'package:app_release_center/app/models/ch_play_project.dart';
 import 'package:app_release_center/app/models/cicd_dependency.dart';
 import 'package:app_release_center/app/models/release_project.dart';
@@ -134,6 +135,92 @@ void main() {
     expect(find.text('Extend'), findsOneWidget);
   });
 
+  testWidgets('opens project setup wizard from project summary', (
+    tester,
+  ) async {
+    await _pumpHome(tester, harness);
+
+    await tester.ensureVisible(find.byKey(const Key('project-setup-stores')));
+    await tester.tap(find.byKey(const Key('project-setup-stores')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('project-setup-chplay')), findsOneWidget);
+    expect(find.byKey(const Key('project-setup-appstore')), findsOneWidget);
+    expect(
+      find.byKey(const Key('project-setup-clone-android-cicd')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('project-setup-start')), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Skip'));
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('Store Versions shows only stores for the selected project', (
+    tester,
+  ) async {
+    await _pumpHome(tester, harness);
+    final otherProjectPath =
+        '${harness.projectDirectory.parent.path}${Platform.pathSeparator}'
+        'other_release_app';
+
+    harness.controller.chPlayProjects.assignAll([
+      ChPlayProject(
+        id: 'selected-play',
+        path: harness.projectDirectory.path,
+        displayName: 'Selected Play',
+        applicationId: 'com.example.selected.play',
+        track: 'production',
+      ),
+      ChPlayProject(
+        id: 'other-play',
+        path: otherProjectPath,
+        displayName: 'Other Play',
+        applicationId: 'com.example.other.play',
+        track: 'internal',
+      ),
+    ]);
+    harness.controller.appStoreProjects.assignAll([
+      AppStoreProject(
+        id: 'selected-ios',
+        path: harness.projectDirectory.path,
+        displayName: 'Selected iOS',
+        bundleId: 'com.example.selected.ios',
+      ),
+      AppStoreProject(
+        id: 'other-ios',
+        path: otherProjectPath,
+        displayName: 'Other iOS',
+        bundleId: 'com.example.other.ios',
+      ),
+    ]);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(find.text('Add CH Play'), findsNothing);
+    expect(find.text('Add App Store'), findsNothing);
+    expect(
+      find.byKey(const Key('store-version-chplay-selected-play')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('store-version-appstore-selected-ios')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('store-version-chplay-other-play')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const Key('store-version-appstore-other-ios')),
+      findsNothing,
+    );
+    expect(find.text('com.example.selected.play'), findsOneWidget);
+    expect(find.text('com.example.selected.ios'), findsOneWidget);
+    expect(find.text('com.example.other.play'), findsNothing);
+    expect(find.text('com.example.other.ios'), findsNothing);
+  });
+
   testWidgets('Setup tab scans dependencies and previews install steps', (
     tester,
   ) async {
@@ -147,6 +234,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('cicd-check-git')), findsOneWidget);
+    expect(find.byKey(const Key('cicd-option-git')), findsOneWidget);
+    expect(find.byKey(const Key('cicd-option-jdk')), findsOneWidget);
+    expect(find.byKey(const Key('cicd-option-fastlane')), findsOneWidget);
     expect(find.byKey(const Key('cicd-step-install-git')), findsOneWidget);
     expect(find.textContaining('winget install --id Git.Git'), findsOneWidget);
     expect(
@@ -155,9 +245,9 @@ void main() {
     );
 
     await tester.ensureVisible(
-      find.byKey(const Key('cicd-group-optionalTools')),
+      find.byKey(const Key('cicd-option-firebase-cli')),
     );
-    await tester.tap(find.byKey(const Key('cicd-group-optionalTools')));
+    await tester.tap(find.byKey(const Key('cicd-option-firebase-cli')));
     await tester.pumpAndSettle();
     expect(
       find.byKey(const Key('cicd-step-install-firebase-cli')),

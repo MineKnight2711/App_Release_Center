@@ -413,8 +413,26 @@ class _CiCdSetupOptions extends GetView<HomeController> {
                   title: 'Install queue',
                 ),
                 const SizedBox(height: 10),
-                ...CiCdSetupGroup.values.map(
-                  (group) => _CiCdSetupGroupToggle(group: group),
+                _CiCdSetupOptionSelector(snapshot: snapshot),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Queue',
+                        style: AppCyberTheme.dataTextStyle(
+                          size: 11.4,
+                          color: AppCyberTheme.textPrimary,
+                          weight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    _MetaChip(
+                      icon: Icons.terminal_outlined,
+                      label: '${steps.length} step(s)',
+                      highlighted: steps.isNotEmpty,
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 8),
                 if (snapshot == null)
@@ -425,7 +443,7 @@ class _CiCdSetupOptions extends GetView<HomeController> {
                 else if (steps.isEmpty)
                   const _CiCdEmptyState(
                     icon: Icons.verified_outlined,
-                    message: 'No install steps for the selected groups.',
+                    message: 'No install steps for the selected tools.',
                   )
                 else
                   ...steps.map((step) => _CiCdInstallStepTile(step: step)),
@@ -546,21 +564,129 @@ class _CiCdDependencyRow extends StatelessWidget {
   }
 }
 
-class _CiCdSetupGroupToggle extends GetView<HomeController> {
-  const _CiCdSetupGroupToggle({required this.group});
+class _CiCdSetupOptionSelector extends StatelessWidget {
+  const _CiCdSetupOptionSelector({required this.snapshot});
+
+  final CiCdDependencySnapshot? snapshot;
+
+  @override
+  Widget build(BuildContext context) {
+    final children = <Widget>[];
+    for (final group in CiCdSetupGroup.values) {
+      final options = CiCdSetupCatalog.optionsForGroup(group)
+          .where((option) {
+            if (snapshot == null) return true;
+            return _ciCdChecksForOption(snapshot!, option).isNotEmpty;
+          })
+          .toList(growable: false);
+      if (options.isEmpty) continue;
+      if (children.isNotEmpty) children.add(const SizedBox(height: 8));
+      children.add(_CiCdSetupGroupHeader(group: group, options: options));
+      children.add(const SizedBox(height: 4));
+      for (final option in options) {
+        children.add(_CiCdSetupOptionTile(option: option, snapshot: snapshot));
+      }
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: children,
+    );
+  }
+}
+
+class _CiCdSetupGroupHeader extends GetView<HomeController> {
+  const _CiCdSetupGroupHeader({required this.group, required this.options});
 
   final CiCdSetupGroup group;
+  final List<CiCdSetupOption> options;
 
   @override
   Widget build(BuildContext context) {
     return Obx(() {
-      final selected = controller.selectedCiCdSetupGroups.contains(group);
+      final selectedIds = controller.selectedCiCdSetupOptionIds;
+      final selectedCount = options
+          .where((option) => selectedIds.contains(option.id))
+          .length;
+      final selected = selectedCount == options.length
+          ? true
+          : selectedCount == 0
+          ? false
+          : null;
       return InkWell(
         key: Key('cicd-group-${group.name}'),
         borderRadius: BorderRadius.circular(8),
-        onTap: () => controller.toggleCiCdSetupGroup(group, !selected),
+        onTap: () {
+          controller.setCiCdSetupGroupSelected(group, selected != true);
+        },
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4),
+          padding: const EdgeInsets.symmetric(vertical: 3),
+          child: Row(
+            children: [
+              Checkbox(
+                tristate: true,
+                value: selected,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                visualDensity: VisualDensity.compact,
+                onChanged: (value) {
+                  controller.setCiCdSetupGroupSelected(group, value ?? true);
+                },
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  group.label,
+                  style: AppCyberTheme.dataTextStyle(
+                    size: 11.6,
+                    color: AppCyberTheme.textPrimary,
+                    weight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              _MetaChip(
+                icon: Icons.checklist_outlined,
+                label: '$selectedCount/${options.length}',
+                highlighted: selectedCount > 0,
+              ),
+            ],
+          ),
+        ),
+      );
+    });
+  }
+}
+
+class _CiCdSetupOptionTile extends GetView<HomeController> {
+  const _CiCdSetupOptionTile({required this.option, required this.snapshot});
+
+  final CiCdSetupOption option;
+  final CiCdDependencySnapshot? snapshot;
+
+  @override
+  Widget build(BuildContext context) {
+    final checks = snapshot == null
+        ? const <CiCdDependencyCheck>[]
+        : _ciCdChecksForOption(snapshot!, option);
+    final status = _ciCdOptionStatus(checks);
+    final detail = _ciCdOptionDetail(option, checks);
+
+    return Obx(() {
+      final selected = controller.selectedCiCdSetupOptionIds.contains(
+        option.id,
+      );
+      return InkWell(
+        key: Key('cicd-option-${option.id}'),
+        borderRadius: BorderRadius.circular(8),
+        onTap: () => controller.toggleCiCdSetupOption(option.id, !selected),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(
+                color: AppCyberTheme.lineBlue.withValues(alpha: 0.18),
+              ),
+            ),
+          ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -569,7 +695,7 @@ class _CiCdSetupGroupToggle extends GetView<HomeController> {
                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 visualDensity: VisualDensity.compact,
                 onChanged: (value) {
-                  controller.toggleCiCdSetupGroup(group, value ?? true);
+                  controller.toggleCiCdSetupOption(option.id, value ?? true);
                 },
               ),
               const SizedBox(width: 6),
@@ -577,17 +703,29 @@ class _CiCdSetupGroupToggle extends GetView<HomeController> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      group.label,
-                      style: AppCyberTheme.dataTextStyle(
-                        size: 11.4,
-                        color: AppCyberTheme.textPrimary,
-                        weight: FontWeight.w800,
-                      ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            option.label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppCyberTheme.dataTextStyle(
+                              size: 11.2,
+                              color: AppCyberTheme.textPrimary,
+                              weight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                        if (status != null) ...[
+                          const SizedBox(width: 8),
+                          _CiCdStatusChip(status: status),
+                        ],
+                      ],
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      group.description,
+                      detail,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: AppCyberTheme.dataTextStyle(
@@ -886,6 +1024,48 @@ Future<void> _confirmCiCdInstallStep(
   if (confirmed == true) {
     await controller.runCiCdInstallStep(step);
   }
+}
+
+List<CiCdDependencyCheck> _ciCdChecksForOption(
+  CiCdDependencySnapshot snapshot,
+  CiCdSetupOption option,
+) {
+  return snapshot.checks
+      .where((check) => option.coversCheck(check.id))
+      .toList(growable: false);
+}
+
+CiCdDependencyStatus? _ciCdOptionStatus(List<CiCdDependencyCheck> checks) {
+  if (checks.isEmpty) return null;
+  const priority = [
+    CiCdDependencyStatus.error,
+    CiCdDependencyStatus.outdated,
+    CiCdDependencyStatus.missing,
+    CiCdDependencyStatus.manual,
+    CiCdDependencyStatus.unsupported,
+    CiCdDependencyStatus.installed,
+  ];
+  for (final status in priority) {
+    if (checks.any((check) => check.status == status)) return status;
+  }
+  return checks.first.status;
+}
+
+String _ciCdOptionDetail(
+  CiCdSetupOption option,
+  List<CiCdDependencyCheck> checks,
+) {
+  if (checks.isEmpty) return option.description;
+  final primary = checks.firstWhere(
+    (check) => check.isActionable,
+    orElse: () => checks.first,
+  );
+  final detailParts = [
+    option.description,
+    if (primary.version.trim().isNotEmpty) primary.version.trim(),
+    if (primary.detail.trim().isNotEmpty) primary.detail.trim(),
+  ];
+  return detailParts.join(' - ');
 }
 
 Color _ciCdStatusColor(CiCdDependencyStatus status) {

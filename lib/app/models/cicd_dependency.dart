@@ -54,6 +54,188 @@ extension CiCdSetupPlatformLabel on CiCdSetupPlatform {
   }
 }
 
+class CiCdSetupOption {
+  const CiCdSetupOption({
+    required this.id,
+    required this.label,
+    required this.group,
+    required this.description,
+    this.checkIds = const [],
+    this.defaultSelected = true,
+  });
+
+  final String id;
+  final String label;
+  final CiCdSetupGroup group;
+  final String description;
+  final List<String> checkIds;
+  final bool defaultSelected;
+
+  List<String> get coveredCheckIds => checkIds.isEmpty ? [id] : checkIds;
+
+  bool coversCheck(String checkId) => coveredCheckIds.contains(checkId);
+}
+
+class CiCdSetupCatalog {
+  const CiCdSetupCatalog._();
+
+  static const all = [
+    CiCdSetupOption(
+      id: 'package-manager',
+      label: 'Package manager',
+      group: CiCdSetupGroup.core,
+      description: 'winget on Windows, Homebrew on macOS.',
+      checkIds: ['winget', 'homebrew', 'package-manager'],
+    ),
+    CiCdSetupOption(
+      id: 'git',
+      label: 'Git CLI',
+      group: CiCdSetupGroup.core,
+      description: 'Required for clone, pull, CI scripts and version control.',
+    ),
+    CiCdSetupOption(
+      id: 'git-bash',
+      label: 'Git Bash',
+      group: CiCdSetupGroup.core,
+      description: 'Windows shell used by many Flutter/Fastlane scripts.',
+    ),
+    CiCdSetupOption(
+      id: 'flutter',
+      label: 'Flutter SDK',
+      group: CiCdSetupGroup.core,
+      description: 'Flutter toolchain for build, test and release commands.',
+    ),
+    CiCdSetupOption(
+      id: 'dart',
+      label: 'Dart CLI',
+      group: CiCdSetupGroup.core,
+      description: 'Dart command availability for Flutter tooling.',
+    ),
+    CiCdSetupOption(
+      id: 'jdk',
+      label: 'JDK 17',
+      group: CiCdSetupGroup.android,
+      description: 'Java runtime required by Android Gradle builds.',
+    ),
+    CiCdSetupOption(
+      id: 'android-sdkmanager',
+      label: 'Android SDK cmdline-tools',
+      group: CiCdSetupGroup.android,
+      description: 'Provides sdkmanager for Android SDK package setup.',
+    ),
+    CiCdSetupOption(
+      id: 'android-platform-tools',
+      label: 'Android platform-tools',
+      group: CiCdSetupGroup.android,
+      description: 'Provides adb and platform tools used by Android builds.',
+    ),
+    CiCdSetupOption(
+      id: 'android-build-tools',
+      label: 'Android build-tools',
+      group: CiCdSetupGroup.android,
+      description: 'Build-tools package installed through sdkmanager.',
+    ),
+    CiCdSetupOption(
+      id: 'android-platforms',
+      label: 'Android SDK platform',
+      group: CiCdSetupGroup.android,
+      description: 'Android API platform package installed through sdkmanager.',
+    ),
+    CiCdSetupOption(
+      id: 'android-licenses',
+      label: 'Android licenses',
+      group: CiCdSetupGroup.android,
+      description: 'Interactive sdkmanager --licenses confirmation step.',
+    ),
+    CiCdSetupOption(
+      id: 'ruby',
+      label: 'Ruby language',
+      group: CiCdSetupGroup.rubyFastlane,
+      description: 'Ruby runtime used by Fastlane and project gems.',
+    ),
+    CiCdSetupOption(
+      id: 'gem',
+      label: 'RubyGems',
+      group: CiCdSetupGroup.rubyFastlane,
+      description: 'Ruby package manager used to install Bundler/Fastlane.',
+    ),
+    CiCdSetupOption(
+      id: 'bundler',
+      label: 'Bundler',
+      group: CiCdSetupGroup.rubyFastlane,
+      description: 'Installs project-local gems from Gemfile.',
+    ),
+    CiCdSetupOption(
+      id: 'fastlane',
+      label: 'Fastlane',
+      group: CiCdSetupGroup.rubyFastlane,
+      description: 'Release automation CLI for Android deploy workflows.',
+    ),
+    CiCdSetupOption(
+      id: 'project-bundle',
+      label: 'Project bundle install',
+      group: CiCdSetupGroup.rubyFastlane,
+      description: 'Runs bundle install when android/fastlane/Gemfile exists.',
+    ),
+    CiCdSetupOption(
+      id: 'firebase-cli',
+      label: 'Firebase CLI',
+      group: CiCdSetupGroup.optionalTools,
+      description: 'Optional CLI for Firebase App Distribution workflows.',
+      defaultSelected: false,
+    ),
+    CiCdSetupOption(
+      id: 'github-cli',
+      label: 'GitHub CLI',
+      group: CiCdSetupGroup.optionalTools,
+      description: 'Optional CLI for repository and release automation.',
+      defaultSelected: false,
+    ),
+    CiCdSetupOption(
+      id: 'google-play-service-account',
+      label: 'Google Play service account',
+      group: CiCdSetupGroup.optionalTools,
+      description: 'Manual JSON key check for Play Store upload.',
+      defaultSelected: false,
+    ),
+  ];
+
+  static Set<String> get defaultSelectedIds {
+    return all
+        .where((option) => option.defaultSelected)
+        .map((option) => option.id)
+        .toSet();
+  }
+
+  static List<CiCdSetupOption> optionsForGroup(CiCdSetupGroup group) {
+    return all.where((option) => option.group == group).toList(growable: false);
+  }
+
+  static CiCdSetupOption? optionForId(String id) {
+    for (final option in all) {
+      if (option.id == id) return option;
+    }
+    return null;
+  }
+
+  static Set<String> checkIdsForOptionIds(Set<String> optionIds) {
+    final checkIds = <String>{};
+    for (final option in all) {
+      if (optionIds.contains(option.id)) {
+        checkIds.addAll(option.coveredCheckIds);
+      }
+    }
+    return checkIds;
+  }
+
+  static Set<CiCdSetupGroup> groupsForOptionIds(Set<String> optionIds) {
+    return all
+        .where((option) => optionIds.contains(option.id))
+        .map((option) => option.group)
+        .toSet();
+  }
+}
+
 class CiCdDependencyCheck {
   const CiCdDependencyCheck({
     required this.id,

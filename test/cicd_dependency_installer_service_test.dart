@@ -42,7 +42,7 @@ void main() {
       containsAll([
         'install-git',
         'install-jdk17',
-        'install-android-sdk-packages',
+        'install-android-build-tools',
         'install-fastlane',
       ]),
     );
@@ -56,10 +56,31 @@ void main() {
     );
     expect(
       plan
-          .firstWhere((step) => step.id == 'install-android-sdk-packages')
+          .firstWhere((step) => step.id == 'install-android-build-tools')
           .commandPreview,
       contains('sdkmanager'),
     );
+  });
+
+  test('filters install plan by selected dependency ids', () {
+    const service = CiCdDependencyInstallerService();
+    final snapshot = _snapshot(
+      platform: CiCdSetupPlatform.windows,
+      checks: [
+        _installed('winget', 'Windows Package Manager', CiCdSetupGroup.core),
+        _missing('git', 'Git', CiCdSetupGroup.core),
+        _missing('flutter', 'Flutter SDK', CiCdSetupGroup.core),
+        _missing('fastlane', 'Fastlane', CiCdSetupGroup.rubyFastlane),
+      ],
+    );
+
+    final plan = service.buildInstallPlan(
+      snapshot: snapshot,
+      selectedGroups: const {CiCdSetupGroup.core, CiCdSetupGroup.rubyFastlane},
+      selectedCheckIds: const {'fastlane'},
+    );
+
+    expect(plan.map((step) => step.id), ['install-fastlane']);
   });
 
   test('builds macOS manual fallback steps when Homebrew is missing', () {

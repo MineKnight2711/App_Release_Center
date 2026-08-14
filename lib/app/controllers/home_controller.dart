@@ -210,11 +210,7 @@ class HomeController extends GetxController {
   final isImportingResourceCatalog = false.obs;
   final resourceCatalogStatus = ''.obs;
   final cicdDependencySnapshot = Rxn<CiCdDependencySnapshot>();
-  final selectedCiCdSetupGroups = <CiCdSetupGroup>{
-    CiCdSetupGroup.core,
-    CiCdSetupGroup.android,
-    CiCdSetupGroup.rubyFastlane,
-  }.obs;
+  final selectedCiCdSetupOptionIds = CiCdSetupCatalog.defaultSelectedIds.obs;
   final cicdInstallSteps = <CiCdInstallStep>[].obs;
   final selectedCiCdInstallStep = Rxn<CiCdInstallStep>();
   final isCheckingCiCdDependencies = false.obs;
@@ -328,14 +324,17 @@ class HomeController extends GetxController {
     super.onClose();
   }
 
-  Future<void> pickProjectDirectory() async {
+  Future<bool> pickProjectDirectory() async {
     final selectedPath = await _pickDirectoryPath(
       dialogTitle: 'Select project directory',
       initialDirectory: _initialDirectory(),
     );
 
-    if (selectedPath == null) return;
+    if (selectedPath == null) return false;
     await loadProject(selectedPath);
+    final currentProject = project.value;
+    return currentProject != null &&
+        p.equals(currentProject.path, p.normalize(selectedPath));
   }
 
   Future<ChPlayProject?> pickChPlayProjectDraft() async {
@@ -346,7 +345,17 @@ class HomeController extends GetxController {
 
     if (selectedPath == null) return null;
 
-    final normalizedPath = p.normalize(selectedPath);
+    return createChPlayProjectDraftForPath(selectedPath);
+  }
+
+  Future<ChPlayProject?> createChPlayProjectDraftForCurrentProject() async {
+    final currentProject = project.value;
+    if (currentProject == null) return null;
+    return createChPlayProjectDraftForPath(currentProject.path);
+  }
+
+  Future<ChPlayProject> createChPlayProjectDraftForPath(String path) async {
+    final normalizedPath = p.normalize(path);
     final existingProject = _chPlayProjectByPath(normalizedPath);
     final inspection = await chPlayInspector.inspect(normalizedPath);
 
@@ -410,7 +419,17 @@ class HomeController extends GetxController {
 
     if (selectedPath == null) return null;
 
-    final normalizedPath = p.normalize(selectedPath);
+    return createAppStoreProjectDraftForPath(selectedPath);
+  }
+
+  Future<AppStoreProject?> createAppStoreProjectDraftForCurrentProject() async {
+    final currentProject = project.value;
+    if (currentProject == null) return null;
+    return createAppStoreProjectDraftForPath(currentProject.path);
+  }
+
+  Future<AppStoreProject> createAppStoreProjectDraftForPath(String path) async {
+    final normalizedPath = p.normalize(path);
     final existingProject = _appStoreProjectByPath(normalizedPath);
     final inspection = await appStoreInspector.inspect(normalizedPath);
 
@@ -425,6 +444,20 @@ class HomeController extends GetxController {
       hasSavedTeamId: existingProject?.hasSavedTeamId ?? false,
       inHouse: existingProject?.inHouse ?? false,
     );
+  }
+
+  ChPlayProject? findChPlayProjectById(String id) {
+    for (final project in chPlayProjects) {
+      if (project.id == id) return project;
+    }
+    return null;
+  }
+
+  AppStoreProject? findAppStoreProjectById(String id) {
+    for (final project in appStoreProjects) {
+      if (project.id == id) return project;
+    }
+    return null;
   }
 
   Future<void> saveAppStoreProject(AppStoreProject project) async {
@@ -1053,6 +1086,13 @@ class HomeController extends GetxController {
         await chPlayCredentialStore.read(projectId);
   }
 
+  void cacheChPlayCredentialsForSession({
+    required String projectId,
+    required ChPlayCredentials credentials,
+  }) {
+    _sessionChPlayCredentials[projectId] = credentials;
+  }
+
   Future<void> saveChPlayCredentials({
     required ChPlayProject project,
     required ChPlayCredentials credentials,
@@ -1226,11 +1266,23 @@ class HomeController extends GetxController {
     }
   }
 
-  void toggleCiCdSetupGroup(CiCdSetupGroup group, bool selected) {
+  void toggleCiCdSetupOption(String optionId, bool selected) {
     if (selected) {
-      selectedCiCdSetupGroups.add(group);
+      selectedCiCdSetupOptionIds.add(optionId);
     } else {
-      selectedCiCdSetupGroups.remove(group);
+      selectedCiCdSetupOptionIds.remove(optionId);
+    }
+    _refreshCiCdInstallPlan();
+  }
+
+  void setCiCdSetupGroupSelected(CiCdSetupGroup group, bool selected) {
+    final optionIds = CiCdSetupCatalog.optionsForGroup(
+      group,
+    ).map((option) => option.id);
+    if (selected) {
+      selectedCiCdSetupOptionIds.addAll(optionIds);
+    } else {
+      selectedCiCdSetupOptionIds.removeWhere(optionIds.toSet().contains);
     }
     _refreshCiCdInstallPlan();
   }
@@ -1293,9 +1345,18 @@ class HomeController extends GetxController {
       return;
     }
 
+    final selectedOptionIds = selectedCiCdSetupOptionIds.toSet();
+    final selectedGroups = CiCdSetupCatalog.groupsForOptionIds(
+      selectedOptionIds,
+    );
+    final selectedCheckIds = CiCdSetupCatalog.checkIdsForOptionIds(
+      selectedOptionIds,
+    );
+
     final steps = cicdInstaller.buildInstallPlan(
       snapshot: snapshot,
-      selectedGroups: selectedCiCdSetupGroups.toSet(),
+      selectedGroups: selectedGroups,
+      selectedCheckIds: selectedCheckIds,
       projectPath: project.value?.path ?? snapshot.projectPath,
     );
     cicdInstallSteps.assignAll(steps);
@@ -1522,6 +1583,7 @@ class HomeController extends GetxController {
 
   Future<AndroidCicdClonePreview?> previewAndroidCicdClone({
     AndroidCicdCloneMode mode = AndroidCicdCloneMode.adaptive,
+    bool overwriteExisting = true,
   }) async {
     final currentProject = project.value;
     if (currentProject == null) {
@@ -1531,7 +1593,11 @@ class HomeController extends GetxController {
     if (runner.isBusy) return null;
 
     try {
-      return await androidCicdCloner.preview(currentProject.path, mode: mode);
+      return await androidCicdCloner.preview(
+        currentProject.path,
+        mode: mode,
+        overwriteExisting: overwriteExisting,
+      );
     } on FileSystemException catch (error) {
       runner.appendSystemLog(error.message);
       return null;

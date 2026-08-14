@@ -11,65 +11,63 @@ class _StoreVersionsPanel extends GetView<HomeController> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (compact)
-              _buildCompactToolbar(context)
-            else ...[
-              Row(
-                children: [
-                  Expanded(child: _buildProjectCount()),
-                  _buildRefreshButton(compact: false),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  FilledButton.icon(
-                    onPressed: () => _addChPlayProject(context),
-                    icon: const Icon(Icons.android_outlined),
-                    label: const Text('Add CH Play'),
-                  ),
-                  FilledButton.tonalIcon(
-                    onPressed: () => _addAppStoreProject(context),
-                    icon: const Icon(Icons.apple),
-                    label: const Text('Add App Store'),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-            ],
+            _buildToolbar(compact: compact),
+            SizedBox(height: compact ? 6 : 10),
             Expanded(
               child: Obx(() {
-                final chPlayProjects = controller.chPlayProjects.toList();
-                final appStoreProjects = controller.appStoreProjects.toList();
-                final itemCount =
-                    chPlayProjects.length + appStoreProjects.length;
-                if (itemCount == 0) {
-                  return Center(
-                    child: Text(
-                      'No managed store projects',
-                      style: AppCyberTheme.dataTextStyle(
-                        color: AppCyberTheme.textMuted,
-                      ),
-                    ),
+                final selectedProject = controller.project.value;
+                if (selectedProject == null) {
+                  return const _StoreVersionsEmptyState(
+                    icon: Icons.folder_open_outlined,
+                    message: 'Select a project to view store versions.',
                   );
                 }
 
-                return ListView.separated(
-                  itemCount: itemCount,
-                  separatorBuilder: (context, index) =>
-                      const SizedBox(height: 10),
-                  itemBuilder: (context, index) {
-                    if (index < chPlayProjects.length) {
-                      final project = chPlayProjects[index];
-                      return _ChPlayProjectCard(project: project);
-                    }
+                final chPlayProjects = _selectedChPlayProjects(
+                  selectedProject.path,
+                );
+                final appStoreProjects = _selectedAppStoreProjects(
+                  selectedProject.path,
+                );
+                if (chPlayProjects.isEmpty && appStoreProjects.isEmpty) {
+                  return _StoreVersionsSetupPrompt(
+                    project: selectedProject,
+                    compact: compact,
+                  );
+                }
 
-                    final project =
-                        appStoreProjects[index - chPlayProjects.length];
-                    return _AppStoreProjectCard(project: project);
-                  },
+                final cards = <Widget>[
+                  for (final project in chPlayProjects)
+                    _ChPlayProjectCard(project: project, compact: compact),
+                  for (final project in appStoreProjects)
+                    _AppStoreProjectCard(project: project, compact: compact),
+                ];
+
+                if (compact) {
+                  final cardWidth = cards.length > 1
+                      ? ((constraints.maxWidth - 8) / 2)
+                            .clamp(238.0, 280.0)
+                            .toDouble()
+                      : constraints.maxWidth;
+                  return ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    padding: EdgeInsets.zero,
+                    itemCount: cards.length,
+                    separatorBuilder: (_, _) => const SizedBox(width: 8),
+                    itemBuilder: (context, index) {
+                      return SizedBox(width: cardWidth, child: cards[index]);
+                    },
+                  );
+                }
+
+                return ListView(
+                  padding: EdgeInsets.zero,
+                  children: [
+                    for (final card in cards) ...[
+                      card,
+                      const SizedBox(height: 8),
+                    ],
+                  ],
                 );
               }),
             ),
@@ -79,43 +77,57 @@ class _StoreVersionsPanel extends GetView<HomeController> {
     );
   }
 
-  Widget _buildCompactToolbar(BuildContext context) {
-    return SizedBox(
-      height: 40,
-      child: Row(
-        children: [
-          Expanded(child: _buildProjectCount()),
-          _buildRefreshButton(compact: true),
-          IconButton(
-            tooltip: 'Add CH Play',
-            visualDensity: VisualDensity.compact,
-            onPressed: () => _addChPlayProject(context),
-            icon: const Icon(Icons.android_outlined),
-          ),
-          IconButton(
-            tooltip: 'Add App Store',
-            visualDensity: VisualDensity.compact,
-            onPressed: () => _addAppStoreProject(context),
-            icon: const Icon(Icons.apple),
-          ),
-        ],
-      ),
+  Widget _buildToolbar({required bool compact}) {
+    return Row(
+      children: [
+        Expanded(child: _buildCurrentProjectLabel(compact: compact)),
+        _buildRefreshButton(compact: compact),
+      ],
     );
   }
 
-  Widget _buildProjectCount() {
+  Widget _buildCurrentProjectLabel({required bool compact}) {
     return Obx(() {
+      final selectedProject = controller.project.value;
+      if (selectedProject == null) {
+        return Text(
+          'No project selected',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: AppCyberTheme.dataTextStyle(
+            size: compact ? 10.8 : 11.5,
+            color: AppCyberTheme.textMuted,
+            weight: FontWeight.w600,
+          ),
+        );
+      }
+
       final count =
-          controller.chPlayProjects.length + controller.appStoreProjects.length;
-      return Text(
-        count == 0 ? 'No managed projects' : '$count projects',
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: AppCyberTheme.dataTextStyle(
-          size: 11.5,
-          color: AppCyberTheme.textMuted,
-          weight: FontWeight.w600,
-        ),
+          _selectedChPlayProjects(selectedProject.path).length +
+          _selectedAppStoreProjects(selectedProject.path).length;
+      return Row(
+        children: [
+          Icon(
+            Icons.inventory_2_outlined,
+            size: 16,
+            color: AppCyberTheme.textMuted,
+          ),
+          const SizedBox(width: 7),
+          Expanded(
+            child: Text(
+              count == 0
+                  ? '${selectedProject.name} - not setup'
+                  : '${selectedProject.name} - $count store(s)',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppCyberTheme.dataTextStyle(
+                size: compact ? 10.8 : 11.5,
+                color: AppCyberTheme.textMuted,
+                weight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
       );
     });
   }
@@ -125,7 +137,13 @@ class _StoreVersionsPanel extends GetView<HomeController> {
       final refreshing =
           controller.isRefreshingChPlay.value ||
           controller.isRefreshingAppStore.value;
-      final disabled = controller.runner.isBusy || refreshing;
+      final selectedProject = controller.project.value;
+      final selectedCount = selectedProject == null
+          ? 0
+          : _selectedChPlayProjects(selectedProject.path).length +
+                _selectedAppStoreProjects(selectedProject.path).length;
+      final disabled =
+          controller.runner.isBusy || refreshing || selectedCount == 0;
       final icon = refreshing
           ? const SizedBox.square(
               dimension: 16,
@@ -134,69 +152,174 @@ class _StoreVersionsPanel extends GetView<HomeController> {
           : const Icon(Icons.refresh_outlined);
       if (compact) {
         return IconButton(
-          tooltip: 'Refresh all',
+          tooltip: 'Refresh selected project',
           visualDensity: VisualDensity.compact,
-          onPressed: disabled ? null : controller.refreshAllStoreProjects,
+          onPressed: disabled ? null : _refreshSelectedStoreProjects,
           icon: icon,
         );
       }
       return OutlinedButton.icon(
-        onPressed: disabled ? null : controller.refreshAllStoreProjects,
+        onPressed: disabled ? null : _refreshSelectedStoreProjects,
         icon: icon,
-        label: const Text('Refresh all'),
+        label: const Text('Refresh'),
       );
     });
   }
 
-  Future<void> _addChPlayProject(BuildContext context) async {
-    try {
-      final draft = await controller.pickChPlayProjectDraft();
-      if (draft == null || !context.mounted) return;
-
-      final project = await _showChPlayProjectDialog(
-        context,
-        project: draft,
-        isNew: true,
-      );
-      if (project == null) return;
-
-      await controller.saveChPlayProject(project);
-    } catch (error) {
-      controller.runner.appendSystemLog('Add CH Play project failed: $error');
-      if (context.mounted) {
-        await _showStoreProjectError(
-          context,
-          title: 'Add CH Play failed',
-          error: error,
-        );
-      }
-    }
+  List<ChPlayProject> _selectedChPlayProjects(String selectedPath) {
+    return controller.chPlayProjects
+        .where((project) => _sameStoreProjectPath(project.path, selectedPath))
+        .toList(growable: false);
   }
 
-  Future<void> _addAppStoreProject(BuildContext context) async {
-    try {
-      final draft = await controller.pickAppStoreProjectDraft();
-      if (draft == null || !context.mounted) return;
+  List<AppStoreProject> _selectedAppStoreProjects(String selectedPath) {
+    return controller.appStoreProjects
+        .where((project) => _sameStoreProjectPath(project.path, selectedPath))
+        .toList(growable: false);
+  }
 
-      final project = await _showAppStoreProjectDialog(
-        context,
-        project: draft,
-        isNew: true,
-      );
-      if (project == null) return;
+  Future<void> _refreshSelectedStoreProjects() async {
+    final selectedProject = controller.project.value;
+    if (selectedProject == null) return;
 
-      await controller.saveAppStoreProject(project);
-    } catch (error) {
-      controller.runner.appendSystemLog('Add App Store project failed: $error');
-      if (context.mounted) {
-        await _showStoreProjectError(
-          context,
-          title: 'Add App Store failed',
-          error: error,
-        );
-      }
+    for (final project in _selectedChPlayProjects(selectedProject.path)) {
+      await controller.refreshChPlayProject(project);
+    }
+    for (final project in _selectedAppStoreProjects(selectedProject.path)) {
+      await controller.refreshAppStoreProject(project);
     }
   }
+}
+
+class _StoreVersionsSetupPrompt extends StatelessWidget {
+  const _StoreVersionsSetupPrompt({
+    required this.project,
+    required this.compact,
+  });
+
+  final ReleaseProject project;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    if (compact) {
+      return _HudCardShell(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+        child: Row(
+          children: [
+            const Icon(Icons.add_task_outlined, size: 17),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                '${project.name}: no store setup',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppCyberTheme.dataTextStyle(
+                  size: 11,
+                  color: AppCyberTheme.textPrimary,
+                  weight: FontWeight.w800,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            OutlinedButton.icon(
+              key: const Key('store-versions-setup-current-project'),
+              onPressed: () => _runProjectSetupWizard(context),
+              icon: const Icon(Icons.add_task_outlined, size: 16),
+              label: const Text('Setup'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return _HudCardShell(
+      padding: const EdgeInsets.all(10),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(Icons.add_task_outlined, size: 18),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'No store setup for ${project.name}',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppCyberTheme.dataTextStyle(
+                    size: 11.5,
+                    color: AppCyberTheme.textPrimary,
+                    weight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Use project setup to add CH Play or App Store and run version check.',
+            style: AppCyberTheme.dataTextStyle(
+              size: 10.5,
+              color: AppCyberTheme.textMuted,
+              weight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              key: const Key('store-versions-setup-current-project'),
+              onPressed: () => _runProjectSetupWizard(context),
+              icon: const Icon(Icons.add_task_outlined),
+              label: const Text('Setup stores'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StoreVersionsEmptyState extends StatelessWidget {
+  const _StoreVersionsEmptyState({required this.icon, required this.message});
+
+  final IconData icon;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 18, color: AppCyberTheme.textMuted),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              message,
+              textAlign: TextAlign.center,
+              style: AppCyberTheme.dataTextStyle(
+                color: AppCyberTheme.textMuted,
+                weight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+bool _sameStoreProjectPath(String first, String second) {
+  final left = p.normalize(first);
+  final right = p.normalize(second);
+  if (Platform.isWindows) {
+    return left.toLowerCase() == right.toLowerCase();
+  }
+  return left == right;
 }
 
 Future<void> _showStoreProjectError(
@@ -223,10 +346,137 @@ Future<void> _showStoreProjectError(
   );
 }
 
+class _StoreVersionMetric extends StatelessWidget {
+  const _StoreVersionMetric({
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.highlighted = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final bool highlighted;
+
+  @override
+  Widget build(BuildContext context) {
+    final borderColor = highlighted
+        ? (AppCyberTheme.isCyber
+              ? AppCyberTheme.electricBlue.withValues(alpha: 0.75)
+              : const Color(0xFF1570EF))
+        : (AppCyberTheme.isCyber
+              ? AppCyberTheme.electricBlue.withValues(alpha: 0.25)
+              : AppCyberTheme.lineBlue);
+    final backgroundColor = highlighted
+        ? (AppCyberTheme.isCyber
+              ? AppCyberTheme.electricBlue.withValues(alpha: 0.12)
+              : const Color(0xFFEFF8FF))
+        : AppCyberTheme.panelBackgroundStrong.withValues(alpha: 0.62);
+    final iconColor = highlighted
+        ? (AppCyberTheme.isCyber
+              ? AppCyberTheme.neonGreen
+              : const Color(0xFF1570EF))
+        : AppCyberTheme.textMuted;
+
+    return Container(
+      constraints: const BoxConstraints(minHeight: 44),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: borderColor),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 14, color: iconColor),
+          const SizedBox(width: 7),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppCyberTheme.dataTextStyle(
+                    size: 9.8,
+                    color: AppCyberTheme.textMuted,
+                    weight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppCyberTheme.dataTextStyle(
+                    size: 11.5,
+                    color: AppCyberTheme.textPrimary,
+                    weight: FontWeight.w900,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StoreVersionInlinePair extends StatelessWidget {
+  const _StoreVersionInlinePair({
+    required this.localValue,
+    required this.remoteLabel,
+    required this.remoteValue,
+  });
+
+  final String localValue;
+  final String remoteLabel;
+  final String remoteValue;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 64,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'L $localValue',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AppCyberTheme.dataTextStyle(
+              size: 9.5,
+              color: AppCyberTheme.textPrimary,
+              weight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            '$remoteLabel $remoteValue',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AppCyberTheme.dataTextStyle(
+              size: 9.5,
+              color: AppCyberTheme.textMuted,
+              weight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _ChPlayProjectCard extends GetView<HomeController> {
-  const _ChPlayProjectCard({required this.project});
+  const _ChPlayProjectCard({required this.project, this.compact = false});
 
   final ChPlayProject project;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -236,119 +486,236 @@ class _ChPlayProjectCard extends GetView<HomeController> {
           const ChPlayVersionSnapshot();
       final isRefreshing = currentSnapshot.isRefreshing;
 
-      return _HudCardShell(
-        active: isRefreshing,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.only(top: 2),
-                  child: Icon(
-                    Icons.android_outlined,
-                    size: 20,
-                    color: AppCyberTheme.isCyber
-                        ? AppCyberTheme.neonGreen
-                        : AppCyberTheme.textMuted,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        project.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.titleSmall,
+      if (compact) {
+        return _buildCompact(context, currentSnapshot, isRefreshing);
+      }
+
+      return KeyedSubtree(
+        key: Key('store-version-chplay-${project.id}'),
+        child: _HudCardShell(
+          padding: const EdgeInsets.all(8),
+          active: isRefreshing,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 30,
+                    height: 30,
+                    decoration: BoxDecoration(
+                      color: AppCyberTheme.isCyber
+                          ? AppCyberTheme.neonGreen.withValues(alpha: 0.12)
+                          : const Color(0xFFEFF8F0),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: AppCyberTheme.isCyber
+                            ? AppCyberTheme.neonGreen.withValues(alpha: 0.55)
+                            : const Color(0xFFB7D7C2),
                       ),
-                      const SizedBox(height: 3),
-                      Text(
-                        project.path,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppCyberTheme.dataTextStyle(
-                          size: 10.5,
-                          color: AppCyberTheme.textMuted,
+                    ),
+                    child: Icon(
+                      Icons.android_outlined,
+                      size: 17,
+                      color: AppCyberTheme.isCyber
+                          ? AppCyberTheme.neonGreen
+                          : AppCyberTheme.textMuted,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          project.name == p.basename(project.path)
+                              ? 'CH Play'
+                              : 'CH Play - ${project.name}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppCyberTheme.dataTextStyle(
+                            size: 12,
+                            color: AppCyberTheme.textPrimary,
+                            weight: FontWeight.w800,
+                          ),
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 2),
+                        Text(
+                          project.applicationId.isEmpty
+                              ? 'No app ID'
+                              : project.applicationId,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppCyberTheme.dataTextStyle(
+                            size: 10.5,
+                            color: AppCyberTheme.textMuted,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                _ChPlayProjectActions(project: project),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                _MetaChip(
-                  icon: Icons.badge_outlined,
-                  label: project.applicationId.isEmpty
-                      ? 'No app ID'
-                      : project.applicationId,
-                ),
-                _MetaChip(icon: Icons.flag_outlined, label: project.track),
-                _MetaChip(
-                  icon: Icons.sell_outlined,
-                  label: 'Local ${currentSnapshot.localDisplay}',
-                  highlighted: true,
-                ),
-                _MetaChip(
-                  icon: Icons.storefront_outlined,
-                  label: 'Store ${currentSnapshot.storeDisplay}',
-                ),
-                _MetaChip(
-                  icon: _chPlayStatusIcon(currentSnapshot.status),
-                  label: _chPlayStatusLabel(currentSnapshot.status),
-                ),
-                _MetaChip(
-                  icon: Icons.schedule_outlined,
-                  label: _formatCheckedAt(currentSnapshot.lastCheckedAt),
-                ),
-                _MetaChip(
-                  icon: project.hasSavedGooglePlayJson
-                      ? Icons.lock_outlined
-                      : Icons.lock_open_outlined,
-                  label: project.hasSavedGooglePlayJson
-                      ? 'Secure JSON'
-                      : 'No saved JSON',
-                ),
-                if (project.hasSavedSigningCredentials)
-                  const _MetaChip(
-                    icon: Icons.vpn_key_outlined,
-                    label: 'Signing key',
-                  ),
-              ],
-            ),
-            if (currentSnapshot.message.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(
-                currentSnapshot.message,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: AppCyberTheme.dataTextStyle(
-                  size: 10.8,
-                  color: AppCyberTheme.textMuted,
-                ),
+                  const SizedBox(width: 8),
+                  _ChPlayProjectActions(project: project),
+                ],
               ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: _StoreVersionMetric(
+                      icon: Icons.sell_outlined,
+                      label: 'Local',
+                      value: currentSnapshot.localDisplay,
+                      highlighted: true,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: _StoreVersionMetric(
+                      icon: Icons.storefront_outlined,
+                      label: 'Store',
+                      value: currentSnapshot.storeDisplay,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 7),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  _MetaChip(icon: Icons.flag_outlined, label: project.track),
+                  _MetaChip(
+                    icon: _chPlayStatusIcon(currentSnapshot.status),
+                    label: _chPlayStatusLabel(currentSnapshot.status),
+                    highlighted:
+                        currentSnapshot.status ==
+                        ChPlayComparisonStatus.upToDate,
+                  ),
+                  _MetaChip(
+                    icon: Icons.schedule_outlined,
+                    label: _formatCheckedAt(currentSnapshot.lastCheckedAt),
+                  ),
+                  _MetaChip(
+                    icon: project.hasSavedGooglePlayJson
+                        ? Icons.lock_outlined
+                        : Icons.lock_open_outlined,
+                    label: project.hasSavedGooglePlayJson
+                        ? 'Secure JSON'
+                        : 'No saved JSON',
+                  ),
+                  if (project.hasSavedSigningCredentials)
+                    const _MetaChip(
+                      icon: Icons.vpn_key_outlined,
+                      label: 'Signing key',
+                    ),
+                ],
+              ),
+              if (currentSnapshot.message.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  currentSnapshot.message,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppCyberTheme.dataTextStyle(
+                    size: 10.8,
+                    color: AppCyberTheme.textMuted,
+                  ),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       );
     });
   }
+
+  Widget _buildCompact(
+    BuildContext context,
+    ChPlayVersionSnapshot snapshot,
+    bool isRefreshing,
+  ) {
+    return KeyedSubtree(
+      key: Key('store-version-chplay-${project.id}'),
+      child: _HudCardShell(
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 6),
+        active: isRefreshing,
+        child: Row(
+          children: [
+            Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                color: AppCyberTheme.isCyber
+                    ? AppCyberTheme.neonGreen.withValues(alpha: 0.12)
+                    : const Color(0xFFEFF8F0),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: AppCyberTheme.isCyber
+                      ? AppCyberTheme.neonGreen.withValues(alpha: 0.55)
+                      : const Color(0xFFB7D7C2),
+                ),
+              ),
+              child: Icon(
+                Icons.android_outlined,
+                size: 16,
+                color: AppCyberTheme.isCyber
+                    ? AppCyberTheme.neonGreen
+                    : AppCyberTheme.textMuted,
+              ),
+            ),
+            const SizedBox(width: 7),
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'CH Play',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppCyberTheme.dataTextStyle(
+                      size: 11.2,
+                      color: AppCyberTheme.textPrimary,
+                      weight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    project.applicationId.isEmpty
+                        ? _chPlayStatusLabel(snapshot.status)
+                        : project.applicationId,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppCyberTheme.dataTextStyle(
+                      size: 9.8,
+                      color: AppCyberTheme.textMuted,
+                      weight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 7),
+            _StoreVersionInlinePair(
+              localValue: snapshot.localDisplay,
+              remoteLabel: 'S',
+              remoteValue: snapshot.storeDisplay,
+            ),
+            _ChPlayProjectActions(project: project, compact: true),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _ChPlayProjectActions extends GetView<HomeController> {
-  const _ChPlayProjectActions({required this.project});
+  const _ChPlayProjectActions({required this.project, this.compact = false});
 
   final ChPlayProject project;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -356,19 +723,73 @@ class _ChPlayProjectActions extends GetView<HomeController> {
       final isRunning = controller.runner.isBusy;
       final isRefreshing =
           controller.chPlaySnapshots[project.id]?.isRefreshing ?? false;
+      if (compact) {
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              tooltip: 'Refresh',
+              visualDensity: VisualDensity.compact,
+              constraints: const BoxConstraints.tightFor(width: 30, height: 30),
+              padding: EdgeInsets.zero,
+              onPressed: isRunning || isRefreshing
+                  ? null
+                  : () => controller.refreshChPlayProject(project),
+              icon: isRefreshing
+                  ? const SizedBox(
+                      width: 15,
+                      height: 15,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.refresh_outlined, size: 18),
+            ),
+            IconButton(
+              tooltip: 'Credentials',
+              visualDensity: VisualDensity.compact,
+              constraints: const BoxConstraints.tightFor(width: 30, height: 30),
+              padding: EdgeInsets.zero,
+              onPressed: () => _showChPlayCredentialsDialog(context, project),
+              icon: const Icon(Icons.vpn_key_outlined, size: 18),
+            ),
+            PopupMenuButton<String>(
+              tooltip: 'More',
+              icon: const Icon(Icons.more_horiz, size: 18),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints.tightFor(width: 30, height: 30),
+              onSelected: (value) {
+                if (value == 'edit') {
+                  unawaited(_editChPlayProject(context, project));
+                } else if (value == 'delete' && !isRunning) {
+                  unawaited(_confirmDeleteChPlayProject(context, project));
+                }
+              },
+              itemBuilder: (_) => [
+                const PopupMenuItem(value: 'edit', child: Text('Edit project')),
+                PopupMenuItem(
+                  value: 'delete',
+                  enabled: !isRunning,
+                  child: const Text('Delete project'),
+                ),
+              ],
+            ),
+          ],
+        );
+      }
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           IconButton(
             tooltip: 'Refresh',
             visualDensity: VisualDensity.compact,
+            constraints: const BoxConstraints.tightFor(width: 32, height: 32),
+            padding: EdgeInsets.zero,
             onPressed: isRunning || isRefreshing
                 ? null
                 : () => controller.refreshChPlayProject(project),
             icon: isRefreshing
                 ? const SizedBox(
-                    width: 18,
-                    height: 18,
+                    width: 16,
+                    height: 16,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Icon(Icons.refresh_outlined),
@@ -376,18 +797,24 @@ class _ChPlayProjectActions extends GetView<HomeController> {
           IconButton(
             tooltip: 'Edit project',
             visualDensity: VisualDensity.compact,
+            constraints: const BoxConstraints.tightFor(width: 32, height: 32),
+            padding: EdgeInsets.zero,
             onPressed: () => _editChPlayProject(context, project),
             icon: const Icon(Icons.edit_outlined),
           ),
           IconButton(
             tooltip: 'Credentials',
             visualDensity: VisualDensity.compact,
+            constraints: const BoxConstraints.tightFor(width: 32, height: 32),
+            padding: EdgeInsets.zero,
             onPressed: () => _showChPlayCredentialsDialog(context, project),
             icon: const Icon(Icons.vpn_key_outlined),
           ),
           IconButton(
             tooltip: 'Delete project',
             visualDensity: VisualDensity.compact,
+            constraints: const BoxConstraints.tightFor(width: 32, height: 32),
+            padding: EdgeInsets.zero,
             onPressed: isRunning
                 ? null
                 : () => _confirmDeleteChPlayProject(context, project),
@@ -442,9 +869,10 @@ class _ChPlayProjectActions extends GetView<HomeController> {
 }
 
 class _AppStoreProjectCard extends GetView<HomeController> {
-  const _AppStoreProjectCard({required this.project});
+  const _AppStoreProjectCard({required this.project, this.compact = false});
 
   final AppStoreProject project;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -454,127 +882,244 @@ class _AppStoreProjectCard extends GetView<HomeController> {
           const AppStoreVersionSnapshot();
       final isRefreshing = currentSnapshot.isRefreshing;
 
-      return _HudCardShell(
-        active: isRefreshing,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.only(top: 2),
-                  child: Icon(
-                    Icons.phone_iphone_outlined,
-                    size: 20,
-                    color: AppCyberTheme.isCyber
-                        ? AppCyberTheme.electricBlue
-                        : AppCyberTheme.textMuted,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        project.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.titleSmall,
+      if (compact) {
+        return _buildCompact(context, currentSnapshot, isRefreshing);
+      }
+
+      return KeyedSubtree(
+        key: Key('store-version-appstore-${project.id}'),
+        child: _HudCardShell(
+          padding: const EdgeInsets.all(8),
+          active: isRefreshing,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 30,
+                    height: 30,
+                    decoration: BoxDecoration(
+                      color: AppCyberTheme.isCyber
+                          ? AppCyberTheme.electricBlue.withValues(alpha: 0.12)
+                          : const Color(0xFFEFF6FF),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: AppCyberTheme.isCyber
+                            ? AppCyberTheme.electricBlue.withValues(alpha: 0.55)
+                            : const Color(0xFFBFD7F5),
                       ),
-                      const SizedBox(height: 3),
-                      Text(
-                        project.path,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppCyberTheme.dataTextStyle(
-                          size: 10.5,
-                          color: AppCyberTheme.textMuted,
+                    ),
+                    child: Icon(
+                      Icons.phone_iphone_outlined,
+                      size: 17,
+                      color: AppCyberTheme.isCyber
+                          ? AppCyberTheme.electricBlue
+                          : AppCyberTheme.textMuted,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          project.name == p.basename(project.path)
+                              ? 'App Store'
+                              : 'App Store - ${project.name}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppCyberTheme.dataTextStyle(
+                            size: 12,
+                            color: AppCyberTheme.textPrimary,
+                            weight: FontWeight.w800,
+                          ),
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 2),
+                        Text(
+                          project.bundleId.isEmpty
+                              ? 'No bundle ID'
+                              : project.bundleId,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppCyberTheme.dataTextStyle(
+                            size: 10.5,
+                            color: AppCyberTheme.textMuted,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                _AppStoreProjectActions(project: project),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                _MetaChip(
-                  icon: Icons.badge_outlined,
-                  label: project.bundleId.isEmpty
-                      ? 'No bundle ID'
-                      : project.bundleId,
-                ),
-                _MetaChip(
-                  icon: Icons.phone_iphone_outlined,
-                  label: project.platform,
-                ),
-                _MetaChip(
-                  icon: Icons.sell_outlined,
-                  label: 'Local ${currentSnapshot.localDisplay}',
-                  highlighted: true,
-                ),
-                _MetaChip(
-                  icon: Icons.flight_takeoff_outlined,
-                  label: 'TestFlight ${currentSnapshot.testFlightDisplay}',
-                ),
-                _MetaChip(
-                  icon: _appStoreStatusIcon(currentSnapshot.status),
-                  label: _appStoreStatusLabel(currentSnapshot.status),
-                ),
-                _MetaChip(
-                  icon: Icons.schedule_outlined,
-                  label: _formatCheckedAt(currentSnapshot.lastCheckedAt),
-                ),
-                _MetaChip(
-                  icon: project.hasSavedRequiredCredentials
-                      ? Icons.lock_outlined
-                      : Icons.lock_open_outlined,
-                  label: project.hasSavedRequiredCredentials
-                      ? 'Secure API key'
-                      : 'No saved key',
-                ),
-                if (project.hasSavedTeamId)
-                  const _MetaChip(
-                    icon: Icons.groups_2_outlined,
-                    label: 'Team ID',
-                  ),
-                if (project.inHouse)
-                  const _MetaChip(
-                    icon: Icons.business_outlined,
-                    label: 'In-house',
-                  ),
-              ],
-            ),
-            if (currentSnapshot.message.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(
-                currentSnapshot.message,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: AppCyberTheme.dataTextStyle(
-                  size: 10.8,
-                  color: AppCyberTheme.textMuted,
-                ),
+                  const SizedBox(width: 8),
+                  _AppStoreProjectActions(project: project),
+                ],
               ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: _StoreVersionMetric(
+                      icon: Icons.sell_outlined,
+                      label: 'Local',
+                      value: currentSnapshot.localDisplay,
+                      highlighted: true,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: _StoreVersionMetric(
+                      icon: Icons.flight_takeoff_outlined,
+                      label: 'TestFlight',
+                      value: currentSnapshot.testFlightDisplay,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 7),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  _MetaChip(
+                    icon: Icons.phone_iphone_outlined,
+                    label: project.platform,
+                  ),
+                  _MetaChip(
+                    icon: _appStoreStatusIcon(currentSnapshot.status),
+                    label: _appStoreStatusLabel(currentSnapshot.status),
+                    highlighted:
+                        currentSnapshot.status ==
+                        AppStoreComparisonStatus.upToDate,
+                  ),
+                  _MetaChip(
+                    icon: Icons.schedule_outlined,
+                    label: _formatCheckedAt(currentSnapshot.lastCheckedAt),
+                  ),
+                  _MetaChip(
+                    icon: project.hasSavedRequiredCredentials
+                        ? Icons.lock_outlined
+                        : Icons.lock_open_outlined,
+                    label: project.hasSavedRequiredCredentials
+                        ? 'Secure API key'
+                        : 'No saved key',
+                  ),
+                  if (project.hasSavedTeamId)
+                    const _MetaChip(
+                      icon: Icons.groups_2_outlined,
+                      label: 'Team ID',
+                    ),
+                  if (project.inHouse)
+                    const _MetaChip(
+                      icon: Icons.business_outlined,
+                      label: 'In-house',
+                    ),
+                ],
+              ),
+              if (currentSnapshot.message.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  currentSnapshot.message,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppCyberTheme.dataTextStyle(
+                    size: 10.8,
+                    color: AppCyberTheme.textMuted,
+                  ),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       );
     });
   }
+
+  Widget _buildCompact(
+    BuildContext context,
+    AppStoreVersionSnapshot snapshot,
+    bool isRefreshing,
+  ) {
+    return KeyedSubtree(
+      key: Key('store-version-appstore-${project.id}'),
+      child: _HudCardShell(
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 6),
+        active: isRefreshing,
+        child: Row(
+          children: [
+            Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                color: AppCyberTheme.isCyber
+                    ? AppCyberTheme.electricBlue.withValues(alpha: 0.12)
+                    : const Color(0xFFEFF6FF),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: AppCyberTheme.isCyber
+                      ? AppCyberTheme.electricBlue.withValues(alpha: 0.55)
+                      : const Color(0xFFBFD7F5),
+                ),
+              ),
+              child: Icon(
+                Icons.phone_iphone_outlined,
+                size: 16,
+                color: AppCyberTheme.isCyber
+                    ? AppCyberTheme.electricBlue
+                    : AppCyberTheme.textMuted,
+              ),
+            ),
+            const SizedBox(width: 7),
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'App Store',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppCyberTheme.dataTextStyle(
+                      size: 11.2,
+                      color: AppCyberTheme.textPrimary,
+                      weight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    project.bundleId.isEmpty
+                        ? _appStoreStatusLabel(snapshot.status)
+                        : project.bundleId,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppCyberTheme.dataTextStyle(
+                      size: 9.8,
+                      color: AppCyberTheme.textMuted,
+                      weight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 7),
+            _StoreVersionInlinePair(
+              localValue: snapshot.localDisplay,
+              remoteLabel: 'TF',
+              remoteValue: snapshot.testFlightDisplay,
+            ),
+            _AppStoreProjectActions(project: project, compact: true),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _AppStoreProjectActions extends GetView<HomeController> {
-  const _AppStoreProjectActions({required this.project});
+  const _AppStoreProjectActions({required this.project, this.compact = false});
 
   final AppStoreProject project;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -582,19 +1127,73 @@ class _AppStoreProjectActions extends GetView<HomeController> {
       final isRunning = controller.runner.isBusy;
       final isRefreshing =
           controller.appStoreSnapshots[project.id]?.isRefreshing ?? false;
+      if (compact) {
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              tooltip: 'Refresh',
+              visualDensity: VisualDensity.compact,
+              constraints: const BoxConstraints.tightFor(width: 30, height: 30),
+              padding: EdgeInsets.zero,
+              onPressed: isRunning || isRefreshing
+                  ? null
+                  : () => controller.refreshAppStoreProject(project),
+              icon: isRefreshing
+                  ? const SizedBox(
+                      width: 15,
+                      height: 15,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.refresh_outlined, size: 18),
+            ),
+            IconButton(
+              tooltip: 'Credentials',
+              visualDensity: VisualDensity.compact,
+              constraints: const BoxConstraints.tightFor(width: 30, height: 30),
+              padding: EdgeInsets.zero,
+              onPressed: () => _showAppStoreCredentialsDialog(context, project),
+              icon: const Icon(Icons.vpn_key_outlined, size: 18),
+            ),
+            PopupMenuButton<String>(
+              tooltip: 'More',
+              icon: const Icon(Icons.more_horiz, size: 18),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints.tightFor(width: 30, height: 30),
+              onSelected: (value) {
+                if (value == 'edit') {
+                  unawaited(_editAppStoreProject(context, project));
+                } else if (value == 'delete' && !isRunning) {
+                  unawaited(_confirmDeleteAppStoreProject(context, project));
+                }
+              },
+              itemBuilder: (_) => [
+                const PopupMenuItem(value: 'edit', child: Text('Edit project')),
+                PopupMenuItem(
+                  value: 'delete',
+                  enabled: !isRunning,
+                  child: const Text('Delete project'),
+                ),
+              ],
+            ),
+          ],
+        );
+      }
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           IconButton(
             tooltip: 'Refresh',
             visualDensity: VisualDensity.compact,
+            constraints: const BoxConstraints.tightFor(width: 32, height: 32),
+            padding: EdgeInsets.zero,
             onPressed: isRunning || isRefreshing
                 ? null
                 : () => controller.refreshAppStoreProject(project),
             icon: isRefreshing
                 ? const SizedBox(
-                    width: 18,
-                    height: 18,
+                    width: 16,
+                    height: 16,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Icon(Icons.refresh_outlined),
@@ -602,18 +1201,24 @@ class _AppStoreProjectActions extends GetView<HomeController> {
           IconButton(
             tooltip: 'Edit project',
             visualDensity: VisualDensity.compact,
+            constraints: const BoxConstraints.tightFor(width: 32, height: 32),
+            padding: EdgeInsets.zero,
             onPressed: () => _editAppStoreProject(context, project),
             icon: const Icon(Icons.edit_outlined),
           ),
           IconButton(
             tooltip: 'Credentials',
             visualDensity: VisualDensity.compact,
+            constraints: const BoxConstraints.tightFor(width: 32, height: 32),
+            padding: EdgeInsets.zero,
             onPressed: () => _showAppStoreCredentialsDialog(context, project),
             icon: const Icon(Icons.vpn_key_outlined),
           ),
           IconButton(
             tooltip: 'Delete project',
             visualDensity: VisualDensity.compact,
+            constraints: const BoxConstraints.tightFor(width: 32, height: 32),
+            padding: EdgeInsets.zero,
             onPressed: isRunning
                 ? null
                 : () => _confirmDeleteAppStoreProject(context, project),
