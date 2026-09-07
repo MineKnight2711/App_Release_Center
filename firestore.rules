@@ -108,6 +108,11 @@ service cloud.firestore {
         allow read: if isActiveMember(teamId);
         allow write: if canEditApiTools(teamId);
       }
+
+      match /apiToolQuickRequests/{quickRequestId} {
+        allow read: if isActiveMember(teamId);
+        allow write: if canEditApiTools(teamId);
+      }
     }
   }
 }

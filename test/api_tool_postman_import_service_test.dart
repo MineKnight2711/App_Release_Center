@@ -26,6 +26,12 @@ void main() {
                   {'key': 'X-API-KEY', 'value': '{{API_KEY}}'},
                   {'key': 'X-DISABLED', 'value': 'off', 'disabled': true},
                 ],
+                'auth': {
+                  'type': 'bearer',
+                  'bearer': [
+                    {'key': 'token', 'value': '{{ACCESS_TOKEN}}'},
+                  ],
+                },
                 'url': '{{BASE_URL}}/login',
                 'body': {
                   'mode': 'urlencoded',
@@ -101,7 +107,19 @@ void main() {
       login.enabledHeaders['Content-Type'],
       'application/x-www-form-urlencoded',
     );
-    expect(login.body, 'phone={{PHONE}}&password=p%40ss+word');
+    expect(login.authorization.type, ApiToolAuthorizationType.bearer);
+    expect(login.authorization.token, '{{ACCESS_TOKEN}}');
+    expect(login.enabledHeaders['Authorization'], 'Bearer {{ACCESS_TOKEN}}');
+    expect(login.bodyMode, ApiToolBodyMode.urlEncoded);
+    expect(login.urlEncodedFields, hasLength(3));
+    expect(login.urlEncodedFields.first.name, 'phone');
+    expect(login.urlEncodedFields.first.value, '{{PHONE}}');
+    expect(
+      login.urlEncodedFields
+          .singleWhere((entry) => entry.name == 'debug')
+          .enabled,
+      isFalse,
+    );
 
     final upload = result.requests.singleWhere(
       (entry) => entry.name == 'Upload',
@@ -132,6 +150,57 @@ void main() {
         {'name': 'Folder', 'item': []},
       ],
     });
+
+    expect(
+      () => service.importJsonText(jsonText),
+      throwsA(isA<ApiToolPostmanImportException>()),
+    );
+  });
+
+  test('imports Postman environment files into collection environments', () {
+    final service = ApiToolPostmanEnvironmentImportService(
+      now: () => DateTime.utc(2026, 8, 12),
+    );
+    final jsonText = jsonEncode({
+      'id': '3db6569d-c8f1-48ca-b12d-e4fa9af41bee',
+      'name': 'VneCheck Ai API',
+      'values': [
+        {
+          'key': 'LINKS',
+          'value': '',
+          'type': 'default',
+          'description': 'Links API',
+          'enabled': true,
+        },
+        {
+          'key': 'APP_USER',
+          'value': 'demo@example.com',
+          'type': 'default',
+          'enabled': true,
+        },
+        {
+          'key': 'APP_KEYS',
+          'value': 'secret',
+          'type': 'default',
+          'enabled': false,
+        },
+      ],
+      '_postman_variable_scope': 'environment',
+    });
+
+    final environment = service.importJsonText(jsonText);
+
+    expect(environment.name, 'VneCheck Ai API');
+    expect(environment.variables, hasLength(3));
+    expect(environment.variables[0].name, 'LINKS');
+    expect(environment.variables[0].value, '');
+    expect(environment.enabledVariables['APP_USER'], 'demo@example.com');
+    expect(environment.enabledVariables.containsKey('APP_KEYS'), isFalse);
+  });
+
+  test('rejects Postman environments without variables', () {
+    final service = ApiToolPostmanEnvironmentImportService();
+    final jsonText = jsonEncode({'name': 'Empty', 'values': []});
 
     expect(
       () => service.importJsonText(jsonText),

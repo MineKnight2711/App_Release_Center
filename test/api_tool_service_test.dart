@@ -73,6 +73,80 @@ void main() {
     expect(request.body, '{"host":"https://emed.vn/APIs-Android.htm"}');
   });
 
+  test('resolves authorization variables and builds auth headers', () {
+    final bearerRequest = resolveApiToolRequestVariables(
+      ApiToolRequest(
+        id: 'request-bearer',
+        name: 'Bearer',
+        method: ApiToolMethod.get,
+        url: 'https://example.com',
+        headers: const [
+          ApiToolHeader(
+            id: 'old-auth',
+            name: 'authorization',
+            value: 'Bearer old-token',
+          ),
+        ],
+        authorization: const ApiToolAuthorization(
+          type: ApiToolAuthorizationType.bearer,
+          token: '{{TOKEN}}',
+        ),
+        updatedAt: DateTime.utc(2026, 8, 17),
+      ),
+      const {'TOKEN': 'new-token'},
+    );
+    final basicRequest = ApiToolRequest(
+      id: 'request-basic',
+      name: 'Basic',
+      method: ApiToolMethod.get,
+      url: 'https://example.com',
+      authorization: const ApiToolAuthorization(
+        type: ApiToolAuthorizationType.basic,
+        username: 'demo',
+        password: 'secret',
+      ),
+      updatedAt: DateTime.utc(2026, 8, 17),
+    );
+    final apiKeyRequest = ApiToolRequest(
+      id: 'request-api-key',
+      name: 'API key',
+      method: ApiToolMethod.get,
+      url: 'https://example.com',
+      authorization: const ApiToolAuthorization(
+        type: ApiToolAuthorizationType.apiKey,
+        apiKeyName: 'X-API-Key',
+        apiKeyValue: 'key-value',
+      ),
+      updatedAt: DateTime.utc(2026, 8, 17),
+    );
+
+    expect(bearerRequest.enabledHeaders, {'Authorization': 'Bearer new-token'});
+    expect(
+      basicRequest.enabledHeaders['Authorization'],
+      'Basic ${base64Encode(utf8.encode('demo:secret'))}',
+    );
+    expect(apiKeyRequest.enabledHeaders['X-API-Key'], 'key-value');
+  });
+
+  test('persists authorization configuration with each request', () {
+    final original = ApiToolRequest(
+      id: 'request-1',
+      name: 'Authorized request',
+      method: ApiToolMethod.get,
+      url: 'https://example.com',
+      authorization: const ApiToolAuthorization(
+        type: ApiToolAuthorizationType.bearer,
+        token: '{{TOKEN}}',
+      ),
+      updatedAt: DateTime.utc(2026, 8, 17),
+    );
+
+    final restored = ApiToolRequest.fromJson(original.toJson());
+
+    expect(restored.authorization.type, ApiToolAuthorizationType.bearer);
+    expect(restored.authorization.token, '{{TOKEN}}');
+  });
+
   test('sends GET and POST requests with headers and body', () async {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     addTearDown(() => server.close(force: true));
@@ -215,6 +289,126 @@ void main() {
     expect(received['body'], contains('name="asset"; filename="demo.txt"'));
     expect(received['body'], contains('Content-Type: text/plain'));
     expect(received['body'], contains('file-body'));
+  });
+
+  test('overrides conflicting multipart content length headers', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    addTearDown(() => server.close(force: true));
+    final received = <String, Object?>{};
+
+    server.listen((request) async {
+      received['contentLength'] = request.contentLength;
+      received['body'] = await utf8.decoder.bind(request).join();
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(jsonEncode({'ok': true}));
+      await request.response.close();
+    });
+
+    final service = ApiToolService(timeout: const Duration(seconds: 2));
+    final response = await service.send(
+      ApiToolRequest(
+        id: 'multipart-conflicting-length',
+        name: 'Multipart conflicting length',
+        method: ApiToolMethod.post,
+        url: 'http://${server.address.host}:${server.port}/upload',
+        headers: const [
+          ApiToolHeader(
+            id: 'content-length',
+            name: 'Content-Length',
+            value: '0',
+          ),
+          ApiToolHeader(
+            id: 'transfer-encoding',
+            name: 'Transfer-Encoding',
+            value: 'chunked',
+          ),
+        ],
+        bodyMode: ApiToolBodyMode.multipart,
+        multipartFields: const [
+          ApiToolMultipartEntry(id: 'field-1', name: 'name', value: 'Demo'),
+        ],
+        updatedAt: DateTime.utc(2026, 8, 17),
+      ),
+    );
+
+    expect(response.statusCode, 200);
+    expect(received['contentLength'], greaterThan(0));
+    expect(received['body'], contains('name="name"'));
+    expect(received['body'], contains('Demo'));
+
+    final emptyResponse = await service.send(
+      ApiToolRequest(
+        id: 'multipart-empty-get',
+        name: 'Empty multipart GET',
+        method: ApiToolMethod.get,
+        url: 'http://${server.address.host}:${server.port}/empty-upload',
+        headers: const [
+          ApiToolHeader(
+            id: 'empty-content-length',
+            name: 'Content-Length',
+            value: '0',
+          ),
+        ],
+        bodyMode: ApiToolBodyMode.multipart,
+        updatedAt: DateTime.utc(2026, 8, 17),
+      ),
+    );
+
+    expect(emptyResponse.statusCode, 200);
+    expect(received['contentLength'], greaterThan(0));
+    expect(received['body'], startsWith('--app-release-center-'));
+    expect(received['body'], endsWith('--\r\n'));
+  });
+
+  test('sends x-www-form-urlencoded fields with encoding', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    addTearDown(() => server.close(force: true));
+    final received = <String, String>{};
+
+    server.listen((request) async {
+      received['contentType'] =
+          request.headers.value(HttpHeaders.contentTypeHeader) ?? '';
+      received['body'] = await utf8.decoder.bind(request).join();
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(jsonEncode({'ok': true}));
+      await request.response.close();
+    });
+
+    final service = ApiToolService(timeout: const Duration(seconds: 2));
+    final response = await service.send(
+      ApiToolRequest(
+        id: 'urlencoded-1',
+        name: 'Token',
+        method: ApiToolMethod.post,
+        url: 'http://${server.address.host}:${server.port}/token',
+        bodyMode: ApiToolBodyMode.urlEncoded,
+        urlEncodedFields: const [
+          ApiToolHeader(
+            id: 'field-1',
+            name: 'grant_type',
+            value: 'client credentials',
+          ),
+          ApiToolHeader(id: 'field-2', name: 'scope', value: 'read/write'),
+          ApiToolHeader(
+            id: 'field-disabled',
+            name: 'disabled',
+            value: 'ignored',
+            enabled: false,
+          ),
+        ],
+        updatedAt: DateTime.utc(2026, 8, 17),
+      ),
+    );
+
+    expect(response.statusCode, 200);
+    expect(
+      received['contentType'],
+      startsWith('application/x-www-form-urlencoded'),
+    );
+    expect(
+      received['body'],
+      'grant_type=client+credentials&scope=read%2Fwrite',
+    );
   });
 
   test('reports request timeouts', () async {

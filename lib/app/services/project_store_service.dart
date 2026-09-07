@@ -32,8 +32,11 @@ class ProjectStoreService extends GetxService implements AuthSessionStore {
   static const _apiToolCollectionsKey = 'api_tool_collections';
   static const _apiToolFoldersKey = 'api_tool_folders';
   static const _apiToolRequestsKey = 'api_tool_requests';
+  static const _apiToolQuickRequestsKey = 'api_tool_quick_requests';
   static const _apiToolHistoryKey = 'api_tool_history';
+  static const _apiToolTimeoutSecondsKey = 'api_tool_timeout_seconds';
   static const _apiToolHistoryLimit = 50;
+  static const _defaultApiToolTimeoutSeconds = 30;
 
   late final SharedPreferences _preferences;
 
@@ -229,6 +232,27 @@ class ProjectStoreService extends GetxService implements AuthSessionStore {
     return requests;
   }
 
+  List<ApiToolQuickRequest> get apiToolQuickRequests {
+    final entries =
+        _preferences.getStringList(_apiToolQuickRequestsKey) ?? const [];
+    final requests = <ApiToolQuickRequest>[];
+
+    for (final entry in entries) {
+      try {
+        final json = jsonDecode(entry);
+        if (json is Map<String, Object?>) {
+          final request = ApiToolQuickRequest.fromJson(json);
+          if (request.id.isNotEmpty) requests.add(request);
+        }
+      } catch (_) {
+        // Ignore invalid entries and keep loading the rest.
+      }
+    }
+
+    requests.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    return requests;
+  }
+
   List<ApiToolCollectionRoot> get apiToolCollections {
     final entries =
         _preferences.getStringList(_apiToolCollectionsKey) ?? const [];
@@ -294,6 +318,13 @@ class ProjectStoreService extends GetxService implements AuthSessionStore {
 
     history.sort((a, b) => b.sentAt.compareTo(a.sentAt));
     return history.take(_apiToolHistoryLimit).toList();
+  }
+
+  int get apiToolTimeoutSeconds {
+    final seconds =
+        _preferences.getInt(_apiToolTimeoutSecondsKey) ??
+        _defaultApiToolTimeoutSeconds;
+    return seconds.clamp(1, 3600).toInt();
   }
 
   ResourceCatalogBundle resourceCatalogForProject(String projectPath) {
@@ -502,6 +533,18 @@ class ProjectStoreService extends GetxService implements AuthSessionStore {
     );
   }
 
+  Future<void> saveApiToolQuickRequests(
+    List<ApiToolQuickRequest> requests,
+  ) async {
+    final normalized = requests.toList()
+      ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+
+    await _preferences.setStringList(
+      _apiToolQuickRequestsKey,
+      normalized.map((entry) => jsonEncode(entry.toJson())).toList(),
+    );
+  }
+
   Future<void> saveApiToolCollections(
     List<ApiToolCollectionRoot> collections,
   ) async {
@@ -533,6 +576,13 @@ class ProjectStoreService extends GetxService implements AuthSessionStore {
     await _preferences.setStringList(
       _apiToolHistoryKey,
       normalized.map((entry) => jsonEncode(entry.toJson())).toList(),
+    );
+  }
+
+  Future<void> saveApiToolTimeoutSeconds(int seconds) async {
+    await _preferences.setInt(
+      _apiToolTimeoutSecondsKey,
+      seconds.clamp(1, 3600).toInt(),
     );
   }
 

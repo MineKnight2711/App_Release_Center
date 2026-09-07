@@ -242,6 +242,13 @@ void main() {
                 contentType: 'text/plain',
               ),
             ],
+            urlEncodedFields: const [
+              ApiToolHeader(
+                id: 'urlencoded-1',
+                name: 'grant_type',
+                value: 'client_credentials',
+              ),
+            ],
             updatedAt: DateTime.utc(2026, 8, 4),
           ).toJson(),
         ),
@@ -257,6 +264,10 @@ void main() {
     expect(
       service.apiToolRequests.single.multipartFields.single.kind,
       ApiToolMultipartKind.file,
+    );
+    expect(
+      service.apiToolRequests.single.urlEncodedFields.single.name,
+      'grant_type',
     );
     expect(service.apiToolHistory, hasLength(50));
     expect(service.apiToolHistory.first.id, 'history-54');
@@ -331,5 +342,55 @@ void main() {
     );
     expect(service.apiToolFolders, hasLength(2));
     expect(service.apiToolFolders.last.parentFolderId, 'folder-1');
+  });
+
+  test('stores Quick Requests independently from regular requests', () async {
+    SharedPreferences.setMockInitialValues({});
+    final service = await ProjectStoreService().init();
+    final now = DateTime.utc(2026, 8, 17);
+    final quickRequest = ApiToolQuickRequest(
+      id: 'quick-reset',
+      name: 'Reset sandbox',
+      collectionId: 'collection-1',
+      request: ApiToolRequest(
+        id: 'quick-reset',
+        name: 'Reset sandbox',
+        method: ApiToolMethod.post,
+        url: '{{BASE_URL}}/reset',
+        collectionId: 'collection-1',
+        authorization: const ApiToolAuthorization(
+          type: ApiToolAuthorizationType.bearer,
+          token: '{{TOKEN}}',
+        ),
+        updatedAt: now,
+      ),
+      requiresConfirmation: true,
+      updatedAt: now,
+    );
+
+    await service.saveApiToolQuickRequests([quickRequest]);
+
+    expect(service.apiToolRequests, isEmpty);
+    expect(service.apiToolQuickRequests.single.id, 'quick-reset');
+    expect(service.apiToolQuickRequests.single.requiresConfirmation, isTrue);
+    expect(
+      service.apiToolQuickRequests.single.request.authorization.token,
+      '{{TOKEN}}',
+    );
+  });
+
+  test('stores API tool timeout preference', () async {
+    SharedPreferences.setMockInitialValues({});
+    final service = await ProjectStoreService().init();
+
+    expect(service.apiToolTimeoutSeconds, 30);
+
+    await service.saveApiToolTimeoutSeconds(180);
+
+    expect(service.apiToolTimeoutSeconds, 180);
+
+    await service.saveApiToolTimeoutSeconds(7200);
+
+    expect(service.apiToolTimeoutSeconds, 3600);
   });
 }
