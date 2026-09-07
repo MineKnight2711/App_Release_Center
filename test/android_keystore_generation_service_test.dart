@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:app_release_center/app/services/android_keystore_generation_service.dart';
+import 'package:app_management_center/app/services/android_keystore_generation_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 

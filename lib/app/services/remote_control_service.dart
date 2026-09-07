@@ -1,15 +1,15 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:app_release_center/app/data/release_center_connect.dart';
-import 'package:app_release_center/app/models/release_fastlane_lane.dart';
-import 'package:app_release_center/app/models/release_project.dart';
-import 'package:app_release_center/app/models/release_script.dart';
-import 'package:app_release_center/app/models/remote_control.dart';
-import 'package:app_release_center/app/services/notification_credential_store_service.dart';
-import 'package:app_release_center/app/services/project_store_service.dart';
-import 'package:app_release_center/app/services/release_runner_service.dart';
-import 'package:app_release_center/app/services/script_catalog_service.dart';
+import 'package:app_management_center/app/data/release_center_connect.dart';
+import 'package:app_management_center/app/models/release_fastlane_lane.dart';
+import 'package:app_management_center/app/models/release_project.dart';
+import 'package:app_management_center/app/models/release_script.dart';
+import 'package:app_management_center/app/models/remote_control.dart';
+import 'package:app_management_center/app/services/notification_credential_store_service.dart';
+import 'package:app_management_center/app/services/project_store_service.dart';
+import 'package:app_management_center/app/services/release_runner_service.dart';
+import 'package:app_management_center/app/services/script_catalog_service.dart';
 import 'package:get/get.dart';
 import 'package:path/path.dart' as p;
 

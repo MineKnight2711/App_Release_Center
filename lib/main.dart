@@ -1,10 +1,11 @@
 import 'dart:io';
 
-import 'package:app_release_center/app/bindings/app_binding.dart';
-import 'package:app_release_center/app/services/theme_service.dart';
-import 'package:app_release_center/app/views/auth_gate.dart';
-import 'package:app_release_center/app/views/mobile_control_view.dart';
-import 'package:app_release_center/firebase_options.dart';
+import 'package:app_management_center/app/bindings/app_binding.dart';
+import 'package:app_management_center/app/services/legacy_storage_migration_service.dart';
+import 'package:app_management_center/app/services/theme_service.dart';
+import 'package:app_management_center/app/views/auth_gate.dart';
+import 'package:app_management_center/app/views/mobile_control_view.dart';
+import 'package:app_management_center/firebase_options.dart';
 import 'package:desktop_webview_window/desktop_webview_window.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
@@ -15,16 +16,18 @@ Future<void> main(List<String> args) async {
   if (runWebViewTitleBarWidget(args)) {
     return;
   }
+  // Must run before any service reads preferences or secure storage.
+  await const LegacyStorageMigrationService().migrateIfNeeded();
   final firebaseOptions = await DefaultFirebaseOptions.load();
   if (firebaseOptions != null) {
     await Firebase.initializeApp(options: firebaseOptions);
   }
   await AppBinding.initServices(firebaseEnabled: firebaseOptions != null);
-  runApp(AppReleaseCenterApp(firebaseConfigured: firebaseOptions != null));
+  runApp(AppManagementCenterApp(firebaseConfigured: firebaseOptions != null));
 }
 
-class AppReleaseCenterApp extends StatelessWidget {
-  const AppReleaseCenterApp({super.key, required this.firebaseConfigured});
+class AppManagementCenterApp extends StatelessWidget {
+  const AppManagementCenterApp({super.key, required this.firebaseConfigured});
 
   final bool firebaseConfigured;
 
@@ -33,7 +36,7 @@ class AppReleaseCenterApp extends StatelessWidget {
     final themeService = Get.find<ThemeService>();
 
     return GetMaterialApp(
-      title: 'App Release Center',
+      title: 'App Management Center',
       debugShowCheckedModeBanner: false,
       initialBinding: AppBinding(),
       theme: themeService.themeData,

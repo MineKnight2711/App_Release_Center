@@ -1,4 +1,4 @@
-import 'package:app_release_center/app/theme/cyber_theme.dart';
+import 'package:app_management_center/app/theme/cyber_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';

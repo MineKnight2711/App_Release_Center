@@ -1,9 +1,9 @@
-import 'package:app_release_center/app/models/auth_models.dart';
-import 'package:app_release_center/app/services/auth_service.dart';
-import 'package:app_release_center/app/services/theme_service.dart';
-import 'package:app_release_center/app/theme/cyber_theme.dart';
-import 'package:app_release_center/app/views/home_view.dart';
-import 'package:app_release_center/app/views/login_view.dart';
+import 'package:app_management_center/app/models/auth_models.dart';
+import 'package:app_management_center/app/services/auth_service.dart';
+import 'package:app_management_center/app/services/theme_service.dart';
+import 'package:app_management_center/app/theme/cyber_theme.dart';
+import 'package:app_management_center/app/views/home_view.dart';
+import 'package:app_management_center/app/views/login_view.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -62,7 +62,7 @@ class _AuthLoadingView extends StatelessWidget {
               ),
               const SizedBox(height: 14),
               Text(
-                'Opening App Release Center',
+                'Opening App Management Center',
                 style: Theme.of(context).textTheme.titleMedium,
               ),
             ],

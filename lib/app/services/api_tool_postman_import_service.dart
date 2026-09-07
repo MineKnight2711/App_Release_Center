@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:app_release_center/app/models/api_tool.dart';
+import 'package:app_management_center/app/models/api_tool.dart';
 import 'package:path/path.dart' as p;
 
 class ApiToolPostmanImportException implements Exception {

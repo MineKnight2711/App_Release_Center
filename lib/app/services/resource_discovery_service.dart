@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:app_release_center/app/models/resource_collection.dart';
+import 'package:app_management_center/app/models/resource_collection.dart';
 import 'package:get/get.dart';
 import 'package:path/path.dart' as p;
 

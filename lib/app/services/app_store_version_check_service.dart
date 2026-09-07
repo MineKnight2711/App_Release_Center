@@ -1,10 +1,10 @@
 import 'dart:io';
 
-import 'package:app_release_center/app/models/app_store_credentials.dart';
-import 'package:app_release_center/app/models/app_store_project.dart';
-import 'package:app_release_center/app/models/app_store_version_snapshot.dart';
-import 'package:app_release_center/app/services/app_store_project_inspector_service.dart';
-import 'package:app_release_center/app/services/release_runner_service.dart';
+import 'package:app_management_center/app/models/app_store_credentials.dart';
+import 'package:app_management_center/app/models/app_store_project.dart';
+import 'package:app_management_center/app/models/app_store_version_snapshot.dart';
+import 'package:app_management_center/app/services/app_store_project_inspector_service.dart';
+import 'package:app_management_center/app/services/release_runner_service.dart';
 import 'package:get/get.dart';
 import 'package:path/path.dart' as p;
 
@@ -72,7 +72,7 @@ class AppStoreVersionCheckService extends GetxService {
     }
 
     final tempDirectory = await Directory.systemTemp.createTemp(
-      'app_release_center_appstore_',
+      'app_management_center_appstore_',
     );
     try {
       final keyFileName = credentials.hasKeyId

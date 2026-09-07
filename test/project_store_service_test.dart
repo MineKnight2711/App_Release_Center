@@ -1,12 +1,12 @@
 import 'dart:convert';
 
-import 'package:app_release_center/app/models/api_tool.dart';
-import 'package:app_release_center/app/models/app_store_project.dart';
-import 'package:app_release_center/app/models/ch_play_project.dart';
-import 'package:app_release_center/app/models/release_notification.dart';
-import 'package:app_release_center/app/models/resource_catalog.dart';
-import 'package:app_release_center/app/models/resource_collection.dart';
-import 'package:app_release_center/app/services/project_store_service.dart';
+import 'package:app_management_center/app/models/api_tool.dart';
+import 'package:app_management_center/app/models/app_store_project.dart';
+import 'package:app_management_center/app/models/ch_play_project.dart';
+import 'package:app_management_center/app/models/release_notification.dart';
+import 'package:app_management_center/app/models/resource_catalog.dart';
+import 'package:app_management_center/app/models/resource_collection.dart';
+import 'package:app_management_center/app/services/project_store_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 

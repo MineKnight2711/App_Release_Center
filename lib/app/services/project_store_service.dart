@@ -1,15 +1,15 @@
 import 'dart:convert';
 
-import 'package:app_release_center/app/models/api_tool.dart';
-import 'package:app_release_center/app/models/auth_models.dart';
-import 'package:app_release_center/app/models/app_store_project.dart';
-import 'package:app_release_center/app/models/ch_play_project.dart';
-import 'package:app_release_center/app/models/google_drive_release_settings.dart';
-import 'package:app_release_center/app/models/release_notification.dart';
-import 'package:app_release_center/app/models/resource_catalog.dart';
-import 'package:app_release_center/app/models/resource_collection.dart';
-import 'package:app_release_center/app/models/remote_control.dart';
-import 'package:app_release_center/app/models/telegram_release_settings.dart';
+import 'package:app_management_center/app/models/api_tool.dart';
+import 'package:app_management_center/app/models/auth_models.dart';
+import 'package:app_management_center/app/models/app_store_project.dart';
+import 'package:app_management_center/app/models/ch_play_project.dart';
+import 'package:app_management_center/app/models/google_drive_release_settings.dart';
+import 'package:app_management_center/app/models/release_notification.dart';
+import 'package:app_management_center/app/models/resource_catalog.dart';
+import 'package:app_management_center/app/models/resource_collection.dart';
+import 'package:app_management_center/app/models/remote_control.dart';
+import 'package:app_management_center/app/models/telegram_release_settings.dart';
 import 'package:get/get.dart';
 import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';

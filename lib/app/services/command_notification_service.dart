@@ -1,9 +1,9 @@
 import 'dart:convert';
 
-import 'package:app_release_center/app/data/release_center_connect.dart';
-import 'package:app_release_center/app/models/release_notification.dart';
-import 'package:app_release_center/app/services/notification_credential_store_service.dart';
-import 'package:app_release_center/app/services/project_store_service.dart';
+import 'package:app_management_center/app/data/release_center_connect.dart';
+import 'package:app_management_center/app/models/release_notification.dart';
+import 'package:app_management_center/app/services/notification_credential_store_service.dart';
+import 'package:app_management_center/app/services/project_store_service.dart';
 import 'package:get/get.dart';
 
 abstract class CommandNotificationSender {
@@ -115,7 +115,7 @@ class CommandNotificationService extends GetxService
     final currentSettings = _requireConfiguredSettings();
     final response = await _httpClient.postJson(
       _endpoint(currentSettings, 'pairings'),
-      {'source': 'desktop', 'app': 'app_release_center'},
+      {'source': 'desktop', 'app': 'app_management_center'},
       headers: await _headers(),
     );
     _ensureOk(response, 'create pairing');

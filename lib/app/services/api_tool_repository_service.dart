@@ -1,9 +1,9 @@
 import 'dart:async';
 
-import 'package:app_release_center/app/models/api_tool.dart';
-import 'package:app_release_center/app/models/auth_models.dart';
-import 'package:app_release_center/app/services/auth_service.dart';
-import 'package:app_release_center/app/services/project_store_service.dart';
+import 'package:app_management_center/app/models/api_tool.dart';
+import 'package:app_management_center/app/models/auth_models.dart';
+import 'package:app_management_center/app/services/auth_service.dart';
+import 'package:app_management_center/app/services/project_store_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:get/get.dart';
 

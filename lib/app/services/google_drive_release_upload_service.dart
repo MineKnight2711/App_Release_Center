@@ -3,9 +3,9 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
-import 'package:app_release_center/app/models/google_drive_release_settings.dart';
-import 'package:app_release_center/app/services/google_drive_credential_store_service.dart';
-import 'package:app_release_center/app/services/project_store_service.dart';
+import 'package:app_management_center/app/models/google_drive_release_settings.dart';
+import 'package:app_management_center/app/services/google_drive_credential_store_service.dart';
+import 'package:app_management_center/app/services/project_store_service.dart';
 import 'package:get/get.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:http/http.dart' as http;
@@ -180,11 +180,11 @@ class BrowserGoogleDriveOAuthFlow implements GoogleDriveOAuthFlow {
     response.write(
       success
           ? '<html><body><h3>Google Drive connected.</h3>'
-                '<p>You can close this tab and return to App Release Center.</p>'
+                '<p>You can close this tab and return to App Management Center.</p>'
                 '</body></html>'
           : '<html><body><h3>Google Drive authorization failed.</h3>'
                 '${escapedDetails.isEmpty ? '' : '<p>$escapedDetails</p>'}'
-                '<p>You can close this tab and return to App Release Center.</p>'
+                '<p>You can close this tab and return to App Management Center.</p>'
                 '</body></html>',
     );
     await response.close();
@@ -688,7 +688,7 @@ String _driveFolderUrl(String folderId) {
 }
 
 const googleDriveReleaseScope = 'https://www.googleapis.com/auth/drive.file';
-const googleDriveReleaseFolderName = 'App Release Center APKs';
+const googleDriveReleaseFolderName = 'App Management Center APKs';
 const _driveFolderMimeType = 'application/vnd.google-apps.folder';
 const _driveFileFields = 'id,name,webViewLink,webContentLink';
 const _oauthTimeout = Duration(minutes: 3);

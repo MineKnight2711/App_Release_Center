@@ -1,8 +1,8 @@
 import 'dart:io';
 
-import 'package:app_release_center/app/models/release_fastlane_lane.dart';
-import 'package:app_release_center/app/models/release_project.dart';
-import 'package:app_release_center/app/models/release_script.dart';
+import 'package:app_management_center/app/models/release_fastlane_lane.dart';
+import 'package:app_management_center/app/models/release_project.dart';
+import 'package:app_management_center/app/models/release_script.dart';
 import 'package:get/get.dart';
 import 'package:path/path.dart' as p;
 

@@ -1,6 +1,6 @@
-import 'package:app_release_center/app/models/ch_play_credentials.dart';
-import 'package:app_release_center/app/models/ch_play_project.dart';
-import 'package:app_release_center/app/models/release_project.dart';
+import 'package:app_management_center/app/models/ch_play_credentials.dart';
+import 'package:app_management_center/app/models/ch_play_project.dart';
+import 'package:app_management_center/app/models/release_project.dart';
 
 enum ReleaseStepStatus {
   pending,

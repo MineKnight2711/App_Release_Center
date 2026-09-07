@@ -2,9 +2,9 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:app_release_center/app/models/telegram_release_settings.dart';
-import 'package:app_release_center/app/services/project_store_service.dart';
-import 'package:app_release_center/app/services/telegram_credential_store_service.dart';
+import 'package:app_management_center/app/models/telegram_release_settings.dart';
+import 'package:app_management_center/app/services/project_store_service.dart';
+import 'package:app_management_center/app/services/telegram_credential_store_service.dart';
 import 'package:get/get.dart';
 import 'package:path/path.dart' as p;
 
@@ -99,7 +99,7 @@ class DartTelegramHttpClient implements TelegramHttpClient {
   }) async {
     final client = HttpClient()..connectionTimeout = _connectionTimeout;
     final boundary =
-        'app-release-center-${DateTime.now().microsecondsSinceEpoch}';
+        'app-management-center-${DateTime.now().microsecondsSinceEpoch}';
 
     try {
       final request = await client.postUrl(url);
@@ -210,7 +210,7 @@ class TelegramReleaseNotificationService extends GetxService {
   }
 
   Future<void> sendTestMessage() {
-    return _sendText('✅ App Release Center kết nối Telegram thành công.');
+    return _sendText('✅ App Management Center kết nối Telegram thành công.');
   }
 
   Future<void> sendReleaseNote({

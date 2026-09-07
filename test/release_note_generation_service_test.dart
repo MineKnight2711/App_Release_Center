@@ -1,7 +1,7 @@
 import 'dart:io';
 
-import 'package:app_release_center/app/models/release_project.dart';
-import 'package:app_release_center/app/services/release_note_generation_service.dart';
+import 'package:app_management_center/app/models/release_project.dart';
+import 'package:app_management_center/app/services/release_note_generation_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 
@@ -21,7 +21,7 @@ void main() {
 
     test('resolves AndroidManifest app_name string resource', () async {
       final directory = await Directory.systemTemp.createTemp(
-        'app_release_center_release_notes_',
+        'app_management_center_release_notes_',
       );
       addTearDown(() async {
         if (directory.existsSync()) {

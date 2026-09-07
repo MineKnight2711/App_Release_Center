@@ -2,11 +2,11 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:app_release_center/app/models/release_fastlane_lane.dart';
-import 'package:app_release_center/app/models/release_notification.dart';
-import 'package:app_release_center/app/models/release_project.dart';
-import 'package:app_release_center/app/models/release_script.dart';
-import 'package:app_release_center/app/services/command_notification_service.dart';
+import 'package:app_management_center/app/models/release_fastlane_lane.dart';
+import 'package:app_management_center/app/models/release_notification.dart';
+import 'package:app_management_center/app/models/release_project.dart';
+import 'package:app_management_center/app/models/release_script.dart';
+import 'package:app_management_center/app/services/command_notification_service.dart';
 import 'package:get/get.dart';
 import 'package:path/path.dart' as p;
 
@@ -508,7 +508,7 @@ class ReleaseRunnerService extends GetxService {
         arguments: [
           '-c',
           _promptShim,
-          'app-release-center',
+          'app-management-center',
           script.fileName,
           ...args,
         ],

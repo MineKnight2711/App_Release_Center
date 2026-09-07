@@ -1,5 +1,5 @@
-name: app_release_center
-description: "Desktop release automation center for Flutter projects."
+name: app_management_center
+description: "Desktop project management and release automation center for Flutter projects."
 publish_to: 'none'
 version: 0.1.0+1
 

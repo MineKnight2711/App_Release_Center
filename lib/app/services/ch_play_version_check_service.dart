@@ -1,10 +1,10 @@
 import 'dart:io';
 
-import 'package:app_release_center/app/models/ch_play_credentials.dart';
-import 'package:app_release_center/app/models/ch_play_project.dart';
-import 'package:app_release_center/app/models/ch_play_version_snapshot.dart';
-import 'package:app_release_center/app/services/ch_play_project_inspector_service.dart';
-import 'package:app_release_center/app/services/release_runner_service.dart';
+import 'package:app_management_center/app/models/ch_play_credentials.dart';
+import 'package:app_management_center/app/models/ch_play_project.dart';
+import 'package:app_management_center/app/models/ch_play_version_snapshot.dart';
+import 'package:app_management_center/app/services/ch_play_project_inspector_service.dart';
+import 'package:app_management_center/app/services/release_runner_service.dart';
 import 'package:get/get.dart';
 import 'package:path/path.dart' as p;
 
@@ -73,7 +73,7 @@ class ChPlayVersionCheckService extends GetxService {
     }
 
     final tempDirectory = await Directory.systemTemp.createTemp(
-      'app_release_center_play_',
+      'app_management_center_play_',
     );
     try {
       final jsonFile = File(p.join(tempDirectory.path, 'google-play-key.json'));

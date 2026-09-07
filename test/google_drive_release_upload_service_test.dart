@@ -2,11 +2,11 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:app_release_center/app/models/google_drive_release_settings.dart';
-import 'package:app_release_center/app/services/ch_play_credential_store_service.dart';
-import 'package:app_release_center/app/services/google_drive_credential_store_service.dart';
-import 'package:app_release_center/app/services/google_drive_release_upload_service.dart';
-import 'package:app_release_center/app/services/project_store_service.dart';
+import 'package:app_management_center/app/models/google_drive_release_settings.dart';
+import 'package:app_management_center/app/services/ch_play_credential_store_service.dart';
+import 'package:app_management_center/app/services/google_drive_credential_store_service.dart';
+import 'package:app_management_center/app/services/google_drive_release_upload_service.dart';
+import 'package:app_management_center/app/services/project_store_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:path/path.dart' as p;
@@ -79,13 +79,13 @@ void main() {
     final temp = await Directory.systemTemp.createTemp('arc_drive_upload_');
     addTearDown(() => temp.delete(recursive: true));
     final installer = await File(
-      p.join(temp.path, 'AppReleaseCenter_Setup_v0.1.0.exe'),
+      p.join(temp.path, 'AppManagementCenter_Setup_v0.1.0.exe'),
     ).writeAsBytes([1, 2, 3]);
 
     final result = await harness.service.uploadReleaseArtifact(
       file: installer,
       contentType: 'application/vnd.microsoft.portable-executable',
-      appDisplayName: 'App Release Center',
+      appDisplayName: 'App Management Center',
       version: '0.1.0+1',
       buildDate: DateTime(2026, 8, 3),
     );
@@ -93,15 +93,15 @@ void main() {
     expect(harness.client.uploads.single.folderId, 'folder-id');
     expect(
       harness.client.uploads.single.fileName,
-      'AppReleaseCenter_Setup_v0.1.0.exe',
+      'AppManagementCenter_Setup_v0.1.0.exe',
     );
     expect(
       harness.client.uploads.single.contentType,
       'application/vnd.microsoft.portable-executable',
     );
     expect(harness.client.sharedFileIds, ['file-id']);
-    expect(result.fileName, 'AppReleaseCenter_Setup_v0.1.0.exe');
-    expect(result.appDisplayName, 'App Release Center');
+    expect(result.fileName, 'AppManagementCenter_Setup_v0.1.0.exe');
+    expect(result.appDisplayName, 'App Management Center');
     expect(result.version, '0.1.0+1');
   });
 

@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:app_release_center/app/models/api_tool.dart';
-import 'package:app_release_center/app/services/api_tool_service.dart';
+import 'package:app_management_center/app/models/api_tool.dart';
+import 'package:app_management_center/app/services/api_tool_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -356,7 +356,7 @@ void main() {
 
     expect(emptyResponse.statusCode, 200);
     expect(received['contentLength'], greaterThan(0));
-    expect(received['body'], startsWith('--app-release-center-'));
+    expect(received['body'], startsWith('--app-management-center-'));
     expect(received['body'], endsWith('--\r\n'));
   });
 

@@ -1,4 +1,4 @@
-# App Release Center
+# App Management Center
 
 Desktop release automation console with an Android remote-control surface.
 
@@ -81,7 +81,7 @@ limit to be uploaded to Drive and sent as a Telegram link.
 5. Select Connect Drive, sign in with the browser, and allow the narrow
    `drive.file` scope.
 6. Select Test Drive. The app creates or reuses a folder named
-   `App Release Center APKs`.
+   `App Management Center APKs`.
 7. Enable Use Drive for APKs over 50 MB. The switch is available only when the
    Telegram config is complete and Drive is connected.
 8. To upload an APK to Drive without running a CH Play deploy, select
@@ -114,11 +114,11 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass `
 ```
 
 The installer is written to `build\installer`. It installs the complete Flutter
-runtime under `%LOCALAPPDATA%\Programs\App Release Center`, creates Desktop and
+runtime under `%LOCALAPPDATA%\Programs\App Management Center`, creates Desktop and
 Start Menu shortcuts, and registers an uninstall entry without requiring
 administrator permission.
 
-To build and deliver the installer from the app, select this App Release Center
+To build and deliver the installer from the app, select this App Management Center
 repo in the Project panel, configure Telegram, then use Options > Telegram >
 Windows installer > Build/Send Installer. Installers up to Telegram's 50 MB Bot
 API document limit are uploaded directly. Larger installers are uploaded with

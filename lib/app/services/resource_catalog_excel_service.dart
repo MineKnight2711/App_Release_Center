@@ -2,9 +2,9 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:archive/archive.dart';
-import 'package:app_release_center/app/models/resource_catalog.dart';
-import 'package:app_release_center/app/services/resource_catalog_crypto_service.dart';
-import 'package:app_release_center/app/services/resource_catalog_password_store_service.dart';
+import 'package:app_management_center/app/models/resource_catalog.dart';
+import 'package:app_management_center/app/services/resource_catalog_crypto_service.dart';
+import 'package:app_management_center/app/services/resource_catalog_password_store_service.dart';
 import 'package:get/get.dart';
 import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';

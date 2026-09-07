@@ -1,10 +1,10 @@
 import 'dart:io';
 
-import 'package:app_release_center/app/models/telegram_release_settings.dart';
-import 'package:app_release_center/app/services/ch_play_credential_store_service.dart';
-import 'package:app_release_center/app/services/project_store_service.dart';
-import 'package:app_release_center/app/services/telegram_credential_store_service.dart';
-import 'package:app_release_center/app/services/telegram_release_notification_service.dart';
+import 'package:app_management_center/app/models/telegram_release_settings.dart';
+import 'package:app_management_center/app/services/ch_play_credential_store_service.dart';
+import 'package:app_management_center/app/services/project_store_service.dart';
+import 'package:app_management_center/app/services/telegram_credential_store_service.dart';
+import 'package:app_management_center/app/services/telegram_release_notification_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -172,7 +172,7 @@ void main() {
       );
       addTearDown(() => temp.delete(recursive: true));
       final installer = await File(
-        p.join(temp.path, 'AppReleaseCenter_Setup_v0.1.0.exe'),
+        p.join(temp.path, 'AppManagementCenter_Setup_v0.1.0.exe'),
       ).writeAsBytes([1, 2, 3]);
       harness.client.responses.add(
         const TelegramHttpResponse(statusCode: 200, body: {'ok': true}),
@@ -180,7 +180,7 @@ void main() {
 
       await harness.service.sendReleaseInstaller(
         installerFile: installer,
-        appDisplayName: 'App Release Center',
+        appDisplayName: 'App Management Center',
         version: '0.1.0+1',
         buildDate: DateTime(2026, 8, 3),
       );
@@ -188,10 +188,10 @@ void main() {
       final upload = harness.client.uploads.single;
       expect(upload.url.path, '/botsecret-token/sendDocument');
       expect(upload.fields['chat_id'], '-1001234567890');
-      expect(upload.fields['caption'], contains('App Release Center'));
+      expect(upload.fields['caption'], contains('App Management Center'));
       expect(upload.fields['caption'], contains('0.1.0+1'));
       expect(upload.fileField, 'document');
-      expect(upload.fileName, 'AppReleaseCenter_Setup_v0.1.0.exe');
+      expect(upload.fileName, 'AppManagementCenter_Setup_v0.1.0.exe');
       expect(upload.contentType, windowsInstallerContentType);
     },
   );
@@ -237,7 +237,7 @@ void main() {
     await expectLater(
       harness.service.sendReleaseInstaller(
         installerFile: installer,
-        appDisplayName: 'App Release Center',
+        appDisplayName: 'App Management Center',
         version: '0.1.0+1',
         buildDate: DateTime(2026, 8, 3),
       ),
@@ -291,9 +291,9 @@ void main() {
     );
 
     await harness.service.sendReleaseInstallerLink(
-      appDisplayName: 'App Release Center',
+      appDisplayName: 'App Management Center',
       version: '0.1.0+1',
-      fileName: 'AppReleaseCenter_Setup_v0.1.0.exe',
+      fileName: 'AppManagementCenter_Setup_v0.1.0.exe',
       fileSizeBytes: 151 * 1024 * 1024,
       downloadUrl: 'https://drive.google.com/file/d/drive-file-id/view',
       oversized: true,
@@ -304,9 +304,9 @@ void main() {
     expect(request.body['chat_id'], '-1001234567890');
     final message = request.body['text'] as String;
     expect(message, contains('Installer is over Telegram 50 MB limit'));
-    expect(message, contains('App Release Center'));
+    expect(message, contains('App Management Center'));
     expect(message, contains('0.1.0+1'));
-    expect(message, contains('AppReleaseCenter_Setup_v0.1.0.exe'));
+    expect(message, contains('AppManagementCenter_Setup_v0.1.0.exe'));
     expect(message, contains('151.0 MB'));
     expect(
       message,

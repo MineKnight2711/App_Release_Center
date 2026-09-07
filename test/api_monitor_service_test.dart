@@ -1,4 +1,4 @@
-import 'package:app_release_center/app/services/api_monitor_service.dart';
+import 'package:app_management_center/app/services/api_monitor_service.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 

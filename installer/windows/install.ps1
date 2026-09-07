@@ -28,7 +28,7 @@ $version = if (Test-Path -LiteralPath $versionFile -PathType Leaf) {
 }
 $installDirectory = Join-Path `
   $env:LOCALAPPDATA `
-  'Programs\App Release Center'
+  'Programs\App Management Center'
 Assert-InstallPath -Candidate $installDirectory
 
 $temporaryDirectory = Join-Path `
@@ -41,7 +41,7 @@ try {
     -DestinationPath $temporaryDirectory `
     -Force
 
-  Get-Process -Name 'app_release_center' -ErrorAction SilentlyContinue |
+  Get-Process -Name 'app_management_center' -ErrorAction SilentlyContinue |
     Stop-Process -Force
   if (Test-Path -LiteralPath $installDirectory) {
     Remove-Item -LiteralPath $installDirectory -Recurse -Force
@@ -55,7 +55,7 @@ try {
       -Force
   }
 
-  $executable = Join-Path $installDirectory 'app_release_center.exe'
+  $executable = Join-Path $installDirectory 'app_management_center.exe'
   if (-not (Test-Path -LiteralPath $executable -PathType Leaf)) {
     throw 'The application executable was not installed.'
   }
@@ -63,11 +63,11 @@ try {
   $shell = New-Object -ComObject WScript.Shell
   $startMenuDirectory = Join-Path `
     ([Environment]::GetFolderPath('Programs')) `
-    'App Release Center'
+    'App Management Center'
   New-Item -ItemType Directory -Path $startMenuDirectory -Force | Out-Null
 
   $appShortcut = $shell.CreateShortcut(
-    (Join-Path $startMenuDirectory 'App Release Center.lnk')
+    (Join-Path $startMenuDirectory 'App Management Center.lnk')
   )
   $appShortcut.TargetPath = $executable
   $appShortcut.WorkingDirectory = $installDirectory
@@ -75,7 +75,7 @@ try {
   $appShortcut.Save()
 
   $desktopShortcut = $shell.CreateShortcut(
-    (Join-Path ([Environment]::GetFolderPath('Desktop')) 'App Release Center.lnk')
+    (Join-Path ([Environment]::GetFolderPath('Desktop')) 'App Management Center.lnk')
   )
   $desktopShortcut.TargetPath = $executable
   $desktopShortcut.WorkingDirectory = $installDirectory
@@ -84,7 +84,7 @@ try {
 
   $uninstallScript = Join-Path $installDirectory 'uninstall.ps1'
   $uninstallShortcut = $shell.CreateShortcut(
-    (Join-Path $startMenuDirectory 'Uninstall App Release Center.lnk')
+    (Join-Path $startMenuDirectory 'Uninstall App Management Center.lnk')
   )
   $uninstallShortcut.TargetPath = 'powershell.exe'
   $uninstallShortcut.Arguments = `
@@ -93,12 +93,12 @@ try {
   $uninstallShortcut.Save()
 
   $uninstallKey = `
-    'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\AppReleaseCenter'
+    'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\AppManagementCenter'
   New-Item -Path $uninstallKey -Force | Out-Null
   New-ItemProperty `
     -Path $uninstallKey `
     -Name 'DisplayName' `
-    -Value 'App Release Center' `
+    -Value 'App Management Center' `
     -PropertyType String `
     -Force | Out-Null
   New-ItemProperty `

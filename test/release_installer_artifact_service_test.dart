@@ -1,8 +1,8 @@
 import 'dart:io';
 
 import 'package:archive/archive_io.dart';
-import 'package:app_release_center/app/models/release_project.dart';
-import 'package:app_release_center/app/services/release_installer_artifact_service.dart';
+import 'package:app_management_center/app/models/release_project.dart';
+import 'package:app_management_center/app/services/release_installer_artifact_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 
@@ -20,8 +20,8 @@ void main() {
     final artifact = await service.build(project: _project(root));
 
     expect(executor.calls, ['build', 'package:0.1.0']);
-    expect(p.basename(artifact.file.path), 'AppReleaseCenter_Setup_v0.1.0.exe');
-    expect(artifact.appDisplayName, appReleaseCenterDisplayName);
+    expect(p.basename(artifact.file.path), 'AppManagementCenter_Setup_v0.1.0.exe');
+    expect(artifact.appDisplayName, appManagementCenterDisplayName);
     expect(artifact.fullVersion, '0.1.0+1');
     expect(artifact.versionName, '0.1.0');
     expect(artifact.buildDate, DateTime(2026, 8, 3));
@@ -49,7 +49,7 @@ void main() {
     expect(executor.calls, isEmpty);
   });
 
-  test('requires the selected project to be App Release Center', () async {
+  test('requires the selected project to be App Management Center', () async {
     final root = await _createInstallerProject(
       name: 'other_app',
       version: '0.1.0+1',
@@ -67,7 +67,7 @@ void main() {
         isA<ReleaseInstallerArtifactException>().having(
           (error) => error.message,
           'message',
-          contains('App Release Center repo'),
+          contains('App Management Center repo'),
         ),
       ),
     );
@@ -194,7 +194,7 @@ void main() {
 }
 
 Future<Directory> _createInstallerProject({
-  String name = appReleaseCenterPubspecName,
+  String name = appManagementCenterPubspecName,
   required String version,
   bool createScript = true,
 }) async {
@@ -257,7 +257,7 @@ class _FakeReleaseInstallerBuildExecutor
         p.join(project.path, 'build', 'installer'),
       ).create(recursive: true);
       await File(
-        p.join(output.path, 'AppReleaseCenter_Setup_v$versionName.exe'),
+        p.join(output.path, 'AppManagementCenter_Setup_v$versionName.exe'),
       ).writeAsBytes([1, 2, 3]);
       await _writeInstallerPayload(project);
     }
@@ -289,7 +289,7 @@ class _FakeReleaseInstallerBuildExecutor
 }
 
 const _requiredTestPayloadFiles = [
-  'app_release_center.exe',
+  'app_management_center.exe',
   'flutter_windows.dll',
   'data/app.so',
   'data/icudtl.dat',

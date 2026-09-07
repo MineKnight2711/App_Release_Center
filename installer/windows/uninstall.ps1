@@ -4,7 +4,7 @@ $installDirectory = [System.IO.Path]::GetFullPath(
   (Split-Path -Parent $MyInvocation.MyCommand.Path)
 )
 $expectedDirectory = [System.IO.Path]::GetFullPath(
-  (Join-Path $env:LOCALAPPDATA 'Programs\App Release Center')
+  (Join-Path $env:LOCALAPPDATA 'Programs\App Management Center')
 )
 if (-not $installDirectory.Equals(
     $expectedDirectory,
@@ -13,15 +13,15 @@ if (-not $installDirectory.Equals(
   throw "Refusing to remove an unexpected directory: $installDirectory"
 }
 
-Get-Process -Name 'app_release_center' -ErrorAction SilentlyContinue |
+Get-Process -Name 'app_management_center' -ErrorAction SilentlyContinue |
   Stop-Process -Force
 
 $startMenuDirectory = Join-Path `
   ([Environment]::GetFolderPath('Programs')) `
-  'App Release Center'
+  'App Management Center'
 $desktopShortcut = Join-Path `
   ([Environment]::GetFolderPath('Desktop')) `
-  'App Release Center.lnk'
+  'App Management Center.lnk'
 if (Test-Path -LiteralPath $startMenuDirectory) {
   Remove-Item -LiteralPath $startMenuDirectory -Recurse -Force
 }
@@ -30,7 +30,7 @@ if (Test-Path -LiteralPath $desktopShortcut) {
 }
 
 $uninstallKey = `
-  'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\AppReleaseCenter'
+  'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\AppManagementCenter'
 if (Test-Path -LiteralPath $uninstallKey) {
   Remove-Item -LiteralPath $uninstallKey -Recurse -Force
 }

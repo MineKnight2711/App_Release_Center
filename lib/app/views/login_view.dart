@@ -1,7 +1,7 @@
 import 'dart:async';
 
-import 'package:app_release_center/app/services/auth_service.dart';
-import 'package:app_release_center/app/theme/cyber_theme.dart';
+import 'package:app_management_center/app/services/auth_service.dart';
+import 'package:app_management_center/app/theme/cyber_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -97,7 +97,7 @@ class _LoginViewState extends State<LoginView> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'App Release Center',
+                      'App Management Center',
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
                     const SizedBox(height: 4),

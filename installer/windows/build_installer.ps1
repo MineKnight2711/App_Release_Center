@@ -102,7 +102,7 @@ function Assert-PayloadArchive {
   param([Parameter(Mandatory = $true)][string]$ArchivePath)
 
   $requiredEntries = @(
-    'app_release_center.exe',
+    'app_management_center.exe',
     'flutter_windows.dll',
     'data/app.so',
     'data/icudtl.dat',
@@ -145,7 +145,7 @@ $releaseDirectory = Join-Path `
   'build\windows\x64\runner\Release'
 $releaseExecutable = Join-Path `
   $releaseDirectory `
-  'app_release_center.exe'
+  'app_management_center.exe'
 if (-not (Test-Path -LiteralPath $releaseExecutable -PathType Leaf)) {
   throw 'Windows release build is missing. Run flutter build windows --release first.'
 }
@@ -167,10 +167,10 @@ $buildDirectory = Join-Path $projectRoot 'build\installer'
 $stageDirectory = Join-Path $buildDirectory 'stage'
 $payloadDirectory = Join-Path $buildDirectory 'payload'
 $payloadArchive = Join-Path $stageDirectory 'payload.zip'
-$sedPath = Join-Path $buildDirectory 'app_release_center.sed'
+$sedPath = Join-Path $buildDirectory 'app_management_center.sed'
 $targetPath = Join-Path `
   $buildDirectory `
-  "AppReleaseCenter_Setup_v$safeVersion.exe"
+  "AppManagementCenter_Setup_v$safeVersion.exe"
 
 Assert-ChildPath -Candidate $stageDirectory -Parent $buildDirectory
 Assert-ChildPath -Candidate $payloadDirectory -Parent $buildDirectory
@@ -262,11 +262,11 @@ SourceFiles0=$sourceDirectory
 %FILE2%=
 
 [Strings]
-InstallPrompt=Install App Release Center $Version for the current user?
+InstallPrompt=Install App Management Center $Version for the current user?
 DisplayLicense=
-FinishMessage=App Release Center $Version was installed successfully.
+FinishMessage=App Management Center $Version was installed successfully.
 TargetName=$targetPath
-FriendlyName=App Release Center Setup
+FriendlyName=App Management Center Setup
 AppLaunched=powershell.exe -NoProfile -ExecutionPolicy Bypass -File install.ps1
 PostInstallCmd=<None>
 AdminQuietInstCmd=powershell.exe -NoProfile -ExecutionPolicy Bypass -File install.ps1

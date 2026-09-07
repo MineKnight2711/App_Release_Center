@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:app_release_center/app/models/remote_control.dart';
-import 'package:app_release_center/app/services/remote_control_service.dart';
-import 'package:app_release_center/app/theme/cyber_theme.dart';
+import 'package:app_management_center/app/models/remote_control.dart';
+import 'package:app_management_center/app/services/remote_control_service.dart';
+import 'package:app_management_center/app/theme/cyber_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 

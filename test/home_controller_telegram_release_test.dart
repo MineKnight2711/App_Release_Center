@@ -1,32 +1,32 @@
 import 'dart:io';
 
 import 'package:archive/archive_io.dart';
-import 'package:app_release_center/app/controllers/home_controller.dart';
-import 'package:app_release_center/app/data/release_center_connect.dart';
-import 'package:app_release_center/app/models/ch_play_project.dart';
-import 'package:app_release_center/app/models/release_project.dart';
-import 'package:app_release_center/app/models/release_script.dart';
-import 'package:app_release_center/app/services/android_cicd_clone_service.dart';
-import 'package:app_release_center/app/services/android_keystore_generation_service.dart';
-import 'package:app_release_center/app/services/app_store_credential_store_service.dart';
-import 'package:app_release_center/app/services/app_store_project_inspector_service.dart';
-import 'package:app_release_center/app/services/app_store_version_check_service.dart';
-import 'package:app_release_center/app/services/ch_play_credential_store_service.dart';
-import 'package:app_release_center/app/services/ch_play_project_inspector_service.dart';
-import 'package:app_release_center/app/services/ch_play_version_check_service.dart';
-import 'package:app_release_center/app/services/command_notification_service.dart';
-import 'package:app_release_center/app/services/gemini_env_service.dart';
-import 'package:app_release_center/app/services/google_drive_credential_store_service.dart';
-import 'package:app_release_center/app/services/google_drive_release_upload_service.dart';
-import 'package:app_release_center/app/services/notification_credential_store_service.dart';
-import 'package:app_release_center/app/services/project_store_service.dart';
-import 'package:app_release_center/app/services/release_apk_artifact_service.dart';
-import 'package:app_release_center/app/services/release_installer_artifact_service.dart';
-import 'package:app_release_center/app/services/release_note_generation_service.dart';
-import 'package:app_release_center/app/services/release_runner_service.dart';
-import 'package:app_release_center/app/services/script_catalog_service.dart';
-import 'package:app_release_center/app/services/telegram_credential_store_service.dart';
-import 'package:app_release_center/app/services/telegram_release_notification_service.dart';
+import 'package:app_management_center/app/controllers/home_controller.dart';
+import 'package:app_management_center/app/data/release_center_connect.dart';
+import 'package:app_management_center/app/models/ch_play_project.dart';
+import 'package:app_management_center/app/models/release_project.dart';
+import 'package:app_management_center/app/models/release_script.dart';
+import 'package:app_management_center/app/services/android_cicd_clone_service.dart';
+import 'package:app_management_center/app/services/android_keystore_generation_service.dart';
+import 'package:app_management_center/app/services/app_store_credential_store_service.dart';
+import 'package:app_management_center/app/services/app_store_project_inspector_service.dart';
+import 'package:app_management_center/app/services/app_store_version_check_service.dart';
+import 'package:app_management_center/app/services/ch_play_credential_store_service.dart';
+import 'package:app_management_center/app/services/ch_play_project_inspector_service.dart';
+import 'package:app_management_center/app/services/ch_play_version_check_service.dart';
+import 'package:app_management_center/app/services/command_notification_service.dart';
+import 'package:app_management_center/app/services/gemini_env_service.dart';
+import 'package:app_management_center/app/services/google_drive_credential_store_service.dart';
+import 'package:app_management_center/app/services/google_drive_release_upload_service.dart';
+import 'package:app_management_center/app/services/notification_credential_store_service.dart';
+import 'package:app_management_center/app/services/project_store_service.dart';
+import 'package:app_management_center/app/services/release_apk_artifact_service.dart';
+import 'package:app_management_center/app/services/release_installer_artifact_service.dart';
+import 'package:app_management_center/app/services/release_note_generation_service.dart';
+import 'package:app_management_center/app/services/release_runner_service.dart';
+import 'package:app_management_center/app/services/script_catalog_service.dart';
+import 'package:app_management_center/app/services/telegram_credential_store_service.dart';
+import 'package:app_management_center/app/services/telegram_release_notification_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -357,7 +357,7 @@ void main() {
     expect(harness.telegramClient.uploads, hasLength(1));
     expect(
       harness.telegramClient.uploads.single.fileName,
-      'AppReleaseCenter_Setup_v2.0.1.exe',
+      'AppManagementCenter_Setup_v2.0.1.exe',
     );
     expect(
       harness.telegramClient.uploads.single.contentType,
@@ -388,14 +388,14 @@ void main() {
       expect(harness.installerExecutor.buildCallCount, 1);
       expect(harness.telegramClient.uploads, isEmpty);
       expect(harness.googleDriveApiClient.uploads, [
-        'AppReleaseCenter_Setup_v2.0.1.exe',
+        'AppManagementCenter_Setup_v2.0.1.exe',
       ]);
       expect(harness.googleDriveApiClient.uploadContentTypes, [
         windowsInstallerContentType,
       ]);
       final message = harness.telegramClient.requests.single.body['text'];
       expect(message, contains('Installer is over Telegram 50 MB limit'));
-      expect(message, contains('App Release Center'));
+      expect(message, contains('App Management Center'));
       expect(message, contains('2.0.1+45'));
       expect(
         message,
@@ -420,7 +420,7 @@ void main() {
           harness.root.path,
           'build',
           'installer',
-          'AppReleaseCenter_Setup_v2.0.1.exe',
+          'AppManagementCenter_Setup_v2.0.1.exe',
         ),
       );
       expect(installer.existsSync(), isTrue);
@@ -553,10 +553,10 @@ class _ControllerHarness {
   static Future<_ControllerHarness> create() async {
     SharedPreferences.setMockInitialValues({});
     final root = await Directory.systemTemp.createTemp(
-      'app_release_center_telegram_controller_',
+      'app_management_center_telegram_controller_',
     );
     await File(p.join(root.path, 'pubspec.yaml')).writeAsString(
-      'name: app_release_center\n'
+      'name: app_management_center\n'
       'version: 2.0.1+45\n',
     );
     final installerScriptDirectory = await Directory(
@@ -822,7 +822,7 @@ class _FakeReleaseInstallerBuildExecutor
       p.join(project.path, 'build', 'installer'),
     ).create(recursive: true);
     final installer = File(
-      p.join(output.path, 'AppReleaseCenter_Setup_v$versionName.exe'),
+      p.join(output.path, 'AppManagementCenter_Setup_v$versionName.exe'),
     );
     if (installerSizeBytes <= 3) {
       await installer.writeAsBytes(List<int>.filled(installerSizeBytes, 1));
@@ -858,7 +858,7 @@ class _FakeReleaseInstallerBuildExecutor
 }
 
 const _requiredInstallerPayloadFiles = [
-  'app_release_center.exe',
+  'app_management_center.exe',
   'flutter_windows.dll',
   'data/app.so',
   'data/icudtl.dat',

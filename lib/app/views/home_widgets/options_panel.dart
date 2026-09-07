@@ -3215,7 +3215,7 @@ class _InstallerTelegramOptions extends GetView<HomeController> {
           controller.hasGoogleDriveCredentials.value;
       final isWindowsSupported =
           controller.releaseInstallerArtifacts.isWindowsSupported;
-      final hasInstallerProject = controller.hasSelectedAppReleaseCenterProject;
+      final hasInstallerProject = controller.hasSelectedAppManagementCenterProject;
       final canBuild =
           isWindowsSupported &&
           hasInstallerProject &&

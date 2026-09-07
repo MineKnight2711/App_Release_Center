@@ -1,50 +1,50 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:app_release_center/app/data/release_center_connect.dart';
-import 'package:app_release_center/app/models/app_store_credentials.dart';
-import 'package:app_release_center/app/models/app_store_project.dart';
-import 'package:app_release_center/app/models/app_store_version_snapshot.dart';
-import 'package:app_release_center/app/models/ch_play_credentials.dart';
-import 'package:app_release_center/app/models/ch_play_project.dart';
-import 'package:app_release_center/app/models/ch_play_version_snapshot.dart';
-import 'package:app_release_center/app/models/cicd_dependency.dart';
-import 'package:app_release_center/app/models/google_drive_release_settings.dart';
-import 'package:app_release_center/app/models/release_fastlane_lane.dart';
-import 'package:app_release_center/app/models/release_notification.dart';
-import 'package:app_release_center/app/models/release_project.dart';
-import 'package:app_release_center/app/models/release_script.dart';
-import 'package:app_release_center/app/models/release_workflow.dart';
-import 'package:app_release_center/app/models/resource_catalog.dart';
-import 'package:app_release_center/app/models/resource_collection.dart';
-import 'package:app_release_center/app/models/telegram_release_settings.dart';
-import 'package:app_release_center/app/services/android_cicd_clone_service.dart';
-import 'package:app_release_center/app/services/android_keystore_generation_service.dart';
-import 'package:app_release_center/app/services/app_store_credential_store_service.dart';
-import 'package:app_release_center/app/services/app_store_project_inspector_service.dart';
-import 'package:app_release_center/app/services/app_store_version_check_service.dart';
-import 'package:app_release_center/app/services/ch_play_credential_store_service.dart';
-import 'package:app_release_center/app/services/ch_play_project_inspector_service.dart';
-import 'package:app_release_center/app/services/ch_play_version_check_service.dart';
-import 'package:app_release_center/app/services/cicd_dependency_doctor_service.dart';
-import 'package:app_release_center/app/services/cicd_dependency_installer_service.dart';
-import 'package:app_release_center/app/services/command_notification_service.dart';
-import 'package:app_release_center/app/services/gemini_env_service.dart';
-import 'package:app_release_center/app/services/google_drive_release_upload_service.dart';
-import 'package:app_release_center/app/services/project_store_service.dart';
-import 'package:app_release_center/app/services/release_apk_artifact_service.dart';
-import 'package:app_release_center/app/services/release_installer_artifact_service.dart';
-import 'package:app_release_center/app/services/release_note_generation_service.dart';
-import 'package:app_release_center/app/services/release_runner_service.dart';
-import 'package:app_release_center/app/services/release_workflow_service.dart';
-import 'package:app_release_center/app/services/resource_catalog_crypto_service.dart';
-import 'package:app_release_center/app/services/resource_catalog_excel_service.dart';
-import 'package:app_release_center/app/services/resource_catalog_password_store_service.dart';
-import 'package:app_release_center/app/services/resource_credential_resolver.dart';
-import 'package:app_release_center/app/services/resource_discovery_service.dart';
-import 'package:app_release_center/app/services/resource_export_service.dart';
-import 'package:app_release_center/app/services/script_catalog_service.dart';
-import 'package:app_release_center/app/services/telegram_release_notification_service.dart';
+import 'package:app_management_center/app/data/release_center_connect.dart';
+import 'package:app_management_center/app/models/app_store_credentials.dart';
+import 'package:app_management_center/app/models/app_store_project.dart';
+import 'package:app_management_center/app/models/app_store_version_snapshot.dart';
+import 'package:app_management_center/app/models/ch_play_credentials.dart';
+import 'package:app_management_center/app/models/ch_play_project.dart';
+import 'package:app_management_center/app/models/ch_play_version_snapshot.dart';
+import 'package:app_management_center/app/models/cicd_dependency.dart';
+import 'package:app_management_center/app/models/google_drive_release_settings.dart';
+import 'package:app_management_center/app/models/release_fastlane_lane.dart';
+import 'package:app_management_center/app/models/release_notification.dart';
+import 'package:app_management_center/app/models/release_project.dart';
+import 'package:app_management_center/app/models/release_script.dart';
+import 'package:app_management_center/app/models/release_workflow.dart';
+import 'package:app_management_center/app/models/resource_catalog.dart';
+import 'package:app_management_center/app/models/resource_collection.dart';
+import 'package:app_management_center/app/models/telegram_release_settings.dart';
+import 'package:app_management_center/app/services/android_cicd_clone_service.dart';
+import 'package:app_management_center/app/services/android_keystore_generation_service.dart';
+import 'package:app_management_center/app/services/app_store_credential_store_service.dart';
+import 'package:app_management_center/app/services/app_store_project_inspector_service.dart';
+import 'package:app_management_center/app/services/app_store_version_check_service.dart';
+import 'package:app_management_center/app/services/ch_play_credential_store_service.dart';
+import 'package:app_management_center/app/services/ch_play_project_inspector_service.dart';
+import 'package:app_management_center/app/services/ch_play_version_check_service.dart';
+import 'package:app_management_center/app/services/cicd_dependency_doctor_service.dart';
+import 'package:app_management_center/app/services/cicd_dependency_installer_service.dart';
+import 'package:app_management_center/app/services/command_notification_service.dart';
+import 'package:app_management_center/app/services/gemini_env_service.dart';
+import 'package:app_management_center/app/services/google_drive_release_upload_service.dart';
+import 'package:app_management_center/app/services/project_store_service.dart';
+import 'package:app_management_center/app/services/release_apk_artifact_service.dart';
+import 'package:app_management_center/app/services/release_installer_artifact_service.dart';
+import 'package:app_management_center/app/services/release_note_generation_service.dart';
+import 'package:app_management_center/app/services/release_runner_service.dart';
+import 'package:app_management_center/app/services/release_workflow_service.dart';
+import 'package:app_management_center/app/services/resource_catalog_crypto_service.dart';
+import 'package:app_management_center/app/services/resource_catalog_excel_service.dart';
+import 'package:app_management_center/app/services/resource_catalog_password_store_service.dart';
+import 'package:app_management_center/app/services/resource_credential_resolver.dart';
+import 'package:app_management_center/app/services/resource_discovery_service.dart';
+import 'package:app_management_center/app/services/resource_export_service.dart';
+import 'package:app_management_center/app/services/script_catalog_service.dart';
+import 'package:app_management_center/app/services/telegram_release_notification_service.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:file_selector/file_selector.dart' as file_selector;
 import 'package:flutter/material.dart';
@@ -252,10 +252,10 @@ class HomeController extends GetxController {
       isGeneratingReleaseNotes.value ||
       runner.isBusy;
 
-  bool get hasSelectedAppReleaseCenterProject {
+  bool get hasSelectedAppManagementCenterProject {
     final currentProject = project.value;
     if (currentProject == null) return false;
-    return releaseInstallerArtifacts.isAppReleaseCenterProject(currentProject);
+    return releaseInstallerArtifacts.isAppManagementCenterProject(currentProject);
   }
 
   @override
@@ -1884,7 +1884,7 @@ class HomeController extends GetxController {
     final currentProject = project.value;
     if (currentProject == null) {
       installerDeliveryStatus.value =
-          'Select the App Release Center project before building an installer.';
+          'Select the App Management Center project before building an installer.';
       return;
     }
 
