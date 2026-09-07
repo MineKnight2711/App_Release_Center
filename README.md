@@ -135,3 +135,26 @@ cd serverless\notifications
 npm test -- --runInBand
 npm run lint
 ```
+
+### `No target "app_release_center"` when building Windows
+
+Seen after pulling the App Management Center rename onto a working copy that
+already has a `build\` directory:
+
+```
+CMake Error: Error evaluating generator expression:
+    $<TARGET_FILE_DIR:app_release_center>
+  No target "app_release_center"
+```
+
+The CMake target is named after `BINARY_NAME` in `windows\CMakeLists.txt`, and
+renaming it leaves the cached `CMakeCache.txt`, `.sln` and `.vcxproj` files in
+`build\windows` pointing at a target that no longer exists. The source tree is
+fine; only the build directory is stale.
+
+```powershell
+flutter clean
+flutter pub get
+```
+
+Any future change to `BINARY_NAME` needs the same clean.
