@@ -30,6 +30,9 @@ login and shared HTTP Tools.
    for Admin or Dev members.
 
 HTTP Tool collections, folders, requests, and environments are shared per team.
+Quick Requests can be configured once and run directly from the HTTP Tool;
+they follow the active local or team workspace and may require confirmation
+for reset or other destructive calls.
 HTTP response history stays local on each machine.
 
 For Windows release/installer builds, `installer\windows\build_installer.ps1`

@@ -21,15 +21,18 @@ class ApiToolRepositorySnapshot {
     this.collections = const [],
     this.folders = const [],
     this.requests = const [],
+    this.quickRequests = const [],
   });
 
   final List<ApiToolCollectionRoot> collections;
   final List<ApiToolCollectionFolder> folders;
   final List<ApiToolRequest> requests;
+  final List<ApiToolQuickRequest> quickRequests;
 }
 
 abstract class TeamApiToolDataSource {
   Future<ApiToolRepositorySnapshot> load(String teamId);
+  Future<void> deleteCollection(String teamId, String collectionId);
   Future<void> saveCollections(
     String teamId,
     List<ApiToolCollectionRoot> collections,
@@ -39,6 +42,10 @@ abstract class TeamApiToolDataSource {
     List<ApiToolCollectionFolder> folders,
   );
   Future<void> saveRequests(String teamId, List<ApiToolRequest> requests);
+  Future<void> saveQuickRequests(
+    String teamId,
+    List<ApiToolQuickRequest> requests,
+  );
 }
 
 class FirestoreTeamApiToolDataSource implements TeamApiToolDataSource {
@@ -48,12 +55,40 @@ class FirestoreTeamApiToolDataSource implements TeamApiToolDataSource {
   final FirebaseFirestore _db;
 
   @override
+  Future<void> deleteCollection(String teamId, String collectionId) async {
+    final teamRef = _db.collection('teams').doc(teamId);
+    final linkedSnapshots = await Future.wait([
+      teamRef
+          .collection('apiToolFolders')
+          .where('collectionId', isEqualTo: collectionId)
+          .get(),
+      teamRef
+          .collection('apiToolRequests')
+          .where('collectionId', isEqualTo: collectionId)
+          .get(),
+      teamRef
+          .collection('apiToolQuickRequests')
+          .where('collectionId', isEqualTo: collectionId)
+          .get(),
+    ]);
+    final batch = _db.batch();
+    for (final snapshot in linkedSnapshots) {
+      for (final document in snapshot.docs) {
+        batch.delete(document.reference);
+      }
+    }
+    batch.delete(teamRef.collection('apiToolCollections').doc(collectionId));
+    await batch.commit();
+  }
+
+  @override
   Future<ApiToolRepositorySnapshot> load(String teamId) async {
     final teamRef = _db.collection('teams').doc(teamId);
     final results = await Future.wait([
       teamRef.collection('apiToolCollections').get(),
       teamRef.collection('apiToolFolders').get(),
       teamRef.collection('apiToolRequests').get(),
+      teamRef.collection('apiToolQuickRequests').get(),
     ]);
 
     final collections =
@@ -74,11 +109,18 @@ class FirestoreTeamApiToolDataSource implements TeamApiToolDataSource {
             .where((entry) => entry.id.isNotEmpty)
             .toList()
           ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    final quickRequests =
+        results[3].docs
+            .map((doc) => ApiToolQuickRequest.fromJson(doc.data()))
+            .where((entry) => entry.id.isNotEmpty)
+            .toList()
+          ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
 
     return ApiToolRepositorySnapshot(
       collections: collections,
       folders: folders,
       requests: requests,
+      quickRequests: quickRequests,
     );
   }
 
@@ -116,6 +158,19 @@ class FirestoreTeamApiToolDataSource implements TeamApiToolDataSource {
     return _replaceDocuments(
       teamId: teamId,
       collectionName: 'apiToolRequests',
+      ids: requests.map((entry) => entry.id),
+      jsonById: {for (final request in requests) request.id: request.toJson()},
+    );
+  }
+
+  @override
+  Future<void> saveQuickRequests(
+    String teamId,
+    List<ApiToolQuickRequest> requests,
+  ) {
+    return _replaceDocuments(
+      teamId: teamId,
+      collectionName: 'apiToolQuickRequests',
       ids: requests.map((entry) => entry.id),
       jsonById: {for (final request in requests) request.id: request.toJson()},
     );
@@ -174,19 +229,23 @@ class ApiToolRepositoryService extends GetxService {
   var _collections = <ApiToolCollectionRoot>[];
   var _folders = <ApiToolCollectionFolder>[];
   var _requests = <ApiToolRequest>[];
+  var _quickRequests = <ApiToolQuickRequest>[];
 
   List<ApiToolCollectionRoot> get apiToolCollections =>
       List.unmodifiable(_collections);
   List<ApiToolCollectionFolder> get apiToolFolders =>
       List.unmodifiable(_folders);
   List<ApiToolRequest> get apiToolRequests => List.unmodifiable(_requests);
+  List<ApiToolQuickRequest> get apiToolQuickRequests =>
+      List.unmodifiable(_quickRequests);
 
   bool get isTeamMode => _currentTeamProfile != null && _teamDataSource != null;
 
   bool get hasLocalApiToolData =>
       _localStore.apiToolCollections.isNotEmpty ||
       _localStore.apiToolFolders.isNotEmpty ||
-      _localStore.apiToolRequests.isNotEmpty;
+      _localStore.apiToolRequests.isNotEmpty ||
+      _localStore.apiToolQuickRequests.isNotEmpty;
 
   CurrentUserProfile? get _currentTeamProfile {
     final current = _auth?.profile.value;
@@ -226,6 +285,7 @@ class ApiToolRepositoryService extends GetxService {
       _collections = snapshot.collections;
       _folders = snapshot.folders;
       _requests = snapshot.requests;
+      _quickRequests = snapshot.quickRequests;
       repositoryStatus.value = '';
     } catch (error) {
       _loadLocalCache();
@@ -281,6 +341,61 @@ class ApiToolRepositoryService extends GetxService {
     _requests = _localStore.apiToolRequests;
   }
 
+  Future<void> saveApiToolQuickRequests(
+    List<ApiToolQuickRequest> requests,
+  ) async {
+    _ensureWritable();
+    final normalized = requests.toList()
+      ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    final teamProfile = _currentTeamProfile;
+    if (teamProfile != null && _teamDataSource != null) {
+      await _teamDataSource!.saveQuickRequests(teamProfile.teamId, normalized);
+      _quickRequests = normalized;
+      return;
+    }
+    await _localStore.saveApiToolQuickRequests(normalized);
+    _quickRequests = _localStore.apiToolQuickRequests;
+  }
+
+  Future<void> deleteApiToolCollection(String collectionId) async {
+    _ensureWritable();
+    final normalizedId = collectionId.trim();
+    if (normalizedId.isEmpty) {
+      throw const ApiToolRepositoryException('Select a collection to delete.');
+    }
+
+    final collections = _collections
+        .where((entry) => entry.id != normalizedId)
+        .toList(growable: false);
+    final folders = _folders
+        .where((entry) => entry.collectionId != normalizedId)
+        .toList(growable: false);
+    final requests = _requests
+        .where((entry) => entry.collectionId != normalizedId)
+        .toList(growable: false);
+    final quickRequests = _quickRequests
+        .where((entry) => entry.collectionId != normalizedId)
+        .toList(growable: false);
+
+    final teamProfile = _currentTeamProfile;
+    if (teamProfile != null && _teamDataSource != null) {
+      await _teamDataSource!.deleteCollection(teamProfile.teamId, normalizedId);
+      _collections = collections;
+      _folders = folders;
+      _requests = requests;
+      _quickRequests = quickRequests;
+      return;
+    }
+
+    await Future.wait([
+      _localStore.saveApiToolCollections(collections),
+      _localStore.saveApiToolFolders(folders),
+      _localStore.saveApiToolRequests(requests),
+      _localStore.saveApiToolQuickRequests(quickRequests),
+    ]);
+    _loadLocalCache();
+  }
+
   Future<void> importApiTools({
     required List<ApiToolCollectionRoot> collections,
     required List<ApiToolCollectionFolder> folders,
@@ -334,15 +449,21 @@ class ApiToolRepositoryService extends GetxService {
     );
     final folders = _mergeById(remote.folders, _localStore.apiToolFolders);
     final requests = _mergeById(remote.requests, _localStore.apiToolRequests);
+    final quickRequests = _mergeById(
+      remote.quickRequests,
+      _localStore.apiToolQuickRequests,
+    );
 
     await Future.wait([
       _teamDataSource!.saveCollections(teamProfile.teamId, collections),
       _teamDataSource!.saveFolders(teamProfile.teamId, folders),
       _teamDataSource!.saveRequests(teamProfile.teamId, requests),
+      _teamDataSource!.saveQuickRequests(teamProfile.teamId, quickRequests),
     ]);
     _collections = collections;
     _folders = folders;
     _requests = requests;
+    _quickRequests = quickRequests;
     repositoryStatus.value = 'Local HTTP Tools were imported to the team.';
   }
 
@@ -350,6 +471,7 @@ class ApiToolRepositoryService extends GetxService {
     _collections = _localStore.apiToolCollections;
     _folders = _localStore.apiToolFolders;
     _requests = _localStore.apiToolRequests;
+    _quickRequests = _localStore.apiToolQuickRequests;
   }
 
   void _ensureWritable() {
@@ -379,5 +501,6 @@ String _idOf(Object entry) {
   if (entry is ApiToolCollectionRoot) return entry.id;
   if (entry is ApiToolCollectionFolder) return entry.id;
   if (entry is ApiToolRequest) return entry.id;
+  if (entry is ApiToolQuickRequest) return entry.id;
   return '';
 }

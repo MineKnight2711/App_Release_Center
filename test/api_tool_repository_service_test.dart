@@ -30,6 +30,102 @@ void main() {
     expect(repository.apiToolRequests.single.name, 'Local');
   });
 
+  test('stores Quick Requests in the active local workspace', () async {
+    SharedPreferences.setMockInitialValues({});
+    final localStore = await ProjectStoreService().init();
+    final repository = await ApiToolRepositoryService(
+      localStore: localStore,
+    ).init(firebaseEnabled: false);
+    final now = DateTime(2026, 8, 17);
+    final quickRequest = ApiToolQuickRequest(
+      id: 'quick-1',
+      name: 'Reset',
+      collectionId: 'collection-1',
+      request: ApiToolRequest(
+        id: 'quick-1',
+        name: 'Reset',
+        method: ApiToolMethod.post,
+        url: 'https://example.com/reset',
+        updatedAt: now,
+      ),
+      updatedAt: now,
+    );
+
+    await repository.saveApiToolQuickRequests([quickRequest]);
+
+    expect(localStore.apiToolQuickRequests.single.id, 'quick-1');
+    expect(repository.apiToolQuickRequests.single.name, 'Reset');
+  });
+
+  test('deletes a local collection and all linked HTTP Tool data', () async {
+    SharedPreferences.setMockInitialValues({});
+    final localStore = await ProjectStoreService().init();
+    final repository = await ApiToolRepositoryService(
+      localStore: localStore,
+    ).init(firebaseEnabled: false);
+    final now = DateTime(2026, 8, 17);
+    await repository.saveApiToolCollections([
+      ApiToolCollectionRoot(id: 'remove', name: 'Remove', updatedAt: now),
+      ApiToolCollectionRoot(id: 'keep', name: 'Keep', updatedAt: now),
+    ]);
+    await repository.saveApiToolFolders([
+      ApiToolCollectionFolder(
+        id: 'folder-remove',
+        collectionId: 'remove',
+        name: 'Remove',
+        updatedAt: now,
+      ),
+      ApiToolCollectionFolder(
+        id: 'folder-keep',
+        collectionId: 'keep',
+        name: 'Keep',
+        updatedAt: now,
+      ),
+    ]);
+    await repository.saveApiToolRequests([
+      ApiToolRequest(
+        id: 'request-remove',
+        name: 'Remove',
+        method: ApiToolMethod.get,
+        url: 'https://example.com/remove',
+        collectionId: 'remove',
+        updatedAt: now,
+      ),
+      ApiToolRequest(
+        id: 'request-keep',
+        name: 'Keep',
+        method: ApiToolMethod.get,
+        url: 'https://example.com/keep',
+        collectionId: 'keep',
+        updatedAt: now,
+      ),
+    ]);
+    await repository.saveApiToolQuickRequests([
+      ApiToolQuickRequest(
+        id: 'quick-remove',
+        name: 'Remove',
+        collectionId: 'remove',
+        request: ApiToolRequest(
+          id: 'quick-remove',
+          name: 'Remove',
+          method: ApiToolMethod.post,
+          url: 'https://example.com/remove',
+          collectionId: 'remove',
+          updatedAt: now,
+        ),
+        updatedAt: now,
+      ),
+    ]);
+
+    await repository.deleteApiToolCollection('remove');
+
+    expect(repository.apiToolCollections.single.id, 'keep');
+    expect(repository.apiToolFolders.single.id, 'folder-keep');
+    expect(repository.apiToolRequests.single.id, 'request-keep');
+    expect(repository.apiToolQuickRequests, isEmpty);
+    expect(localStore.apiToolCollections.single.id, 'keep');
+  });
+
   test('writes HTTP Tool collections to team data source', () async {
     SharedPreferences.setMockInitialValues({});
     final localStore = await ProjectStoreService().init();
@@ -51,6 +147,102 @@ void main() {
 
     expect(repository.workspaceLabel.value, 'Team: Release Team');
     expect(teamData.savedCollections.single.id, 'collection-1');
+    expect(localStore.apiToolCollections, isEmpty);
+  });
+
+  test('writes Quick Requests to the active team workspace', () async {
+    SharedPreferences.setMockInitialValues({});
+    final localStore = await ProjectStoreService().init();
+    final auth = await _teamAuthService().init(firebaseEnabled: true);
+    await auth.signIn(email: 'dev@example.com', password: 'secret123');
+    final teamData = _FakeTeamApiToolDataSource();
+    final repository = await ApiToolRepositoryService(
+      localStore: localStore,
+      auth: auth,
+      teamDataSource: teamData,
+    ).init(firebaseEnabled: true);
+    final now = DateTime(2026, 8, 17);
+    final quickRequest = ApiToolQuickRequest(
+      id: 'quick-team',
+      name: 'Reset team sandbox',
+      collectionId: 'collection-1',
+      request: ApiToolRequest(
+        id: 'quick-team',
+        name: 'Reset team sandbox',
+        method: ApiToolMethod.post,
+        url: 'https://example.com/reset',
+        updatedAt: now,
+      ),
+      requiresConfirmation: true,
+      updatedAt: now,
+    );
+
+    await repository.saveApiToolQuickRequests([quickRequest]);
+
+    expect(teamData.savedQuickRequests.single.id, 'quick-team');
+    expect(localStore.apiToolQuickRequests, isEmpty);
+  });
+
+  test('deletes a team collection and all linked HTTP Tool data', () async {
+    SharedPreferences.setMockInitialValues({});
+    final localStore = await ProjectStoreService().init();
+    final auth = await _teamAuthService().init(firebaseEnabled: true);
+    await auth.signIn(email: 'dev@example.com', password: 'secret123');
+    final now = DateTime(2026, 8, 17);
+    final teamData = _FakeTeamApiToolDataSource()
+      ..snapshot = ApiToolRepositorySnapshot(
+        collections: [
+          ApiToolCollectionRoot(id: 'remove', name: 'Remove', updatedAt: now),
+          ApiToolCollectionRoot(id: 'keep', name: 'Keep', updatedAt: now),
+        ],
+        folders: [
+          ApiToolCollectionFolder(
+            id: 'folder-remove',
+            collectionId: 'remove',
+            name: 'Remove',
+            updatedAt: now,
+          ),
+        ],
+        requests: [
+          ApiToolRequest(
+            id: 'request-remove',
+            name: 'Remove',
+            method: ApiToolMethod.get,
+            url: 'https://example.com/remove',
+            collectionId: 'remove',
+            updatedAt: now,
+          ),
+        ],
+        quickRequests: [
+          ApiToolQuickRequest(
+            id: 'quick-remove',
+            name: 'Remove',
+            collectionId: 'remove',
+            request: ApiToolRequest(
+              id: 'quick-remove',
+              name: 'Remove',
+              method: ApiToolMethod.post,
+              url: 'https://example.com/remove',
+              collectionId: 'remove',
+              updatedAt: now,
+            ),
+            updatedAt: now,
+          ),
+        ],
+      );
+    final repository = await ApiToolRepositoryService(
+      localStore: localStore,
+      auth: auth,
+      teamDataSource: teamData,
+    ).init(firebaseEnabled: true);
+
+    await repository.deleteApiToolCollection('remove');
+
+    expect(teamData.deletedCollectionIds, ['remove']);
+    expect(repository.apiToolCollections.single.id, 'keep');
+    expect(repository.apiToolFolders, isEmpty);
+    expect(repository.apiToolRequests, isEmpty);
+    expect(repository.apiToolQuickRequests, isEmpty);
     expect(localStore.apiToolCollections, isEmpty);
   });
 
@@ -165,6 +357,40 @@ void main() {
     expect(localStore.apiToolCollections, isEmpty);
     expect(repository.apiToolRequests.single.name, 'Login');
   });
+
+  test('imports local Quick Requests into the team workspace', () async {
+    SharedPreferences.setMockInitialValues({});
+    final localStore = await ProjectStoreService().init();
+    final now = DateTime(2026, 8, 17);
+    await localStore.saveApiToolQuickRequests([
+      ApiToolQuickRequest(
+        id: 'quick-local',
+        name: 'Local reset',
+        collectionId: 'collection-local',
+        request: ApiToolRequest(
+          id: 'quick-local',
+          name: 'Local reset',
+          method: ApiToolMethod.post,
+          url: 'https://example.com/reset',
+          updatedAt: now,
+        ),
+        updatedAt: now,
+      ),
+    ]);
+    final auth = await _teamAuthService().init(firebaseEnabled: true);
+    await auth.signIn(email: 'dev@example.com', password: 'secret123');
+    final teamData = _FakeTeamApiToolDataSource();
+    final repository = await ApiToolRepositoryService(
+      localStore: localStore,
+      auth: auth,
+      teamDataSource: teamData,
+    ).init(firebaseEnabled: true);
+
+    await repository.importLocalApiToolsToTeam();
+
+    expect(teamData.savedQuickRequests.single.id, 'quick-local');
+    expect(repository.apiToolQuickRequests.single.name, 'Local reset');
+  });
 }
 
 AuthService _teamAuthService() {
@@ -193,6 +419,27 @@ class _FakeTeamApiToolDataSource implements TeamApiToolDataSource {
   List<ApiToolCollectionRoot> savedCollections = const [];
   List<ApiToolCollectionFolder> savedFolders = const [];
   List<ApiToolRequest> savedRequests = const [];
+  List<ApiToolQuickRequest> savedQuickRequests = const [];
+  final deletedCollectionIds = <String>[];
+
+  @override
+  Future<void> deleteCollection(String teamId, String collectionId) async {
+    deletedCollectionIds.add(collectionId);
+    snapshot = ApiToolRepositorySnapshot(
+      collections: snapshot.collections
+          .where((entry) => entry.id != collectionId)
+          .toList(),
+      folders: snapshot.folders
+          .where((entry) => entry.collectionId != collectionId)
+          .toList(),
+      requests: snapshot.requests
+          .where((entry) => entry.collectionId != collectionId)
+          .toList(),
+      quickRequests: snapshot.quickRequests
+          .where((entry) => entry.collectionId != collectionId)
+          .toList(),
+    );
+  }
 
   @override
   Future<ApiToolRepositorySnapshot> load(String teamId) async => snapshot;
@@ -207,6 +454,7 @@ class _FakeTeamApiToolDataSource implements TeamApiToolDataSource {
       collections: collections,
       folders: snapshot.folders,
       requests: snapshot.requests,
+      quickRequests: snapshot.quickRequests,
     );
   }
 
@@ -220,6 +468,7 @@ class _FakeTeamApiToolDataSource implements TeamApiToolDataSource {
       collections: snapshot.collections,
       folders: folders,
       requests: snapshot.requests,
+      quickRequests: snapshot.quickRequests,
     );
   }
 
@@ -233,6 +482,21 @@ class _FakeTeamApiToolDataSource implements TeamApiToolDataSource {
       collections: snapshot.collections,
       folders: snapshot.folders,
       requests: requests,
+      quickRequests: snapshot.quickRequests,
+    );
+  }
+
+  @override
+  Future<void> saveQuickRequests(
+    String teamId,
+    List<ApiToolQuickRequest> requests,
+  ) async {
+    savedQuickRequests = requests;
+    snapshot = ApiToolRepositorySnapshot(
+      collections: snapshot.collections,
+      folders: snapshot.folders,
+      requests: snapshot.requests,
+      quickRequests: requests,
     );
   }
 }

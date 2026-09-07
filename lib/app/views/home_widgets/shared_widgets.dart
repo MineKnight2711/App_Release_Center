@@ -690,7 +690,7 @@ class _MetaChip extends StatelessWidget {
 }
 
 class _PanelSplitter extends StatelessWidget {
-  const _PanelSplitter({required this.axis, required this.onDelta});
+  const _PanelSplitter({super.key, required this.axis, required this.onDelta});
 
   final Axis axis;
   final ValueChanged<double> onDelta;

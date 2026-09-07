@@ -28,6 +28,140 @@ class ApiToolPostmanImportResult {
   int get requestCount => requests.length;
 }
 
+class ApiToolPostmanEnvironmentImportService {
+  ApiToolPostmanEnvironmentImportService({DateTime Function()? now})
+    : _now = now ?? DateTime.now;
+
+  final DateTime Function() _now;
+  var _serial = 0;
+
+  Future<ApiToolEnvironment> importFile(String filePath) async {
+    final file = File(filePath);
+    if (!file.existsSync()) {
+      throw const ApiToolPostmanImportException(
+        'Postman environment file was not found.',
+      );
+    }
+    final text = await file.readAsString();
+    return importJsonText(
+      text,
+      fallbackName: _fallbackEnvironmentName(file.path),
+    );
+  }
+
+  ApiToolEnvironment importJsonText(String text, {String fallbackName = ''}) {
+    final decoded = _decodeEnvironment(text);
+    final name = _firstNonEmpty([
+      _string(decoded['name']),
+      fallbackName,
+      'Imported Postman Environment',
+    ]);
+    final variables = _importValues(decoded['values']);
+    if (variables.isEmpty) {
+      throw const ApiToolPostmanImportException(
+        'No variables were found in this Postman environment.',
+      );
+    }
+
+    return ApiToolEnvironment(
+      id: _newId('api_env'),
+      name: name,
+      variables: variables,
+      updatedAt: _now(),
+    );
+  }
+
+  Map<String, Object?> _decodeEnvironment(String text) {
+    try {
+      final decoded = jsonDecode(text);
+      if (decoded is Map) return decoded.cast<String, Object?>();
+    } on FormatException catch (error) {
+      throw ApiToolPostmanImportException(
+        'Postman environment JSON is invalid: ${error.message}',
+      );
+    }
+    throw const ApiToolPostmanImportException(
+      'Postman environment must be a JSON object.',
+    );
+  }
+
+  List<ApiToolEnvironmentVariable> _importValues(Object? rawValues) {
+    final variables = <ApiToolEnvironmentVariable>[];
+    for (final rawValue in _list(rawValues)) {
+      final value = _map(rawValue);
+      final name = _firstNonEmpty([
+        _string(value['key']),
+        _string(value['name']),
+      ]);
+      if (name.isEmpty) continue;
+      variables.add(
+        ApiToolEnvironmentVariable(
+          id: _newId('api_env_var'),
+          name: name,
+          value: _firstNonEmptyValue([
+            _string(value['value']),
+            _string(value['currentValue']),
+            _string(value['initialValue']),
+          ]),
+          enabled: !_isDisabled(value),
+        ),
+      );
+    }
+    return variables;
+  }
+
+  bool _isDisabled(Map<String, Object?> json) {
+    final raw = json['disabled'];
+    if (raw is bool && raw) return true;
+    if (raw?.toString().trim().toLowerCase() == 'true') return true;
+    final enabled = json['enabled'];
+    if (enabled is bool) return !enabled;
+    return enabled?.toString().trim().toLowerCase() == 'false';
+  }
+
+  String _fallbackEnvironmentName(String filePath) {
+    return p
+        .basenameWithoutExtension(filePath)
+        .replaceFirst(
+          RegExp(r'[._-]postman_environment$', caseSensitive: false),
+          '',
+        )
+        .trim();
+  }
+
+  Map<String, Object?> _map(Object? value) {
+    if (value is Map) return value.cast<String, Object?>();
+    return const {};
+  }
+
+  List<Object?> _list(Object? value) {
+    if (value is List) return value;
+    return const [];
+  }
+
+  String _firstNonEmpty(Iterable<String> values) {
+    for (final value in values) {
+      final trimmed = value.trim();
+      if (trimmed.isNotEmpty) return trimmed;
+    }
+    return '';
+  }
+
+  String _firstNonEmptyValue(Iterable<String> values) {
+    for (final value in values) {
+      if (value.trim().isNotEmpty) return value;
+    }
+    return '';
+  }
+
+  String _string(Object? value) => value?.toString() ?? '';
+
+  String _newId(String prefix) {
+    _serial += 1;
+    return '${prefix}_${_now().microsecondsSinceEpoch}_$_serial';
+  }
+}
+
 class ApiToolPostmanCollectionImportService {
   ApiToolPostmanCollectionImportService({DateTime Function()? now})
     : _now = now ?? DateTime.now;
@@ -162,6 +296,7 @@ class ApiToolPostmanCollectionImportService {
     final body = _importBody(request['body'], headers);
     final method = _methodFromPostman(request['method']);
     final url = _urlFromPostman(request['url']);
+    final authorization = _importAuthorization(request['auth']);
     final now = _now();
 
     return ApiToolRequest(
@@ -172,9 +307,11 @@ class ApiToolPostmanCollectionImportService {
       collectionId: collectionId,
       folderId: folderId,
       headers: headers,
+      authorization: authorization,
       bodyMode: body.mode,
       body: body.rawBody,
       multipartFields: body.multipartFields,
+      urlEncodedFields: body.urlEncodedFields,
       updatedAt: now,
     );
   }
@@ -225,6 +362,38 @@ class ApiToolPostmanCollectionImportService {
         enabled: !_isDisabled(header),
       );
     }
+  }
+
+  ApiToolAuthorization _importAuthorization(Object? rawAuthorization) {
+    final authorization = _map(rawAuthorization);
+    final type = _string(authorization['type']).trim().toLowerCase();
+    return switch (type) {
+      'bearer' => ApiToolAuthorization(
+        type: ApiToolAuthorizationType.bearer,
+        token: _postmanAuthValue(authorization['bearer'], 'token'),
+      ),
+      'basic' => ApiToolAuthorization(
+        type: ApiToolAuthorizationType.basic,
+        username: _postmanAuthValue(authorization['basic'], 'username'),
+        password: _postmanAuthValue(authorization['basic'], 'password'),
+      ),
+      'apikey' => ApiToolAuthorization(
+        type: ApiToolAuthorizationType.apiKey,
+        apiKeyName: _postmanAuthValue(authorization['apikey'], 'key'),
+        apiKeyValue: _postmanAuthValue(authorization['apikey'], 'value'),
+      ),
+      _ => const ApiToolAuthorization(),
+    };
+  }
+
+  String _postmanAuthValue(Object? rawValues, String key) {
+    for (final rawValue in _list(rawValues)) {
+      final value = _map(rawValue);
+      if (_string(value['key']).trim().toLowerCase() == key.toLowerCase()) {
+        return _string(value['value']);
+      }
+    }
+    return '';
   }
 
   _ImportedPostmanBody _importBody(
@@ -282,23 +451,30 @@ class ApiToolPostmanCollectionImportService {
     Map<String, Object?> body,
     List<ApiToolHeader> headers,
   ) {
-    final fields = <String>[];
+    final fields = <ApiToolHeader>[];
     for (final rawField in _list(body['urlencoded'])) {
       final field = _map(rawField);
-      if (_isDisabled(field)) continue;
       final name = _firstNonEmpty([
         _string(field['key']),
         _string(field['name']),
       ]);
-      if (name.isEmpty) continue;
       final value = _string(field['value']);
+      if (name.isEmpty && value.isEmpty) continue;
       fields.add(
-        '${_encodeFormComponent(name)}=${_encodeFormComponent(value)}',
+        ApiToolHeader(
+          id: _newId('api_urlencoded'),
+          name: name,
+          value: value,
+          enabled: !_isDisabled(field),
+        ),
       );
     }
     _ensureContentType(headers, 'application/x-www-form-urlencoded');
 
-    return _ImportedPostmanBody(rawBody: fields.join('&'));
+    return _ImportedPostmanBody(
+      mode: ApiToolBodyMode.urlEncoded,
+      urlEncodedFields: fields,
+    );
   }
 
   _ImportedPostmanBody _importRawBody(
@@ -434,8 +610,11 @@ class ApiToolPostmanCollectionImportService {
 
   bool _isDisabled(Map<String, Object?> json) {
     final raw = json['disabled'];
-    if (raw is bool) return raw;
-    return raw?.toString().trim().toLowerCase() == 'true';
+    if (raw is bool && raw) return true;
+    if (raw?.toString().trim().toLowerCase() == 'true') return true;
+    final enabled = json['enabled'];
+    if (enabled is bool) return !enabled;
+    return enabled?.toString().trim().toLowerCase() == 'false';
   }
 
   Map<String, Object?> _map(Object? value) {
@@ -479,9 +658,11 @@ class _ImportedPostmanBody {
     this.mode = ApiToolBodyMode.raw,
     this.rawBody = '',
     this.multipartFields = const [],
+    this.urlEncodedFields = const [],
   });
 
   final ApiToolBodyMode mode;
   final String rawBody;
   final List<ApiToolMultipartEntry> multipartFields;
+  final List<ApiToolHeader> urlEncodedFields;
 }

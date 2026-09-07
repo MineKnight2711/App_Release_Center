@@ -4,13 +4,27 @@ final _apiToolVariablePattern = RegExp(r'\{\{\s*([^{}]+?)\s*\}\}');
 
 enum ApiToolMethod { get, post, put, patch, delete }
 
-enum ApiToolBodyMode { raw, multipart }
+enum ApiToolBodyMode { raw, multipart, urlEncoded }
+
+enum ApiToolAuthorizationType { none, bearer, basic, apiKey }
+
+extension ApiToolAuthorizationTypeLabel on ApiToolAuthorizationType {
+  String get label {
+    return switch (this) {
+      ApiToolAuthorizationType.none => 'No Auth',
+      ApiToolAuthorizationType.bearer => 'Bearer Token',
+      ApiToolAuthorizationType.basic => 'Basic Auth',
+      ApiToolAuthorizationType.apiKey => 'API Key',
+    };
+  }
+}
 
 extension ApiToolBodyModeLabel on ApiToolBodyMode {
   String get label {
     return switch (this) {
       ApiToolBodyMode.raw => 'Raw',
-      ApiToolBodyMode.multipart => 'Multipart',
+      ApiToolBodyMode.multipart => 'form-data',
+      ApiToolBodyMode.urlEncoded => 'x-www-form-urlencoded',
     };
   }
 }
@@ -76,6 +90,85 @@ class ApiToolHeader {
       name: _string(json['name']),
       value: _string(json['value']),
       enabled: json['enabled'] != false,
+    );
+  }
+}
+
+class ApiToolAuthorization {
+  const ApiToolAuthorization({
+    this.type = ApiToolAuthorizationType.none,
+    this.token = '',
+    this.username = '',
+    this.password = '',
+    this.apiKeyName = '',
+    this.apiKeyValue = '',
+  });
+
+  final ApiToolAuthorizationType type;
+  final String token;
+  final String username;
+  final String password;
+  final String apiKeyName;
+  final String apiKeyValue;
+
+  MapEntry<String, String>? get header {
+    return switch (type) {
+      ApiToolAuthorizationType.none => null,
+      ApiToolAuthorizationType.bearer =>
+        token.trim().isEmpty
+            ? null
+            : MapEntry('Authorization', 'Bearer $token'),
+      ApiToolAuthorizationType.basic =>
+        username.isEmpty && password.isEmpty
+            ? null
+            : MapEntry(
+                'Authorization',
+                'Basic ${base64Encode(utf8.encode('$username:$password'))}',
+              ),
+      ApiToolAuthorizationType.apiKey =>
+        apiKeyName.trim().isEmpty
+            ? null
+            : MapEntry(apiKeyName.trim(), apiKeyValue),
+    };
+  }
+
+  ApiToolAuthorization copyWith({
+    ApiToolAuthorizationType? type,
+    String? token,
+    String? username,
+    String? password,
+    String? apiKeyName,
+    String? apiKeyValue,
+  }) {
+    return ApiToolAuthorization(
+      type: type ?? this.type,
+      token: token ?? this.token,
+      username: username ?? this.username,
+      password: password ?? this.password,
+      apiKeyName: apiKeyName ?? this.apiKeyName,
+      apiKeyValue: apiKeyValue ?? this.apiKeyValue,
+    );
+  }
+
+  Map<String, Object?> toJson() {
+    return {
+      'type': type.name,
+      'token': token,
+      'username': username,
+      'password': password,
+      'apiKeyName': apiKeyName,
+      'apiKeyValue': apiKeyValue,
+    };
+  }
+
+  factory ApiToolAuthorization.fromJson(Map<String, Object?> json) {
+    return ApiToolAuthorization(
+      type: _authorizationTypeFromJson(json['type']),
+      token: _string(json['token']),
+      username: _string(json['username']),
+      password: _string(json['password']),
+      apiKeyName: _string(json['apiKeyName']),
+      apiKeyValue: _string(json['apiKeyValue']),
     );
   }
 }
@@ -380,9 +473,11 @@ class ApiToolRequest {
     this.collectionId = '',
     this.folderId = '',
     this.headers = const [],
+    this.authorization = const ApiToolAuthorization(),
     this.bodyMode = ApiToolBodyMode.raw,
     this.body = '',
     this.multipartFields = const [],
+    this.urlEncodedFields = const [],
     required this.updatedAt,
   });
 
@@ -393,9 +488,11 @@ class ApiToolRequest {
   final String collectionId;
   final String folderId;
   final List<ApiToolHeader> headers;
+  final ApiToolAuthorization authorization;
   final ApiToolBodyMode bodyMode;
   final String body;
   final List<ApiToolMultipartEntry> multipartFields;
+  final List<ApiToolHeader> urlEncodedFields;
   final DateTime updatedAt;
 
   String get displayName {
@@ -413,11 +510,25 @@ class ApiToolRequest {
       if (!header.enabled || name.isEmpty) continue;
       mapped[name] = header.value;
     }
+    final authorizationHeader = authorization.header;
+    if (authorizationHeader != null) {
+      mapped.removeWhere(
+        (name, _) =>
+            name.toLowerCase() == authorizationHeader.key.toLowerCase(),
+      );
+      mapped[authorizationHeader.key] = authorizationHeader.value;
+    }
     return mapped;
   }
 
   List<ApiToolMultipartEntry> get enabledMultipartFields {
     return multipartFields
+        .where((entry) => entry.enabled && entry.hasName)
+        .toList(growable: false);
+  }
+
+  List<ApiToolHeader> get enabledUrlEncodedFields {
+    return urlEncodedFields
         .where((entry) => entry.enabled && entry.hasName)
         .toList(growable: false);
   }
@@ -430,9 +541,11 @@ class ApiToolRequest {
     String? collectionId,
     String? folderId,
     List<ApiToolHeader>? headers,
+    ApiToolAuthorization? authorization,
     ApiToolBodyMode? bodyMode,
     String? body,
     List<ApiToolMultipartEntry>? multipartFields,
+    List<ApiToolHeader>? urlEncodedFields,
     DateTime? updatedAt,
   }) {
     return ApiToolRequest(
@@ -443,9 +556,11 @@ class ApiToolRequest {
       collectionId: collectionId ?? this.collectionId,
       folderId: folderId ?? this.folderId,
       headers: headers ?? this.headers,
+      authorization: authorization ?? this.authorization,
       bodyMode: bodyMode ?? this.bodyMode,
       body: body ?? this.body,
       multipartFields: multipartFields ?? this.multipartFields,
+      urlEncodedFields: urlEncodedFields ?? this.urlEncodedFields,
       updatedAt: updatedAt ?? this.updatedAt,
     );
   }
@@ -459,9 +574,13 @@ class ApiToolRequest {
       'collectionId': collectionId,
       'folderId': folderId,
       'headers': headers.map((entry) => entry.toJson()).toList(),
+      'authorization': authorization.toJson(),
       'bodyMode': bodyMode.name,
       'body': body,
       'multipartFields': multipartFields
+          .map((entry) => entry.toJson())
+          .toList(),
+      'urlEncodedFields': urlEncodedFields
           .map((entry) => entry.toJson())
           .toList(),
       'updatedAt': updatedAt.toUtc().toIso8601String(),
@@ -477,9 +596,90 @@ class ApiToolRequest {
       collectionId: _string(json['collectionId']),
       folderId: _string(json['folderId']),
       headers: _headerList(json['headers']),
+      authorization: _authorizationFromJson(json['authorization']),
       bodyMode: _bodyModeFromJson(json['bodyMode']),
       body: _string(json['body']),
       multipartFields: _multipartList(json['multipartFields']),
+      urlEncodedFields: _headerList(json['urlEncodedFields']),
+      updatedAt: _date(json['updatedAt']) ?? DateTime.now(),
+    );
+  }
+}
+
+class ApiToolQuickRequest {
+  const ApiToolQuickRequest({
+    required this.id,
+    required this.name,
+    required this.collectionId,
+    required this.request,
+    this.requiresConfirmation = false,
+    required this.updatedAt,
+  });
+
+  final String id;
+  final String name;
+  final String collectionId;
+  final ApiToolRequest request;
+  final bool requiresConfirmation;
+  final DateTime updatedAt;
+
+  String get displayName {
+    final trimmed = name.trim();
+    return trimmed.isEmpty ? request.displayName : trimmed;
+  }
+
+  ApiToolRequest get executableRequest => request.copyWith(
+    id: id,
+    name: displayName,
+    collectionId: collectionId,
+    folderId: '',
+  );
+
+  ApiToolQuickRequest copyWith({
+    String? id,
+    String? name,
+    String? collectionId,
+    ApiToolRequest? request,
+    bool? requiresConfirmation,
+    DateTime? updatedAt,
+  }) {
+    return ApiToolQuickRequest(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      collectionId: collectionId ?? this.collectionId,
+      request: request ?? this.request,
+      requiresConfirmation: requiresConfirmation ?? this.requiresConfirmation,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+
+  Map<String, Object?> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'collectionId': collectionId,
+      'request': request.toJson(),
+      'requiresConfirmation': requiresConfirmation,
+      'updatedAt': updatedAt.toUtc().toIso8601String(),
+    };
+  }
+
+  factory ApiToolQuickRequest.fromJson(Map<String, Object?> json) {
+    final requestJson = json['request'];
+    return ApiToolQuickRequest(
+      id: _string(json['id']),
+      name: _string(json['name']),
+      collectionId: _string(json['collectionId']),
+      request: requestJson is Map
+          ? ApiToolRequest.fromJson(requestJson.cast<String, Object?>())
+          : ApiToolRequest(
+              id: '',
+              name: '',
+              method: ApiToolMethod.get,
+              url: '',
+              updatedAt: DateTime.now(),
+            ),
+      requiresConfirmation: json['requiresConfirmation'] == true,
       updatedAt: _date(json['updatedAt']) ?? DateTime.now(),
     );
   }
@@ -586,6 +786,19 @@ ApiToolRequest resolveApiToolRequestVariables(
           ),
         )
         .toList(growable: false),
+    authorization: request.authorization.copyWith(
+      token: _resolveVariables(request.authorization.token, variables),
+      username: _resolveVariables(request.authorization.username, variables),
+      password: _resolveVariables(request.authorization.password, variables),
+      apiKeyName: _resolveVariables(
+        request.authorization.apiKeyName,
+        variables,
+      ),
+      apiKeyValue: _resolveVariables(
+        request.authorization.apiKeyValue,
+        variables,
+      ),
+    ),
     body: _resolveVariables(request.body, variables),
     multipartFields: request.multipartFields
         .map(
@@ -593,6 +806,14 @@ ApiToolRequest resolveApiToolRequestVariables(
             name: _resolveVariables(field.name, variables),
             value: _resolveVariables(field.value, variables),
             contentType: _resolveVariables(field.contentType, variables),
+          ),
+        )
+        .toList(growable: false),
+    urlEncodedFields: request.urlEncodedFields
+        .map(
+          (field) => field.copyWith(
+            name: _resolveVariables(field.name, variables),
+            value: _resolveVariables(field.value, variables),
           ),
         )
         .toList(growable: false),
@@ -625,6 +846,21 @@ ApiToolBodyMode _bodyModeFromJson(Object? value) {
     }
   }
   return ApiToolBodyMode.raw;
+}
+
+ApiToolAuthorizationType _authorizationTypeFromJson(Object? value) {
+  final raw = value?.toString().trim().toLowerCase() ?? '';
+  for (final type in ApiToolAuthorizationType.values) {
+    if (type.name.toLowerCase() == raw || type.label.toLowerCase() == raw) {
+      return type;
+    }
+  }
+  return ApiToolAuthorizationType.none;
+}
+
+ApiToolAuthorization _authorizationFromJson(Object? value) {
+  if (value is! Map) return const ApiToolAuthorization();
+  return ApiToolAuthorization.fromJson(value.cast<String, Object?>());
 }
 
 ApiToolMultipartKind _multipartKindFromJson(Object? value) {

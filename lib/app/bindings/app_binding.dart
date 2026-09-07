@@ -2,6 +2,7 @@ import 'package:app_release_center/app/controllers/home_controller.dart';
 import 'package:app_release_center/app/data/release_center_connect.dart';
 import 'package:app_release_center/app/services/android_cicd_clone_service.dart';
 import 'package:app_release_center/app/services/android_keystore_generation_service.dart';
+import 'package:app_release_center/app/services/api_monitor_service.dart';
 import 'package:app_release_center/app/services/api_tool_repository_service.dart';
 import 'package:app_release_center/app/services/api_tool_service.dart';
 import 'package:app_release_center/app/services/app_store_credential_store_service.dart';
@@ -55,6 +56,7 @@ class AppBinding extends Bindings {
     );
     Get.put<ScriptCatalogService>(ScriptCatalogService(), permanent: true);
     Get.put<ApiToolService>(ApiToolService(), permanent: true);
+    Get.put<ApiMonitorService>(ApiMonitorService(), permanent: true);
     await Get.putAsync<ApiToolRepositoryService>(
       () => ApiToolRepositoryService(
         localStore: Get.find<ProjectStoreService>(),

@@ -503,6 +503,108 @@ class _AndroidKeystoreGenerationDialogState
   }
 }
 
+class _ApiMonitorButton extends StatelessWidget {
+  const _ApiMonitorButton({this.compact = false});
+
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final monitorService = Get.isRegistered<ApiMonitorService>()
+        ? Get.find<ApiMonitorService>()
+        : Get.put<ApiMonitorService>(ApiMonitorService());
+
+    return Tooltip(
+      message: 'Open API Monitor (Right-click for options)',
+      child: GestureDetector(
+        onSecondaryTapUp: (details) => _showContextMenu(context, details.globalPosition, monitorService),
+        child: compact
+            ? OutlinedButton(
+                key: const Key('open-api-monitor'),
+                onPressed: () => showApiMonitorDialog(context),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  minimumSize: const Size(36, 36),
+                ),
+                child: const Icon(Icons.query_stats_outlined, size: 18),
+              )
+            : OutlinedButton.icon(
+                key: const Key('open-api-monitor'),
+                onPressed: () => showApiMonitorDialog(context),
+                icon: const Icon(Icons.query_stats_outlined, size: 18),
+                label: const Text('API Monitor'),
+              ),
+      ),
+    );
+  }
+
+  void _showContextMenu(BuildContext context, Offset position, ApiMonitorService monitorService) {
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox?;
+    if (overlay == null) return;
+    showMenu<String>(
+      context: context,
+      position: RelativeRect.fromRect(
+        position & const Size(40, 40),
+        Offset.zero & overlay.size,
+      ),
+      items: const [
+        PopupMenuItem(
+          value: 'open_dialog',
+          child: ListTile(
+            leading: Icon(Icons.web_asset_outlined),
+            title: Text('Open In-App Dialog'),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+        PopupMenuItem(
+          value: 'open_window',
+          child: ListTile(
+            leading: Icon(Icons.open_in_new_outlined),
+            title: Text('Open in Separate Window'),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+        PopupMenuItem(
+          value: 'open_browser',
+          child: ListTile(
+            leading: Icon(Icons.public_outlined),
+            title: Text('Open in Browser'),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+        PopupMenuItem(
+          value: 'copy_url',
+          child: ListTile(
+            leading: Icon(Icons.copy_outlined),
+            title: Text('Copy Dashboard URL'),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+      ],
+    ).then((value) async {
+      if (value == 'open_dialog') {
+        if (context.mounted) {
+          await showApiMonitorDialog(context);
+        }
+      } else if (value == 'open_window') {
+        await monitorService.openStandaloneWindow();
+      } else if (value == 'open_browser') {
+        await monitorService.openInBrowser();
+      } else if (value == 'copy_url') {
+        await monitorService.copyDashboardUrl();
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Copied API Monitor dashboard URL'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+    });
+  }
+}
+
 class _FlowPanelHeader extends GetView<HomeController> {
   const _FlowPanelHeader({required this.onExtendedActionSelected});
 
@@ -511,28 +613,29 @@ class _FlowPanelHeader extends GetView<HomeController> {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        const Expanded(
-          child: _PanelTitle(
-            icon: Icons.account_tree_outlined,
-            title: 'Automation',
-          ),
-        ),
-        const SizedBox(width: 8),
-        Flexible(
-          flex: 2,
-          child: Align(
-            alignment: Alignment.centerRight,
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              alignment: WrapAlignment.end,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                const _ApiToolButton(),
-                const _ReleaseWorkflowButton(),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 620;
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            const _PanelTitle(
+              icon: Icons.account_tree_outlined,
+              title: 'Automation',
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  alignment: WrapAlignment.end,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    _ApiMonitorButton(compact: compact),
+                    const _ApiToolButton(),
+                    const _ReleaseWorkflowButton(),
                 const _ThemeSwitchMenu(),
                 Obx(
                   () => _StatusPill(
@@ -549,6 +652,8 @@ class _FlowPanelHeader extends GetView<HomeController> {
           ),
         ),
       ],
+    );
+      },
     );
   }
 }

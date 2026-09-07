@@ -282,12 +282,21 @@ void main() {
 
     expect(find.byKey(const Key('api-tool-dialog')), findsOneWidget);
     expect(find.byKey(const Key('api-tool-url')), findsOneWidget);
-    expect(find.byKey(const Key('api-tool-header-name-0')), findsOneWidget);
 
     await tester.enterText(
       find.byKey(const Key('api-tool-url')),
       'https://example.com/users',
     );
+
+    await _openApiToolTab(tester, 'api-tool-settings-tab');
+    expect(find.byKey(const Key('api-tool-timeout-seconds')), findsOneWidget);
+    await tester.enterText(
+      find.byKey(const Key('api-tool-timeout-seconds')),
+      '120',
+    );
+
+    await _openApiToolTab(tester, 'api-tool-headers-tab');
+    expect(find.byKey(const Key('api-tool-header-name-0')), findsOneWidget);
     await tester.enterText(
       find.byKey(const Key('api-tool-header-name-0')),
       'x-test',
@@ -302,10 +311,79 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(apiTool.requests, hasLength(1));
+    expect(apiTool.timeouts.single, const Duration(seconds: 120));
     expect(apiTool.requests.single.url, 'https://example.com/users');
     expect(apiTool.requests.single.enabledHeaders['x-test'], 'demo');
+    expect(harness.controller.store.apiToolTimeoutSeconds, 120);
     expect(find.text('200'), findsOneWidget);
     expect(find.textContaining('"ok": true'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('close-api-tool')));
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('API tool saves authorization and headers per request', (
+    tester,
+  ) async {
+    final apiTool = _FakeApiToolService();
+    Get.put<ApiToolService>(apiTool);
+    await _pumpHome(tester, harness);
+
+    await tester.tap(find.byKey(const Key('open-api-tool')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('api-tool-name')),
+      'Authorized Demo',
+    );
+    await tester.enterText(
+      find.byKey(const Key('api-tool-url')),
+      'https://example.com/private',
+    );
+    await _openApiToolTab(tester, 'api-tool-headers-tab');
+    await tester.enterText(
+      find.byKey(const Key('api-tool-header-name-0')),
+      'X-Request-ID',
+    );
+    await tester.enterText(
+      find.byKey(const Key('api-tool-header-value-0')),
+      'request-123',
+    );
+
+    await tester.tap(find.byKey(const Key('api-tool-authorization-tab')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('api-tool-authorization-type')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Bearer Token').last);
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('api-tool-auth-token')),
+      'demo-token',
+    );
+
+    await tester.tap(find.byKey(const Key('api-tool-save')));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    final saved = harness.controller.store.apiToolRequests.single;
+    expect(saved.enabledHeaders['X-Request-ID'], 'request-123');
+    expect(saved.authorization.type, ApiToolAuthorizationType.bearer);
+    expect(saved.authorization.token, 'demo-token');
+
+    await tester.tap(find.byKey(const Key('api-tool-new')));
+    await tester.pump(const Duration(milliseconds: 250));
+    await tester.tap(find.text('Authorized Demo').first);
+    await tester.pump(const Duration(milliseconds: 250));
+    await tester.tap(find.byKey(const Key('api-tool-send')));
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(apiTool.requests, hasLength(1));
+    expect(
+      apiTool.requests.single.enabledHeaders['X-Request-ID'],
+      'request-123',
+    );
+    expect(
+      apiTool.requests.single.enabledHeaders['Authorization'],
+      'Bearer demo-token',
+    );
 
     await tester.tap(find.byKey(const Key('close-api-tool')));
     await tester.pumpAndSettle();
@@ -328,8 +406,10 @@ void main() {
     await tester.tap(find.byKey(const Key('api-tool-body-tab')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
-    await tester.tap(find.text('Multipart'));
-    await tester.pump();
+    await tester.tap(find.byKey(const Key('api-tool-body-mode')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('form-data').last);
+    await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const Key('api-tool-multipart-name-0')),
       'name',
@@ -352,6 +432,305 @@ void main() {
     await tester.pumpAndSettle();
   });
 
+  testWidgets('API tool sends x-www-form-urlencoded fields', (tester) async {
+    final apiTool = _FakeApiToolService();
+    Get.put<ApiToolService>(apiTool);
+    await _pumpHome(tester, harness);
+
+    await tester.tap(find.byKey(const Key('open-api-tool')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('api-tool-url')),
+      'https://example.com/token',
+    );
+    await tester.tap(find.byKey(const Key('api-tool-body-tab')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('api-tool-body-mode')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('x-www-form-urlencoded').last);
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('api-tool-urlencoded-name-0')),
+      'grant_type',
+    );
+    await tester.enterText(
+      find.byKey(const Key('api-tool-urlencoded-value-0')),
+      'client credentials',
+    );
+
+    await tester.tap(find.byKey(const Key('api-tool-send')));
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(apiTool.requests, hasLength(1));
+    expect(apiTool.requests.single.bodyMode, ApiToolBodyMode.urlEncoded);
+    expect(apiTool.requests.single.urlEncodedFields.single.name, 'grant_type');
+    expect(
+      apiTool.requests.single.urlEncodedFields.single.value,
+      'client credentials',
+    );
+
+    await tester.tap(find.byKey(const Key('close-api-tool')));
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets(
+    'API tool runs a confirmed Quick Request with active environment',
+    (tester) async {
+      final apiTool = _FakeApiToolService();
+      Get.put<ApiToolService>(apiTool);
+      final now = DateTime(2026, 8, 17);
+      await harness.controller.store.saveApiToolCollections([
+        ApiToolCollectionRoot(
+          id: 'collection-quick',
+          name: 'Sandbox',
+          activeEnvironmentId: 'environment-quick',
+          environments: [
+            ApiToolEnvironment(
+              id: 'environment-quick',
+              name: 'Local',
+              variables: const [
+                ApiToolEnvironmentVariable(
+                  id: 'variable-url',
+                  name: 'BASE_URL',
+                  value: 'https://sandbox.example.com',
+                ),
+                ApiToolEnvironmentVariable(
+                  id: 'variable-token',
+                  name: 'TOKEN',
+                  value: 'quick-secret',
+                ),
+              ],
+              updatedAt: now,
+            ),
+          ],
+          updatedAt: now,
+        ),
+      ]);
+      await harness.controller.store.saveApiToolQuickRequests([
+        ApiToolQuickRequest(
+          id: 'quick-reset',
+          name: 'Reset sandbox',
+          collectionId: 'collection-quick',
+          request: ApiToolRequest(
+            id: 'quick-reset',
+            name: 'Reset sandbox',
+            method: ApiToolMethod.post,
+            url: '{{BASE_URL}}/reset',
+            collectionId: 'collection-quick',
+            authorization: const ApiToolAuthorization(
+              type: ApiToolAuthorizationType.bearer,
+              token: '{{TOKEN}}',
+            ),
+            updatedAt: now,
+          ),
+          requiresConfirmation: true,
+          updatedAt: now,
+        ),
+      ]);
+      await _pumpHome(tester, harness);
+
+      await tester.tap(find.byKey(const Key('open-api-tool')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('api-tool-quick-requests-tab')));
+      await tester.pumpAndSettle();
+      expect(find.text('Reset sandbox'), findsOneWidget);
+
+      await tester.tap(
+        find.byKey(const Key('api-tool-run-quick-request-quick-reset')),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const Key('api-tool-confirm-run-quick-request')),
+        findsOneWidget,
+      );
+      expect(apiTool.requests, isEmpty);
+
+      await tester.tap(
+        find.byKey(const Key('api-tool-confirm-run-quick-request')),
+      );
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expect(apiTool.requests, hasLength(1));
+      expect(apiTool.requests.single.url, 'https://sandbox.example.com/reset');
+      expect(
+        apiTool.requests.single.enabledHeaders['Authorization'],
+        'Bearer quick-secret',
+      );
+      expect(harness.controller.store.apiToolHistory, hasLength(1));
+
+      await tester.tap(find.byKey(const Key('close-api-tool')));
+      await tester.pumpAndSettle();
+    },
+  );
+
+  testWidgets(
+    'API tool creates, edits, duplicates, and deletes Quick Requests',
+    (tester) async {
+      Get.put<ApiToolService>(_FakeApiToolService());
+      await _pumpHome(tester, harness);
+
+      await tester.tap(find.byKey(const Key('open-api-tool')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('api-tool-quick-requests-tab')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('api-tool-new-quick-request')));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('api-tool-quick-name')),
+        'Health check',
+      );
+      await tester.enterText(
+        find.byKey(const Key('api-tool-quick-url')),
+        'https://example.com/health',
+      );
+      await tester.tap(find.byKey(const Key('api-tool-save-quick-request')));
+      await tester.pump(const Duration(milliseconds: 400));
+
+      expect(harness.controller.store.apiToolQuickRequests, hasLength(1));
+      final quickId = harness.controller.store.apiToolQuickRequests.single.id;
+
+      await tester.tap(find.byKey(Key('api-tool-quick-request-menu-$quickId')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Edit').last);
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('api-tool-quick-name')),
+        'Health check updated',
+      );
+      await tester.tap(find.byKey(const Key('api-tool-save-quick-request')));
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(
+        harness.controller.store.apiToolQuickRequests.single.name,
+        'Health check updated',
+      );
+
+      await tester.tap(find.byKey(Key('api-tool-quick-request-menu-$quickId')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Duplicate').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('api-tool-save-quick-request')));
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(harness.controller.store.apiToolQuickRequests, hasLength(2));
+
+      await tester.tap(find.byTooltip('Manage Quick Request').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Delete').last);
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const Key('api-tool-confirm-delete-quick-request')),
+      );
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(harness.controller.store.apiToolQuickRequests, hasLength(1));
+
+      await tester.tap(find.byKey(const Key('close-api-tool')));
+      await tester.pumpAndSettle();
+    },
+  );
+
+  testWidgets('API tool copies the current draft into a Quick Request', (
+    tester,
+  ) async {
+    Get.put<ApiToolService>(_FakeApiToolService());
+    await _pumpHome(tester, harness);
+
+    await tester.tap(find.byKey(const Key('open-api-tool')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('api-tool-name')),
+      'Current draft',
+    );
+    await tester.enterText(
+      find.byKey(const Key('api-tool-url')),
+      'https://example.com/call-now',
+    );
+    await _openApiToolTab(tester, 'api-tool-headers-tab');
+    await tester.enterText(
+      find.byKey(const Key('api-tool-header-name-0')),
+      'X-Source',
+    );
+    await tester.enterText(
+      find.byKey(const Key('api-tool-header-value-0')),
+      'quick-copy',
+    );
+    await tester.tap(find.byKey(const Key('api-tool-quick-requests-tab')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('api-tool-copy-to-quick-request')));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const Key('api-tool-quick-name')))
+          .controller
+          ?.text,
+      'Current draft',
+    );
+    await tester.tap(find.byKey(const Key('api-tool-save-quick-request')));
+    await tester.pump(const Duration(milliseconds: 400));
+
+    final saved = harness.controller.store.apiToolQuickRequests.single;
+    expect(saved.request.url, 'https://example.com/call-now');
+    expect(saved.request.enabledHeaders['X-Source'], 'quick-copy');
+
+    await tester.tap(find.byKey(const Key('close-api-tool')));
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('API tool blocks Quick Requests with missing variables', (
+    tester,
+  ) async {
+    final apiTool = _FakeApiToolService();
+    Get.put<ApiToolService>(apiTool);
+    final now = DateTime(2026, 8, 17);
+    await harness.controller.store.saveApiToolCollections([
+      ApiToolCollectionRoot(
+        id: 'collection-missing-variable',
+        name: 'Missing variable',
+        updatedAt: now,
+      ),
+    ]);
+    await harness.controller.store.saveApiToolQuickRequests([
+      ApiToolQuickRequest(
+        id: 'quick-missing-variable',
+        name: 'Broken quick call',
+        collectionId: 'collection-missing-variable',
+        request: ApiToolRequest(
+          id: 'quick-missing-variable',
+          name: 'Broken quick call',
+          method: ApiToolMethod.post,
+          url: 'https://example.com/reset',
+          collectionId: 'collection-missing-variable',
+          headers: const [
+            ApiToolHeader(
+              id: 'missing-header',
+              name: 'X-Token',
+              value: '{{MISSING_TOKEN}}',
+            ),
+          ],
+          updatedAt: now,
+        ),
+        updatedAt: now,
+      ),
+    ]);
+    await _pumpHome(tester, harness);
+
+    await tester.tap(find.byKey(const Key('open-api-tool')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('api-tool-quick-requests-tab')));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(
+        const Key('api-tool-run-quick-request-quick-missing-variable'),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(apiTool.requests, isEmpty);
+    expect(find.textContaining('MISSING_TOKEN'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('close-api-tool')));
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('API tool saves requests inside nested collection folders', (
     tester,
   ) async {
@@ -361,6 +740,7 @@ void main() {
     await tester.tap(find.byKey(const Key('open-api-tool')));
     await tester.pumpAndSettle();
 
+    await _openApiToolMenu(tester, 'api-tool-new-menu');
     await tester.tap(find.byKey(const Key('api-tool-add-collection')));
     await tester.pumpAndSettle();
     await tester.enterText(
@@ -370,6 +750,7 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, 'Create'));
     await tester.pump(const Duration(milliseconds: 300));
 
+    await _openApiToolMenu(tester, 'api-tool-new-menu');
     await tester.tap(find.byKey(const Key('api-tool-add-folder')));
     await tester.pumpAndSettle();
     await tester.enterText(
@@ -379,6 +760,7 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, 'Create'));
     await tester.pump(const Duration(milliseconds: 300));
 
+    await _openApiToolMenu(tester, 'api-tool-new-menu');
     await tester.tap(find.byKey(const Key('api-tool-add-subfolder')));
     await tester.pumpAndSettle();
     await tester.enterText(
@@ -412,8 +794,216 @@ void main() {
     expect(folders, hasLength(2));
     expect(oauthFolder.parentFolderId, isNotEmpty);
     expect(request.folderId, oauthFolder.id);
-    expect(find.text('Auth'), findsOneWidget);
+    // 'Auth' is also the request workbench tab label, so scope to the tree.
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('api-tool-collection-list')),
+        matching: find.text('Auth'),
+      ),
+      findsOneWidget,
+    );
     expect(find.text('OAuth'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('close-api-tool')));
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('API tool groups collection actions behind New and overflow', (
+    tester,
+  ) async {
+    Get.put<ApiToolService>(_FakeApiToolService());
+    await _pumpHome(tester, harness);
+
+    await tester.tap(find.byKey(const Key('open-api-tool')));
+    await tester.pumpAndSettle();
+
+    final toolbar = find.byKey(const Key('api-tool-collection-toolbar'));
+    final toolbarRect = tester.getRect(toolbar);
+    for (final key in const ['api-tool-new-menu', 'api-tool-more-menu']) {
+      final trigger = find.byKey(Key(key));
+      expect(trigger, findsOneWidget);
+      final triggerRect = tester.getRect(trigger);
+      expect(triggerRect.left, greaterThanOrEqualTo(toolbarRect.left));
+      expect(triggerRect.right, lessThanOrEqualTo(toolbarRect.right));
+    }
+
+    await _openApiToolMenu(tester, 'api-tool-new-menu');
+    for (final key in const [
+      'api-tool-new-request',
+      'api-tool-add-folder',
+      'api-tool-add-subfolder',
+      'api-tool-add-collection',
+    ]) {
+      expect(find.byKey(Key(key)), findsOneWidget);
+    }
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+
+    await _openApiToolMenu(tester, 'api-tool-more-menu');
+    for (final key in const [
+      'api-tool-environments',
+      'api-tool-import-postman',
+      'api-tool-import-postman-environment',
+      'api-tool-delete-collection',
+    ]) {
+      expect(find.byKey(Key(key)), findsOneWidget);
+    }
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('close-api-tool')));
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('API tool reveals requests only after expanding their branch', (
+    tester,
+  ) async {
+    Get.put<ApiToolService>(_FakeApiToolService());
+    final now = DateTime(2026, 8, 17);
+    await harness.controller.store.saveApiToolCollections([
+      ApiToolCollectionRoot(
+        id: 'collection-tree',
+        name: 'Tree API',
+        updatedAt: now,
+      ),
+    ]);
+    await harness.controller.store.saveApiToolFolders([
+      ApiToolCollectionFolder(
+        id: 'folder-users',
+        collectionId: 'collection-tree',
+        name: 'Users',
+        updatedAt: now,
+      ),
+    ]);
+    await harness.controller.store.saveApiToolRequests([
+      ApiToolRequest(
+        id: 'request-root',
+        name: 'Health Check',
+        method: ApiToolMethod.get,
+        url: 'https://example.com/health',
+        collectionId: 'collection-tree',
+        updatedAt: now,
+      ),
+      ApiToolRequest(
+        id: 'request-users',
+        name: 'List Users',
+        method: ApiToolMethod.get,
+        url: 'https://example.com/users',
+        collectionId: 'collection-tree',
+        folderId: 'folder-users',
+        updatedAt: now,
+      ),
+    ]);
+    await _pumpHome(tester, harness);
+
+    await tester.tap(find.byKey(const Key('open-api-tool')));
+    await tester.pumpAndSettle();
+
+    final collection = find.byKey(
+      const Key('api-tool-root-folder-collection-tree'),
+    );
+    const folderKey = Key('api-tool-folder-folder-users');
+    const rootRequestKey = Key('api-tool-collection-request-root');
+    const folderRequestKey = Key('api-tool-collection-request-users');
+    expect(collection, findsOneWidget);
+    expect(find.byKey(folderKey), findsNothing);
+    expect(find.byKey(rootRequestKey), findsNothing);
+    expect(find.byKey(folderRequestKey), findsNothing);
+
+    await tester.tap(collection);
+    await tester.pumpAndSettle();
+    expect(find.byKey(folderKey), findsOneWidget);
+    expect(find.byKey(rootRequestKey), findsOneWidget);
+    expect(find.byKey(folderRequestKey), findsNothing);
+
+    await tester.tap(find.byKey(folderKey));
+    await tester.pumpAndSettle();
+    expect(find.byKey(folderRequestKey), findsOneWidget);
+
+    await tester.tap(find.byKey(folderKey));
+    await tester.pumpAndSettle();
+    expect(find.byKey(folderRequestKey), findsNothing);
+
+    await tester.tap(find.byKey(const Key('close-api-tool')));
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('API tool deletes a collection and all linked data', (
+    tester,
+  ) async {
+    Get.put<ApiToolService>(_FakeApiToolService());
+    final now = DateTime(2026, 8, 17);
+    await harness.controller.store.saveApiToolCollections([
+      ApiToolCollectionRoot(
+        id: 'collection-delete',
+        name: 'Temporary API',
+        updatedAt: now,
+      ),
+    ]);
+    await harness.controller.store.saveApiToolFolders([
+      ApiToolCollectionFolder(
+        id: 'folder-delete',
+        collectionId: 'collection-delete',
+        name: 'Temporary Folder',
+        updatedAt: now,
+      ),
+    ]);
+    await harness.controller.store.saveApiToolRequests([
+      ApiToolRequest(
+        id: 'request-delete',
+        name: 'Temporary Request',
+        method: ApiToolMethod.get,
+        url: 'https://example.com/temporary',
+        collectionId: 'collection-delete',
+        folderId: 'folder-delete',
+        updatedAt: now,
+      ),
+    ]);
+    await harness.controller.store.saveApiToolQuickRequests([
+      ApiToolQuickRequest(
+        id: 'quick-delete',
+        name: 'Temporary Reset',
+        collectionId: 'collection-delete',
+        request: ApiToolRequest(
+          id: 'quick-delete',
+          name: 'Temporary Reset',
+          method: ApiToolMethod.post,
+          url: 'https://example.com/reset',
+          collectionId: 'collection-delete',
+          updatedAt: now,
+        ),
+        updatedAt: now,
+      ),
+    ]);
+    await _pumpHome(tester, harness);
+
+    await tester.tap(find.byKey(const Key('open-api-tool')));
+    await tester.pumpAndSettle();
+    await _openApiToolMenu(tester, 'api-tool-more-menu');
+    await tester.tap(find.byKey(const Key('api-tool-delete-collection')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Delete Collection?'), findsOneWidget);
+    expect(
+      find.textContaining(
+        '1 folder(s), 1 saved request(s), and 1 Quick Request(s)',
+      ),
+      findsOneWidget,
+    );
+
+    await tester.tap(
+      find.byKey(const Key('api-tool-confirm-delete-collection')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      harness.controller.store.apiToolCollections.single.displayName,
+      'Default Collection',
+    );
+    expect(harness.controller.store.apiToolFolders, isEmpty);
+    expect(harness.controller.store.apiToolRequests, isEmpty);
+    expect(harness.controller.store.apiToolQuickRequests, isEmpty);
+    expect(find.textContaining('Temporary API" was deleted'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('close-api-tool')));
     await tester.pumpAndSettle();
@@ -429,6 +1019,7 @@ void main() {
     await tester.tap(find.byKey(const Key('open-api-tool')));
     await tester.pumpAndSettle();
 
+    await _openApiToolMenu(tester, 'api-tool-more-menu');
     await tester.tap(find.byKey(const Key('api-tool-environments')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('api-tool-add-environment')));
@@ -534,6 +1125,7 @@ void main() {
       find.byKey(const Key('api-tool-url')),
       '{{Base Url}}/users',
     );
+    await _openApiToolTab(tester, 'api-tool-headers-tab');
     await tester.enterText(
       find.byKey(const Key('api-tool-header-name-0')),
       'authorization',
@@ -550,8 +1142,10 @@ void main() {
     await tester.tap(find.byKey(const Key('api-tool-body-tab')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
-    await tester.tap(find.text('Multipart'));
-    await tester.pump();
+    await tester.tap(find.byKey(const Key('api-tool-body-mode')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('form-data').last);
+    await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const Key('api-tool-multipart-name-0')),
       'user_id',
@@ -684,12 +1278,21 @@ void main() {
 
     await tester.tap(find.byKey(const Key('api-tool-new')));
     await tester.pump(const Duration(milliseconds: 250));
-    expect(_textFieldByLabel(tester, 'URL').controller?.text, isEmpty);
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const Key('api-tool-url')))
+          .controller
+          ?.text,
+      isEmpty,
+    );
 
     await tester.tap(find.text('Saved Demo').first);
     await tester.pump(const Duration(milliseconds: 250));
     expect(
-      _textFieldByLabel(tester, 'URL').controller?.text,
+      tester
+          .widget<TextField>(find.byKey(const Key('api-tool-url')))
+          .controller
+          ?.text,
       'https://example.com/saved',
     );
 
@@ -708,7 +1311,10 @@ void main() {
     await tester.tap(historyTile);
     await tester.pump(const Duration(milliseconds: 250));
     expect(
-      _textFieldByLabel(tester, 'URL').controller?.text,
+      tester
+          .widget<TextField>(find.byKey(const Key('api-tool-url')))
+          .controller
+          ?.text,
       'https://example.com/saved',
     );
 
@@ -754,6 +1360,10 @@ void main() {
 
     await tester.tap(find.byKey(const Key('open-api-tool')));
     await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const Key('api-tool-root-folder-collection-1')),
+    );
+    await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('api-tool-request-search')), findsOneWidget);
     expect(find.text('Alpha Login'), findsOneWidget);
@@ -773,6 +1383,369 @@ void main() {
 
     expect(find.text('Alpha Login'), findsOneWidget);
     expect(find.text('Billing Status'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('close-api-tool')));
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('API tool keeps the Params tab in sync with the URL', (
+    tester,
+  ) async {
+    final apiTool = _FakeApiToolService();
+    Get.put<ApiToolService>(apiTool);
+    await _pumpHome(tester, harness);
+
+    await tester.tap(find.byKey(const Key('open-api-tool')));
+    await tester.pumpAndSettle();
+
+    // URL -> rows.
+    await tester.enterText(
+      find.byKey(const Key('api-tool-url')),
+      'https://example.com/users?page=2&role=admin',
+    );
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const Key('api-tool-param-name-0')))
+          .controller
+          ?.text,
+      'page',
+    );
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const Key('api-tool-param-value-1')))
+          .controller
+          ?.text,
+      'admin',
+    );
+
+    // Rows -> URL.
+    await tester.enterText(
+      find.byKey(const Key('api-tool-param-value-0')),
+      '7',
+    );
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const Key('api-tool-url')))
+          .controller
+          ?.text,
+      'https://example.com/users?page=7&role=admin',
+    );
+
+    await tester.tap(find.byKey(const Key('api-tool-send')));
+    await tester.pumpAndSettle();
+    expect(
+      apiTool.requests.single.url,
+      'https://example.com/users?page=7&role=admin',
+    );
+
+    // A separator typed into a value re-splits the query; must not throw even
+    // though the focused row's controller gets rebuilt underneath.
+    await tester.enterText(
+      find.byKey(const Key('api-tool-param-value-1')),
+      'admin&extra=1',
+    );
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const Key('api-tool-param-name-2')))
+          .controller
+          ?.text,
+      'extra',
+    );
+
+    await tester.tap(find.byKey(const Key('api-tool-clear-params')));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const Key('api-tool-url')))
+          .controller
+          ?.text,
+      'https://example.com/users',
+    );
+
+    await tester.tap(find.byKey(const Key('close-api-tool')));
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('API tool beautifies the raw body and copies it as cURL', (
+    tester,
+  ) async {
+    Get.put<ApiToolService>(_FakeApiToolService());
+    await _pumpHome(tester, harness);
+
+    await tester.tap(find.byKey(const Key('open-api-tool')));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const Key('api-tool-url')),
+      'https://example.com/users',
+    );
+    await _openApiToolTab(tester, 'api-tool-headers-tab');
+    await tester.enterText(
+      find.byKey(const Key('api-tool-header-name-0')),
+      'content-type',
+    );
+    await tester.enterText(
+      find.byKey(const Key('api-tool-header-value-0')),
+      'application/json',
+    );
+    await _openApiToolTab(tester, 'api-tool-body-tab');
+    await tester.enterText(
+      find.byKey(const Key('api-tool-body')),
+      '{"name":"Demo","tags":[1,2]}',
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('api-tool-beautify-json')));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const Key('api-tool-body')))
+          .controller
+          ?.text,
+      '{\n  "name": "Demo",\n  "tags": [\n    1,\n    2\n  ]\n}',
+    );
+
+    String? copiedText;
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+          if (call.method == 'Clipboard.setData') {
+            copiedText =
+                (call.arguments as Map<Object?, Object?>)['text'] as String?;
+          }
+          return null;
+        });
+    addTearDown(() {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, null);
+    });
+
+    debugPrint(
+      'DBG view=${TestWidgetsFlutterBinding.instance.platformDispatcher.views.first.physicalSize} '
+      'dialog=${tester.getRect(find.byKey(const Key('api-tool-dialog')))} '
+      'btn=${tester.getRect(find.byKey(const Key('api-tool-copy-curl')))}',
+    );
+    await tester.tap(find.byKey(const Key('api-tool-copy-curl')));
+    await tester.pumpAndSettle();
+    expect(copiedText, contains("curl -X GET 'https://example.com/users'"));
+    expect(copiedText, contains("-H 'content-type: application/json'"));
+    expect(copiedText, contains('--data-raw'));
+
+    await tester.tap(find.byKey(const Key('close-api-tool')));
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('API tool sends with the keyboard shortcut', (tester) async {
+    final apiTool = _FakeApiToolService();
+    Get.put<ApiToolService>(apiTool);
+    await _pumpHome(tester, harness);
+
+    await tester.tap(find.byKey(const Key('open-api-tool')));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const Key('api-tool-url')),
+      'https://example.com/shortcut',
+    );
+    await tester.pump();
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pumpAndSettle();
+
+    expect(apiTool.requests, hasLength(1));
+    expect(apiTool.requests.single.url, 'https://example.com/shortcut');
+
+    await tester.tap(find.byKey(const Key('close-api-tool')));
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('API tool response inspector splits payload across tabs', (
+    tester,
+  ) async {
+    Get.put<ApiToolService>(_FakeApiToolService());
+    await _pumpHome(tester, harness);
+
+    await tester.tap(find.byKey(const Key('open-api-tool')));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const Key('api-tool-url')),
+      'https://example.com/users',
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('api-tool-send')));
+    await tester.pumpAndSettle();
+
+    // Hero keeps the status code and reason phrase as separate glances.
+    expect(find.text('200'), findsOneWidget);
+    expect(find.text('OK'), findsOneWidget);
+    expect(find.textContaining('B'), findsWidgets);
+    expect(find.byKey(const Key('api-tool-response-body')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('api-tool-response-headers-tab')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('api-tool-response-headers')), findsOneWidget);
+    expect(find.text('content-type'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('api-tool-response-request-tab')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('api-tool-sent-request-line')), findsOneWidget);
+    expect(find.textContaining('GET https://example.com/users'), findsWidgets);
+
+    await tester.tap(find.byKey(const Key('api-tool-expand-response')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('api-tool-response-focus')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('api-tool-close-response-focus')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('close-api-tool')));
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('API tool lays out without overflow across window sizes', (
+    tester,
+  ) async {
+    Get.put<ApiToolService>(_FakeApiToolService());
+    final view =
+        TestWidgetsFlutterBinding.instance.platformDispatcher.views.first;
+
+    for (final size in const [
+      Size(1600, 900),
+      Size(1280, 720),
+      Size(1000, 700),
+      Size(880, 640),
+    ]) {
+      view.physicalSize = size;
+      await _pumpHome(tester, harness);
+      await tester.ensureVisible(find.byKey(const Key('open-api-tool')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('open-api-tool')));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const Key('api-tool-dialog')),
+        findsOneWidget,
+        reason: 'dialog should render at $size',
+      );
+
+      for (final tab in const [
+        'api-tool-params-tab',
+        'api-tool-headers-tab',
+        'api-tool-authorization-tab',
+        'api-tool-body-tab',
+        'api-tool-settings-tab',
+      ]) {
+        await _openApiToolTab(tester, tab);
+      }
+
+      await tester.tap(find.byKey(const Key('close-api-tool')));
+      await tester.pumpAndSettle();
+    }
+  });
+
+  testWidgets('API tool resizes its panels from the splitters', (tester) async {
+    Get.put<ApiToolService>(_FakeApiToolService());
+    await _pumpHome(tester, harness);
+
+    await tester.tap(find.byKey(const Key('open-api-tool')));
+    await tester.pumpAndSettle();
+
+    // Send once so the response panel has measurable content.
+    await tester.enterText(
+      find.byKey(const Key('api-tool-url')),
+      'https://example.com/users',
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('api-tool-send')));
+    await tester.pumpAndSettle();
+
+    double widthOf(Key key) => tester.getSize(find.byKey(key)).width;
+    const sidebarKey = Key('api-tool-sidebar');
+    const requestKey = Key('api-tool-name');
+    const responseKey = Key('api-tool-response-body');
+
+    // Two horizontal splitters: sidebar | workbench | response.
+    final sidebarSplitter = find.byKey(const Key('api-tool-sidebar-splitter'));
+    final workspaceSplitter = find.byKey(
+      const Key('api-tool-workspace-splitter'),
+    );
+    expect(sidebarSplitter, findsOneWidget);
+    expect(workspaceSplitter, findsOneWidget);
+
+    final sidebarBefore = widthOf(sidebarKey);
+    final requestBefore = widthOf(requestKey);
+    final responseBefore = widthOf(responseKey);
+
+    // Widen the sidebar; the workbench gives up the space.
+    await tester.drag(sidebarSplitter, const Offset(80, 0));
+    await tester.pumpAndSettle();
+    expect(widthOf(sidebarKey), greaterThan(sidebarBefore + 60));
+    expect(widthOf(requestKey), lessThan(requestBefore));
+
+    // Drag it back and the sidebar returns to where it started.
+    await tester.drag(sidebarSplitter, const Offset(-80, 0));
+    await tester.pumpAndSettle();
+    expect(widthOf(sidebarKey), closeTo(sidebarBefore, 1));
+
+    // Give the response panel room at the request panel's expense.
+    await tester.drag(workspaceSplitter, const Offset(-70, 0));
+    await tester.pumpAndSettle();
+    expect(widthOf(requestKey), lessThan(requestBefore - 50));
+    expect(widthOf(responseKey), greaterThan(responseBefore + 50));
+
+    // A drag far past the minimum stops at it rather than collapsing a panel.
+    await tester.drag(workspaceSplitter, const Offset(-4000, 0));
+    await tester.pumpAndSettle();
+    expect(widthOf(requestKey), greaterThan(200));
+
+    // Restore the shared layout so later tests start from the default split.
+    await tester.drag(workspaceSplitter, const Offset(4000, 0));
+    await tester.pumpAndSettle();
+    await tester.drag(
+      workspaceSplitter,
+      Offset(requestBefore - widthOf(requestKey), 0),
+    );
+    await tester.pumpAndSettle();
+    expect(widthOf(requestKey), closeTo(requestBefore, 1));
+
+    await tester.tap(find.byKey(const Key('close-api-tool')));
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('API tool stacks resizable panels on a narrow window', (
+    tester,
+  ) async {
+    Get.put<ApiToolService>(_FakeApiToolService());
+    final view =
+        TestWidgetsFlutterBinding.instance.platformDispatcher.views.first;
+    view.physicalSize = const Size(880, 1100);
+    await _pumpHome(tester, harness);
+    await tester.ensureVisible(find.byKey(const Key('open-api-tool')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('open-api-tool')));
+    await tester.pumpAndSettle();
+
+    final sidebarSplitter = find.byKey(const Key('api-tool-sidebar-splitter'));
+    expect(sidebarSplitter, findsOneWidget);
+    expect(
+      find.byKey(const Key('api-tool-workspace-splitter')),
+      findsOneWidget,
+    );
+
+    double heightOf(Key key) => tester.getSize(find.byKey(key)).height;
+    const sidebarKey = Key('api-tool-sidebar');
+    final sidebarBefore = heightOf(sidebarKey);
+
+    await tester.drag(sidebarSplitter, const Offset(0, 60));
+    await tester.pumpAndSettle();
+    expect(heightOf(sidebarKey), greaterThan(sidebarBefore + 40));
+
+    await tester.drag(sidebarSplitter, const Offset(0, -60));
+    await tester.pumpAndSettle();
+    expect(heightOf(sidebarKey), closeTo(sidebarBefore, 1));
 
     await tester.tap(find.byKey(const Key('close-api-tool')));
     await tester.pumpAndSettle();
@@ -1485,6 +2458,19 @@ bool _hasStdinField(WidgetTester tester, HomeController controller) {
       .any((field) => field.controller == controller.stdinController);
 }
 
+/// The request workbench opens on the Params tab; most assertions need a
+/// different tab first.
+Future<void> _openApiToolTab(WidgetTester tester, String tabKey) async {
+  await tester.tap(find.byKey(Key(tabKey)));
+  await tester.pumpAndSettle();
+}
+
+/// Sidebar create/overflow actions now live behind the `New` and `...` menus.
+Future<void> _openApiToolMenu(WidgetTester tester, String menuKey) async {
+  await tester.tap(find.byKey(Key(menuKey)));
+  await tester.pumpAndSettle();
+}
+
 TextField _textFieldByLabel(WidgetTester tester, String label) {
   return tester
       .widgetList<TextField>(find.byType(TextField))
@@ -1927,13 +2913,16 @@ class _NoopReleaseInstallerBuildExecutor
 
 class _FakeApiToolService extends ApiToolService {
   final requests = <ApiToolRequest>[];
+  final timeouts = <Duration?>[];
 
   @override
   Future<ApiToolResponse> send(
     ApiToolRequest request, {
+    Duration? timeout,
     ApiToolCancellationToken? cancelToken,
   }) async {
     requests.add(request);
+    timeouts.add(timeout);
     return const ApiToolResponse(
       statusCode: 200,
       reasonPhrase: 'OK',

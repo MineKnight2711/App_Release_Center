@@ -69,11 +69,12 @@ class ApiToolService extends GetxService {
 
   Future<ApiToolResponse> send(
     ApiToolRequest request, {
+    Duration? timeout,
     ApiToolCancellationToken? cancelToken,
   }) {
     return _httpClient.send(
       request,
-      timeout: _timeout,
+      timeout: timeout ?? _timeout,
       cancelToken: cancelToken,
     );
   }
@@ -106,6 +107,11 @@ class DartApiToolHttpClient implements ApiToolHttpClient {
       cancelToken?._throwIfCanceled();
 
       for (final entry in request.enabledHeaders.entries) {
+        final normalizedName = entry.key.trim().toLowerCase();
+        if (normalizedName == HttpHeaders.contentLengthHeader ||
+            normalizedName == HttpHeaders.transferEncodingHeader) {
+          continue;
+        }
         ioRequest.headers.set(entry.key, entry.value);
       }
 
@@ -116,12 +122,32 @@ class DartApiToolHttpClient implements ApiToolHttpClient {
           HttpHeaders.contentTypeHeader,
           'multipart/form-data; boundary=$boundary',
         );
+        ioRequest.contentLength = await _multipartContentLength(
+          request,
+          boundary,
+          cancelToken,
+        ).timeout(timeout);
         await _writeMultipartBody(
           ioRequest,
           request,
           boundary,
           cancelToken,
         ).timeout(timeout);
+      } else if (request.bodyMode == ApiToolBodyMode.urlEncoded) {
+        ioRequest.headers.set(
+          HttpHeaders.contentTypeHeader,
+          'application/x-www-form-urlencoded',
+        );
+        final encodedBody = request.enabledUrlEncodedFields
+            .map(
+              (field) =>
+                  '${_encodeFormComponent(field.name.trim())}='
+                  '${_encodeFormComponent(field.value)}',
+            )
+            .join('&');
+        final payload = utf8.encode(encodedBody);
+        ioRequest.contentLength = payload.length;
+        ioRequest.add(payload);
       } else if (request.body.isNotEmpty) {
         final payload = utf8.encode(request.body);
         ioRequest.contentLength = payload.length;
@@ -186,6 +212,10 @@ class DartApiToolHttpClient implements ApiToolHttpClient {
       throw const ApiToolException('URL must be a valid http or https URL.');
     }
     return uri;
+  }
+
+  String _encodeFormComponent(String value) {
+    return Uri.encodeQueryComponent(value).replaceAll('%20', '+');
   }
 
   Map<String, List<String>> _headersFromResponse(HttpHeaders headers) {
@@ -273,6 +303,52 @@ class DartApiToolHttpClient implements ApiToolHttpClient {
     }
 
     request.add(utf8.encode('--$boundary--\r\n'));
+  }
+
+  Future<int> _multipartContentLength(
+    ApiToolRequest toolRequest,
+    String boundary,
+    ApiToolCancellationToken? cancelToken,
+  ) async {
+    var contentLength = 0;
+    for (final field in toolRequest.enabledMultipartFields) {
+      cancelToken?._throwIfCanceled();
+      final name = _escapeMultipartValue(field.name.trim());
+      if (field.isFile) {
+        final filePath = field.value.trim();
+        if (filePath.isEmpty) {
+          throw ApiToolException('Multipart file path is empty for "$name".');
+        }
+        final file = File(filePath);
+        if (!file.existsSync()) {
+          throw ApiToolException('Multipart file not found: $filePath');
+        }
+        final fileName = _escapeMultipartValue(p.basename(filePath));
+        final contentType = field.contentType.trim().isEmpty
+            ? 'application/octet-stream'
+            : field.contentType.trim();
+        contentLength += utf8
+            .encode(
+              '--$boundary\r\n'
+              'Content-Disposition: form-data; name="$name"; '
+              'filename="$fileName"\r\n'
+              'Content-Type: $contentType\r\n\r\n',
+            )
+            .length;
+        contentLength += await file.length();
+        contentLength += utf8.encode('\r\n').length;
+      } else {
+        contentLength += utf8
+            .encode(
+              '--$boundary\r\n'
+              'Content-Disposition: form-data; name="$name"\r\n\r\n'
+              '${field.value}\r\n',
+            )
+            .length;
+      }
+    }
+    contentLength += utf8.encode('--$boundary--\r\n').length;
+    return contentLength;
   }
 
   String _escapeMultipartValue(String value) {

@@ -5,12 +5,16 @@ import 'package:app_release_center/app/services/theme_service.dart';
 import 'package:app_release_center/app/views/auth_gate.dart';
 import 'package:app_release_center/app/views/mobile_control_view.dart';
 import 'package:app_release_center/firebase_options.dart';
+import 'package:desktop_webview_window/desktop_webview_window.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-Future<void> main() async {
+Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
+  if (runWebViewTitleBarWidget(args)) {
+    return;
+  }
   final firebaseOptions = await DefaultFirebaseOptions.load();
   if (firebaseOptions != null) {
     await Firebase.initializeApp(options: firebaseOptions);
