@@ -15,6 +15,8 @@ import 'package:app_management_center/app/services/ch_play_version_check_service
 import 'package:app_management_center/app/services/cicd_dependency_doctor_service.dart';
 import 'package:app_management_center/app/services/cicd_dependency_installer_service.dart';
 import 'package:app_management_center/app/services/command_notification_service.dart';
+import 'package:app_management_center/app/services/flowfin_api_client.dart';
+import 'package:app_management_center/app/services/flowfin_credential_store_service.dart';
 import 'package:app_management_center/app/services/gemini_env_service.dart';
 import 'package:app_management_center/app/services/google_drive_credential_store_service.dart';
 import 'package:app_management_center/app/services/google_drive_release_upload_service.dart';
@@ -62,6 +64,18 @@ class AppBinding extends Bindings {
         localStore: Get.find<ProjectStoreService>(),
         auth: Get.find<AuthService>(),
       ).init(firebaseEnabled: firebaseEnabled),
+      permanent: true,
+    );
+    // FlowFin talks to its own Worker; it deliberately does not go through
+    // this app's Firebase project or its notification relay.
+    Get.put<FlowFinCredentialStoreService>(
+      FlowFinCredentialStoreService(),
+      permanent: true,
+    );
+    Get.put<FlowFinApiClient>(
+      FlowFinApiClient(
+        credentialStore: Get.find<FlowFinCredentialStoreService>(),
+      )..settings = Get.find<ProjectStoreService>().flowFinSettings,
       permanent: true,
     );
     Get.put<AndroidCicdCloneService>(

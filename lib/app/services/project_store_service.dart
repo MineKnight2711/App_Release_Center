@@ -4,6 +4,7 @@ import 'package:app_management_center/app/models/api_tool.dart';
 import 'package:app_management_center/app/models/auth_models.dart';
 import 'package:app_management_center/app/models/app_store_project.dart';
 import 'package:app_management_center/app/models/ch_play_project.dart';
+import 'package:app_management_center/app/models/flowfin_settings.dart';
 import 'package:app_management_center/app/models/google_drive_release_settings.dart';
 import 'package:app_management_center/app/models/release_notification.dart';
 import 'package:app_management_center/app/models/resource_catalog.dart';
@@ -27,6 +28,7 @@ class ProjectStoreService extends GetxService implements AuthSessionStore {
   static const _mobileControlSettingsKey = 'mobile_control_settings';
   static const _telegramReleaseSettingsKey = 'telegram_release_settings';
   static const _googleDriveReleaseSettingsKey = 'google_drive_release_settings';
+  static const _flowFinSettingsKey = 'flowfin_settings';
   static const _resourceCollectionSettingsKey = 'resource_collection_settings';
   static const _resourceCatalogsKey = 'resource_catalogs';
   static const _apiToolCollectionsKey = 'api_tool_collections';
@@ -150,6 +152,24 @@ class ProjectStoreService extends GetxService implements AuthSessionStore {
     }
 
     return const TelegramReleaseSettings();
+  }
+
+  FlowFinSettings get flowFinSettings {
+    final entry = _preferences.getString(_flowFinSettingsKey);
+    if (entry == null || entry.trim().isEmpty) {
+      return const FlowFinSettings();
+    }
+
+    try {
+      final json = jsonDecode(entry);
+      if (json is Map<String, Object?>) {
+        return FlowFinSettings.fromJson(json);
+      }
+    } catch (_) {
+      // Ignore invalid or legacy entries and fall back to safe defaults.
+    }
+
+    return const FlowFinSettings();
   }
 
   GoogleDriveReleaseSettings get googleDriveReleaseSettings {
@@ -481,6 +501,13 @@ class ProjectStoreService extends GetxService implements AuthSessionStore {
   ) async {
     await _preferences.setString(
       _telegramReleaseSettingsKey,
+      jsonEncode(settings.toJson()),
+    );
+  }
+
+  Future<void> saveFlowFinSettings(FlowFinSettings settings) async {
+    await _preferences.setString(
+      _flowFinSettingsKey,
       jsonEncode(settings.toJson()),
     );
   }
