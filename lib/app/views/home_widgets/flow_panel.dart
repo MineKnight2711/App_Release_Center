@@ -634,6 +634,7 @@ class _FlowPanelHeader extends GetView<HomeController> {
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     _ApiMonitorButton(compact: compact),
+                    _FlowFinButton(compact: compact),
                     const _ApiToolButton(),
                     const _ReleaseWorkflowButton(),
                 const _ThemeSwitchMenu(),

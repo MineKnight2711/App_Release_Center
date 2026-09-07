@@ -1,3 +1,4 @@
+import 'package:app_management_center/app/controllers/flowfin_controller.dart';
 import 'package:app_management_center/app/controllers/home_controller.dart';
 import 'package:app_management_center/app/data/release_center_connect.dart';
 import 'package:app_management_center/app/services/android_cicd_clone_service.dart';
@@ -239,6 +240,13 @@ class AppBinding extends Bindings {
 
   @override
   void dependencies() {
+    Get.lazyPut<FlowFinController>(
+      () => FlowFinController(
+        client: Get.find<FlowFinApiClient>(),
+        store: Get.find<ProjectStoreService>(),
+      ),
+      fenix: true,
+    );
     Get.lazyPut<HomeController>(
       () => HomeController(
         store: Get.find<ProjectStoreService>(),

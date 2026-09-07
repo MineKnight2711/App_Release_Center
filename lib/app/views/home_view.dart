@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'dart:io';
 import 'dart:ui' show ImageFilter;
 
+import 'package:app_management_center/app/controllers/flowfin_controller.dart';
 import 'package:app_management_center/app/controllers/home_controller.dart';
 import 'package:app_management_center/app/models/api_tool.dart';
 import 'package:app_management_center/app/models/app_store_credentials.dart';
@@ -13,6 +14,8 @@ import 'package:app_management_center/app/models/ch_play_credentials.dart';
 import 'package:app_management_center/app/models/ch_play_project.dart';
 import 'package:app_management_center/app/models/ch_play_version_snapshot.dart';
 import 'package:app_management_center/app/models/cicd_dependency.dart';
+import 'package:app_management_center/app/models/flowfin_models.dart';
+import 'package:app_management_center/app/models/flowfin_settings.dart';
 import 'package:app_management_center/app/models/release_fastlane_lane.dart';
 import 'package:app_management_center/app/models/release_notification.dart';
 import 'package:app_management_center/app/models/release_project.dart';
@@ -46,6 +49,7 @@ import 'package:webview_windows/webview_windows.dart';
 
 part 'home_widgets/api_monitor_dialog.dart';
 part 'home_widgets/flow_panel.dart';
+part 'home_widgets/flowfin_dialog.dart';
 part 'home_widgets/api_tool_dialog.dart';
 part 'home_widgets/api_tool/api_tool_components.dart';
 part 'home_widgets/api_tool/api_tool_omnibar.dart';

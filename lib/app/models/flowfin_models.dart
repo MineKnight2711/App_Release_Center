@@ -29,6 +29,55 @@ int parseMinorOr(Object? value, int fallback) {
 /// Renders a minor amount back onto the wire.
 String formatMinor(int value) => '$value';
 
+/// Display formatting, matched to the FlowFin phone app so the same number
+/// reads identically on both surfaces.
+class FlowFinMoney {
+  const FlowFinMoney._();
+
+  /// `đ` rather than the Unicode `₫`, the way Vietnamese banks write it.
+  static const String symbol = 'đ';
+
+  /// `1250000` -> `1.250.000 đ`.
+  static String format(int minor, {bool withSign = false}) {
+    final sign = minor < 0 ? '-' : (withSign && minor > 0 ? '+' : '');
+    return '$sign${grouped(minor.abs())} $symbol';
+  }
+
+  /// Thousands separator only: `1250000` -> `1.250.000`.
+  static String grouped(int value) {
+    final digits = value.abs().toString();
+    final buffer = StringBuffer(value < 0 ? '-' : '');
+    for (var i = 0; i < digits.length; i++) {
+      if (i > 0 && (digits.length - i) % 3 == 0) buffer.write('.');
+      buffer.write(digits[i]);
+    }
+    return buffer.toString();
+  }
+
+  /// Short form for tight spaces: `1,2 tr`, `950 ng`.
+  static String compact(int minor) {
+    final abs = minor.abs();
+    final sign = minor < 0 ? '-' : '';
+    if (abs >= 1000000000) {
+      return '$sign${(abs / 1000000000).toStringAsFixed(1).replaceAll('.', ',')} tỷ';
+    }
+    if (abs >= 1000000) {
+      return '$sign${(abs / 1000000).toStringAsFixed(1).replaceAll('.', ',')} tr';
+    }
+    if (abs >= 1000) return '$sign${(abs / 1000).round()} ng';
+    return '$sign$abs';
+  }
+
+  /// Reads what the user typed (`1.250.000`, `1250000`) as minor units.
+  /// Returns null when it cannot be read — the caller must handle that rather
+  /// than guess an amount.
+  static int? parseInput(String raw) {
+    final cleaned = raw.replaceAll(RegExp(r'[^0-9-]'), '');
+    if (cleaned.isEmpty || cleaned == '-') return null;
+    return int.tryParse(cleaned);
+  }
+}
+
 class FlowFinSession {
   const FlowFinSession({
     required this.accessToken,
