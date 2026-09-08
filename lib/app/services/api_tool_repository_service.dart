@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:math';
 
 import 'package:app_management_center/app/models/api_tool.dart';
 import 'package:app_management_center/app/models/auth_models.dart';
@@ -71,14 +73,18 @@ class FirestoreTeamApiToolDataSource implements TeamApiToolDataSource {
           .where('collectionId', isEqualTo: collectionId)
           .get(),
     ]);
-    final batch = _db.batch();
+    final writes = <void Function(WriteBatch)>[];
     for (final snapshot in linkedSnapshots) {
       for (final document in snapshot.docs) {
-        batch.delete(document.reference);
+        writes.add((batch) => batch.delete(document.reference));
       }
     }
-    batch.delete(teamRef.collection('apiToolCollections').doc(collectionId));
-    await batch.commit();
+    writes.add(
+      (batch) => batch.delete(
+        teamRef.collection('apiToolCollections').doc(collectionId),
+      ),
+    );
+    await _commitInBatches(writes);
   }
 
   @override
@@ -188,21 +194,86 @@ class FirestoreTeamApiToolDataSource implements TeamApiToolDataSource {
         .collection(collectionName);
     final existing = await collectionRef.get();
     final keepIds = ids.where((id) => id.trim().isNotEmpty).toSet();
-    final batch = _db.batch();
+    final writes = <void Function(WriteBatch)>[];
 
     for (final doc in existing.docs) {
       if (!keepIds.contains(doc.id)) {
-        batch.delete(doc.reference);
+        writes.add((batch) => batch.delete(doc.reference));
       }
     }
 
     for (final entry in jsonById.entries) {
       if (entry.key.trim().isEmpty) continue;
-      batch.set(collectionRef.doc(entry.key), entry.value);
+      _ensureDocumentFits(entry.key, entry.value);
+      writes.add(
+        (batch) => batch.set(collectionRef.doc(entry.key), entry.value),
+      );
     }
 
-    await batch.commit();
+    await _commitInBatches(writes);
   }
+
+  /// Firestore refuses a commit carrying more than [_maxWritesPerBatch] writes,
+  /// so a large collection has to be split across several batches.
+  Future<void> _commitInBatches(List<void Function(WriteBatch)> writes) async {
+    for (var start = 0; start < writes.length; start += _maxWritesPerBatch) {
+      final batch = _db.batch();
+      final end = min(start + _maxWritesPerBatch, writes.length);
+      for (var index = start; index < end; index++) {
+        writes[index](batch);
+      }
+      await batch.commit();
+    }
+  }
+
+  /// Firestore answers an oversized document with a bare `invalid-argument`
+  /// that names neither the document nor the limit, so the size is checked here
+  /// where the offending request can still be pointed at by name.
+  void _ensureDocumentFits(String documentId, Map<String, Object?> json) {
+    final bytes = estimateFirestoreDocumentBytes(json);
+    if (bytes <= _maxDocumentBytes) return;
+    final name = (json['name'] ?? '').toString().trim();
+    throw ApiToolRepositoryException(
+      '"${name.isEmpty ? documentId : name}" is ${(bytes / 1024).round()} KB, '
+      'over the ${_maxDocumentBytes ~/ 1024} KB Firestore stores per document. '
+      'Trim the body or the form-data value that carries the payload, then '
+      'import again.',
+    );
+  }
+}
+
+/// Firestore rejects a commit with more than 500 writes and a document larger
+/// than 1 MiB. Both are backend limits with no client-side check.
+const int _maxWritesPerBatch = 500;
+const int _maxDocumentBytes = 1024 * 1024;
+
+/// Approximates what Firestore counts as a document's size: 32 bytes of
+/// overhead plus every field name and value.
+int estimateFirestoreDocumentBytes(Map<String, Object?> json) {
+  return 32 + _estimateValueBytes(json);
+}
+
+int _estimateValueBytes(Object? value) {
+  if (value == null || value is bool) return 1;
+  if (value is num) return 8;
+  if (value is String) return utf8.encode(value).length + 1;
+  if (value is Map) {
+    return value.entries.fold<int>(
+      0,
+      (total, entry) =>
+          total +
+          utf8.encode(entry.key.toString()).length +
+          1 +
+          _estimateValueBytes(entry.value),
+    );
+  }
+  if (value is Iterable) {
+    return value.fold<int>(
+      0,
+      (total, entry) => total + _estimateValueBytes(entry),
+    );
+  }
+  return utf8.encode(value.toString()).length + 1;
 }
 
 class ApiToolRepositoryService extends GetxService {

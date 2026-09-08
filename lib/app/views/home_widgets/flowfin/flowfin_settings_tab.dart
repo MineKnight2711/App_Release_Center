@@ -42,7 +42,7 @@ class _FlowFinSettingsTabState extends State<_FlowFinSettingsTab> {
 
       return _FlowFinTabScaffold(
         icon: Icons.tune_outlined,
-        title: 'Settings',
+        title: 'Cài đặt',
         error: controller.accountError.value,
         loading: controller.isSavingAccount.value,
         actions: [
@@ -50,7 +50,7 @@ class _FlowFinSettingsTabState extends State<_FlowFinSettingsTab> {
             key: const Key('flowfin-account-refresh'),
             onPressed: controller.loadAccount,
             icon: const Icon(Icons.refresh_outlined, size: 16),
-            label: const Text('Refresh'),
+            label: const Text('Làm mới'),
           ),
         ],
         child: Column(
@@ -58,12 +58,12 @@ class _FlowFinSettingsTabState extends State<_FlowFinSettingsTab> {
           children: [
             const _PanelTitle(
               icon: Icons.person_outline,
-              title: 'Profile',
+              title: 'Hồ sơ',
             ),
             const SizedBox(height: 10),
             if (user != null)
               Text(
-                '${user.email}${user.emailVerified ? '' : '  ·  not verified'}',
+                '${user.email}${user.emailVerified ? '' : '  ·  chưa xác minh'}',
                 style: AppCyberTheme.dataTextStyle(
                   size: 11.5,
                   color: AppCyberTheme.textMuted,
@@ -76,7 +76,7 @@ class _FlowFinSettingsTabState extends State<_FlowFinSettingsTab> {
                 key: const Key('flowfin-display-name'),
                 controller: _displayNameController,
                 maxLength: 80,
-                decoration: const InputDecoration(labelText: 'Display name'),
+                decoration: const InputDecoration(labelText: 'Tên hiển thị'),
               ),
             ),
             const SizedBox(height: 4),
@@ -91,9 +91,9 @@ class _FlowFinSettingsTabState extends State<_FlowFinSettingsTab> {
                           () => controller.saveAccount(
                             displayName: _displayNameController.text,
                           ),
-                          successMessage: 'Profile saved.',
+                          successMessage: 'Đã lưu hồ sơ.',
                         ),
-                  child: const Text('Save profile'),
+                  child: const Text('Lưu hồ sơ'),
                 ),
                 const SizedBox(width: 10),
                 if (controller.accountStatus.value.isNotEmpty)
@@ -109,31 +109,31 @@ class _FlowFinSettingsTabState extends State<_FlowFinSettingsTab> {
             const SizedBox(height: 22),
             const _PanelTitle(
               icon: Icons.notifications_active_outlined,
-              title: 'Notifications',
+              title: 'Thông báo',
             ),
             const SizedBox(height: 6),
             const _FlowFinNotice(
               icon: Icons.info_outline,
               message:
-                  'These drive FlowFin\'s own reminders and reports. Nothing '
-                  'here touches this app\'s notification relay.',
+                  'Đây là nhắc nhở và báo cáo của riêng FlowFin. Không liên '
+                  'quan gì tới relay thông báo của app này.',
             ),
             const SizedBox(height: 8),
             if (prefs == null)
               const _FlowFinEmpty(
                 icon: Icons.notifications_off_outlined,
-                message: 'Preferences not loaded yet.',
+                message: 'Chưa nạp được tuỳ chọn.',
               )
             else
               _FlowFinPrefsForm(prefs: prefs, controller: controller),
             const SizedBox(height: 22),
             const _PanelTitle(
               icon: Icons.dns_outlined,
-              title: 'Connection',
+              title: 'Kết nối',
             ),
             const SizedBox(height: 10),
             Text(
-              'Active: ${controller.baseUrl}',
+              'Đang dùng: ${controller.baseUrl}',
               style: AppCyberTheme.dataTextStyle(
                 size: 11.5,
                 color: AppCyberTheme.textMuted,
@@ -147,7 +147,7 @@ class _FlowFinSettingsTabState extends State<_FlowFinSettingsTab> {
                 controller: _baseUrlController,
                 decoration: InputDecoration(
                   labelText:
-                      'Override for ${controller.environment.label} (blank = default)',
+                      'Ghi đè cho ${controller.environment.label} (để trống = mặc định)',
                   hintText: controller.environment.defaultBaseUrl,
                 ),
               ),
@@ -159,19 +159,19 @@ class _FlowFinSettingsTabState extends State<_FlowFinSettingsTab> {
                 controller.environment,
                 _baseUrlController.text,
               ),
-              child: const Text('Save endpoint'),
+              child: const Text('Lưu endpoint'),
             ),
             const SizedBox(height: 22),
             const _PanelTitle(
               icon: Icons.download_outlined,
-              title: 'Your data',
+              title: 'Dữ liệu của bạn',
             ),
             const SizedBox(height: 8),
             OutlinedButton.icon(
               key: const Key('flowfin-export'),
               onPressed: () => _export(context),
               icon: const Icon(Icons.file_download_outlined, size: 16),
-              label: const Text('Export everything as JSON'),
+              label: const Text('Xuất toàn bộ ra JSON'),
             ),
           ],
         ),
@@ -193,7 +193,7 @@ class _FlowFinSettingsTabState extends State<_FlowFinSettingsTab> {
       ).writeAsString(const JsonEncoder.withIndent('  ').convert(data));
       if (!context.mounted) return;
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        SnackBar(content: Text('Exported to ${location.path}')),
+        SnackBar(content: Text('Đã xuất ra ${location.path}')),
       );
     } catch (error) {
       if (!context.mounted) return;
@@ -240,8 +240,8 @@ class _FlowFinPrefsFormState extends State<_FlowFinPrefsForm> {
             key: const Key('flowfin-pref-checkin'),
             contentPadding: EdgeInsets.zero,
             value: _draft.checkInReminderEnabled,
-            title: const Text('Daily check-in reminder'),
-            subtitle: Text('At ${_draft.checkInReminderTime}'),
+            title: const Text('Nhắc chốt số dư hằng ngày'),
+            subtitle: Text('Lúc ${_draft.checkInReminderTime}'),
             onChanged: (value) => setState(
               () => _draft = _draft.copyWith(checkInReminderEnabled: value),
             ),
@@ -250,7 +250,7 @@ class _FlowFinPrefsFormState extends State<_FlowFinPrefsForm> {
             key: const Key('flowfin-pref-budget'),
             contentPadding: EdgeInsets.zero,
             value: _draft.budgetAlertEnabled,
-            title: const Text('Budget alerts'),
+            title: const Text('Cảnh báo vượt ngân sách'),
             onChanged: (value) => setState(
               () => _draft = _draft.copyWith(budgetAlertEnabled: value),
             ),
@@ -259,7 +259,7 @@ class _FlowFinPrefsFormState extends State<_FlowFinPrefsForm> {
             key: const Key('flowfin-pref-weekly'),
             contentPadding: EdgeInsets.zero,
             value: _draft.weeklyReportEnabled,
-            title: const Text('Weekly report'),
+            title: const Text('Báo cáo tuần'),
             onChanged: (value) => setState(
               () => _draft = _draft.copyWith(weeklyReportEnabled: value),
             ),
@@ -268,7 +268,7 @@ class _FlowFinPrefsFormState extends State<_FlowFinPrefsForm> {
             key: const Key('flowfin-pref-monthly'),
             contentPadding: EdgeInsets.zero,
             value: _draft.monthlyReportEnabled,
-            title: const Text('Monthly report'),
+            title: const Text('Báo cáo tháng'),
             onChanged: (value) => setState(
               () => _draft = _draft.copyWith(monthlyReportEnabled: value),
             ),
@@ -279,9 +279,9 @@ class _FlowFinPrefsFormState extends State<_FlowFinPrefsForm> {
             onPressed: () => _flowFinRun(
               context,
               () => widget.controller.saveAccount(prefs: _draft),
-              successMessage: 'Notification preferences saved.',
+              successMessage: 'Đã lưu tuỳ chọn thông báo.',
             ),
-            child: const Text('Save notifications'),
+            child: const Text('Lưu thông báo'),
           ),
         ],
       ),

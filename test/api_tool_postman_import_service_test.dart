@@ -198,6 +198,68 @@ void main() {
     expect(environment.enabledVariables.containsKey('APP_KEYS'), isFalse);
   });
 
+  test('drops inline values too large for a Firestore document', () {
+    final service = ApiToolPostmanCollectionImportService(
+      now: () => DateTime.utc(2026, 9, 8),
+    );
+    final oversized =
+        'A' * (ApiToolPostmanCollectionImportService.maxImportedValueBytes + 1);
+    final jsonText = jsonEncode({
+      'info': {'name': 'Uploads'},
+      'item': [
+        {
+          'name': 'Upload signature',
+          'request': {
+            'method': 'POST',
+            'url': 'https://example.com/upload',
+            'body': {
+              'mode': 'formdata',
+              'formdata': [
+                {'key': 'chuky', 'value': oversized, 'type': 'text'},
+                {'key': 'chuky', 'src': 'postman-cloud:///abc', 'type': 'file'},
+              ],
+            },
+          },
+        },
+      ],
+    });
+
+    final result = service.importJsonText(jsonText);
+    final fields = result.requests.single.multipartFields;
+
+    expect(fields, hasLength(2));
+    expect(fields.first.value, isEmpty);
+    expect(fields.last.value, 'postman-cloud:///abc');
+    expect(result.warnings, hasLength(1));
+    expect(result.warnings.single, contains('Upload signature'));
+    expect(result.warnings.single, contains('chuky'));
+  });
+
+  test('keeps values that fit and reports no warnings', () {
+    final service = ApiToolPostmanCollectionImportService(
+      now: () => DateTime.utc(2026, 9, 8),
+    );
+    final body = 'B' * 1024;
+    final jsonText = jsonEncode({
+      'info': {'name': 'Uploads'},
+      'item': [
+        {
+          'name': 'Create',
+          'request': {
+            'method': 'POST',
+            'url': 'https://example.com/create',
+            'body': {'mode': 'raw', 'raw': body},
+          },
+        },
+      ],
+    });
+
+    final result = service.importJsonText(jsonText);
+
+    expect(result.requests.single.body, body);
+    expect(result.warnings, isEmpty);
+  });
+
   test('rejects Postman environments without variables', () {
     final service = ApiToolPostmanEnvironmentImportService();
     final jsonText = jsonEncode({'name': 'Empty', 'values': []});

@@ -45,7 +45,7 @@ class _FlowFinButton extends StatelessWidget {
   Widget build(BuildContext context) {
     if (compact) {
       return Tooltip(
-        message: 'Open FlowFin',
+        message: 'Mở FlowFin',
         child: OutlinedButton(
           key: const Key('open-flowfin'),
           onPressed: () => showFlowFinDialog(context),
@@ -147,14 +147,14 @@ extension _FlowFinTabMeta on _FlowFinTab {
 
   String get label {
     return switch (this) {
-      _FlowFinTab.overview => 'Overview',
-      _FlowFinTab.transactions => 'Transactions',
-      _FlowFinTab.accounts => 'Accounts',
-      _FlowFinTab.budgets => 'Budgets',
-      _FlowFinTab.statistics => 'Statistics',
-      _FlowFinTab.reconcile => 'Reconcile',
-      _FlowFinTab.imports => 'Imports',
-      _FlowFinTab.settings => 'Settings',
+      _FlowFinTab.overview => 'Tổng quan',
+      _FlowFinTab.transactions => 'Giao dịch',
+      _FlowFinTab.accounts => 'Ví & danh mục',
+      _FlowFinTab.budgets => 'Ngân sách',
+      _FlowFinTab.statistics => 'Thống kê',
+      _FlowFinTab.reconcile => 'Đối soát',
+      _FlowFinTab.imports => 'Nhập liệu',
+      _FlowFinTab.settings => 'Cài đặt',
     };
   }
 }
@@ -291,11 +291,11 @@ class _FlowFinHeader extends StatelessWidget {
                       key: const Key('flowfin-health'),
                       onPressed: controller.checkHealth,
                       icon: const Icon(Icons.favorite_border, size: 16),
-                      label: const Text('Health'),
+                      label: const Text('Kiểm tra'),
                     );
                   }
                   return _MetaChip(
-                    icon: status.startsWith('OK')
+                    icon: controller.healthOk.value == true
                         ? Icons.check_circle_outline
                         : Icons.error_outline,
                     label: status,
@@ -307,12 +307,12 @@ class _FlowFinHeader extends StatelessWidget {
                           key: const Key('flowfin-sign-out'),
                           onPressed: controller.signOut,
                           icon: const Icon(Icons.logout_outlined, size: 16),
-                          label: const Text('Sign out'),
+                          label: const Text('Đăng xuất'),
                         )
                       : const SizedBox.shrink(),
                 ),
                 IconButton(
-                  tooltip: 'Close',
+                  tooltip: 'Đóng',
                   onPressed: () => Navigator.of(context).maybePop(),
                   icon: const Icon(Icons.close),
                 ),
@@ -408,7 +408,7 @@ class _FlowFinSignInState extends State<_FlowFinSignIn> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'Sign in to FlowFin',
+                'Đăng nhập FlowFin',
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               const SizedBox(height: 6),
@@ -439,10 +439,10 @@ class _FlowFinSignInState extends State<_FlowFinSignIn> {
                 obscureText: _obscurePassword,
                 onSubmitted: (_) => _submit(),
                 decoration: InputDecoration(
-                  labelText: 'Password',
+                  labelText: 'Mật khẩu',
                   prefixIcon: const Icon(Icons.lock_outline, size: 18),
                   suffixIcon: IconButton(
-                    tooltip: _obscurePassword ? 'Show' : 'Hide',
+                    tooltip: _obscurePassword ? 'Hiện' : 'Ẩn',
                     icon: Icon(
                       _obscurePassword
                           ? Icons.visibility_outlined
@@ -466,7 +466,7 @@ class _FlowFinSignInState extends State<_FlowFinSignIn> {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(Icons.login_outlined, size: 18),
-                  label: const Text('Sign in'),
+                  label: const Text('Đăng nhập'),
                 ),
               ),
               const SizedBox(height: 12),
@@ -518,7 +518,7 @@ class _FlowFinOverview extends StatelessWidget {
                 key: const Key('flowfin-refresh'),
                 onPressed: loading ? null : controller.loadDashboard,
                 icon: const Icon(Icons.refresh_outlined, size: 16),
-                label: const Text('Refresh'),
+                label: const Text('Làm mới'),
               ),
             ],
           ),
@@ -544,9 +544,9 @@ class _FlowFinOverview extends StatelessWidget {
                     _FlowFinNotice(
                       icon: Icons.info_outline,
                       message:
-                          'Balances are estimates — '
-                          '${overview.missingCheckInWalletIds.length} wallet(s) '
-                          'have no check-in for this period.',
+                          'Số dư là ước tính — còn '
+                          '${overview.missingCheckInWalletIds.length} ví chưa '
+                          'chốt số trong kỳ này.',
                     ),
                   ],
                   const SizedBox(height: 14),
@@ -580,23 +580,23 @@ class _FlowFinTotals extends StatelessWidget {
       runSpacing: 10,
       children: [
         _FlowFinStatTile(
-          label: 'Total balance',
+          label: 'Tổng số dư',
           value: FlowFinMoney.format(overview.totalBalanceMinor),
         ),
         _FlowFinStatTile(
-          label: 'Income',
+          label: 'Khoản thu',
           value: FlowFinMoney.format(overview.incomeMinor),
         ),
         _FlowFinStatTile(
-          label: 'Expense',
+          label: 'Khoản chi',
           value: FlowFinMoney.format(overview.expenseMinor),
         ),
         _FlowFinStatTile(
-          label: 'Net',
+          label: 'Chênh lệch',
           value: FlowFinMoney.format(overview.netMinor, withSign: true),
         ),
         _FlowFinStatTile(
-          label: 'Transfers',
+          label: 'Lượt chuyển',
           value: '${overview.transferCount}',
         ),
       ],
@@ -655,7 +655,7 @@ class _FlowFinWalletList extends StatelessWidget {
     if (wallets.isEmpty) {
       return const _FlowFinNotice(
         icon: Icons.account_balance_wallet_outlined,
-        message: 'No wallets yet.',
+        message: 'Chưa có ví nào.',
       );
     }
 
@@ -664,7 +664,7 @@ class _FlowFinWalletList extends StatelessWidget {
       children: [
         const _PanelTitle(
           icon: Icons.account_balance_wallet_outlined,
-          title: 'Wallets',
+          title: 'Ví',
         ),
         const SizedBox(height: 8),
         ...wallets.map(
@@ -715,7 +715,7 @@ class _FlowFinInsightCard extends StatelessWidget {
     if (current == null) {
       return _FlowFinNotice(
         icon: Icons.auto_awesome_outlined,
-        message: fallback.isEmpty ? 'No AI insight yet.' : fallback,
+        message: fallback.isEmpty ? 'Chưa có phân tích AI nào.' : fallback,
       );
     }
 
@@ -731,7 +731,7 @@ class _FlowFinInsightCard extends StatelessWidget {
         children: [
           const _PanelTitle(
             icon: Icons.auto_awesome_outlined,
-            title: 'Latest insight',
+            title: 'Phân tích mới nhất',
           ),
           const SizedBox(height: 8),
           Text(

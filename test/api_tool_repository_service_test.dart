@@ -391,6 +391,23 @@ void main() {
     expect(teamData.savedQuickRequests.single.id, 'quick-local');
     expect(repository.apiToolQuickRequests.single.name, 'Local reset');
   });
+
+  test('estimates the Firestore size of a document', () {
+    final small = estimateFirestoreDocumentBytes({
+      'name': 'ok',
+      'enabled': true,
+      'headers': const <Object?>[],
+    });
+    final oversized = estimateFirestoreDocumentBytes({
+      'name': 'Upload',
+      'multipartFields': [
+        {'value': 'x' * (1024 * 1024)},
+      ],
+    });
+
+    expect(small, lessThan(100));
+    expect(oversized, greaterThan(1024 * 1024));
+  });
 }
 
 AuthService _teamAuthService() {

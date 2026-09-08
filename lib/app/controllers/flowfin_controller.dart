@@ -27,6 +27,10 @@ class FlowFinController extends GetxController {
   final isCheckingHealth = false.obs;
   final healthStatus = ''.obs;
 
+  /// Null until a check runs. Kept separate from [healthStatus] so the UI
+  /// never has to infer state by matching display text.
+  final healthOk = Rxn<bool>();
+
   // ----- shared reference data
 
   final bootstrap = Rxn<FlowFinBootstrap>();
@@ -167,14 +171,17 @@ class FlowFinController extends GetxController {
     if (isCheckingHealth.value) return;
     isCheckingHealth.value = true;
     healthStatus.value = '';
+    healthOk.value = null;
 
     try {
       final body = await client.health();
       final ok = body['ok'] == true;
       final env = (body['environment'] as String?) ?? environment.id;
-      healthStatus.value = ok ? 'OK · $env' : 'Unhealthy · $env';
+      healthOk.value = ok;
+      healthStatus.value = ok ? 'Bình thường · $env' : 'Có vấn đề · $env';
     } catch (error) {
-      healthStatus.value = 'Unreachable: ${describeError(error)}';
+      healthOk.value = false;
+      healthStatus.value = 'Không kết nối được: ${describeError(error)}';
     } finally {
       isCheckingHealth.value = false;
     }
@@ -228,7 +235,7 @@ class FlowFinController extends GetxController {
       categories.value = snapshot.categories;
       budgets.value = snapshot.budgets;
       if (snapshot.latestInsight == null) {
-        insightError.value = 'No AI insight yet for this period.';
+        insightError.value = 'Kỳ này chưa có phân tích AI nào.';
       }
 
       overview.value = await client.statsOverview(
@@ -237,7 +244,7 @@ class FlowFinController extends GetxController {
       );
     } on FlowFinAuthRequiredException {
       user.value = null;
-      dashboardError.value = 'FlowFin session expired. Sign in again.';
+      dashboardError.value = 'Phiên FlowFin đã hết hạn. Hãy đăng nhập lại.';
     } catch (error) {
       dashboardError.value = describeError(error);
     } finally {
@@ -696,7 +703,7 @@ class FlowFinController extends GetxController {
     List<FlowFinImportConfirmEntry> entries,
   ) async {
     final batch = activeImportBatch.value;
-    if (batch == null) return 'No import batch is open.';
+    if (batch == null) return 'Chưa mở lô nhập liệu nào.';
 
     try {
       await client.confirmImport(batchId: batch.id, entries: entries);
@@ -737,7 +744,7 @@ class FlowFinController extends GetxController {
       );
       user.value = profile.user;
       notificationPrefs.value = profile.prefs;
-      accountStatus.value = 'Saved.';
+      accountStatus.value = 'Đã lưu.';
       return null;
     } catch (error) {
       final message = describeError(error);
@@ -789,18 +796,18 @@ class FlowFinController extends GetxController {
   String describeError(Object error) {
     if (error is FlowFinApiException) {
       if (error.isRateLimited) {
-        return 'FlowFin is rate limiting this request. Wait a moment before retrying.';
+        return 'FlowFin đang chặn vì gọi quá nhiều. Chờ một lát rồi thử lại.';
       }
       if (error.isVersionConflict) {
-        return 'This record changed elsewhere. Refresh before saving again.';
+        return 'Bản ghi đã được sửa ở nơi khác. Làm mới rồi lưu lại.';
       }
       return error.toString();
     }
     if (error is FlowFinAuthRequiredException) return error.message;
     if (error is TimeoutException) {
-      return 'FlowFin did not answer in time at $baseUrl.';
+      return 'FlowFin không phản hồi kịp tại $baseUrl.';
     }
-    return 'Could not reach FlowFin at $baseUrl: $error';
+    return 'Không kết nối được FlowFin tại $baseUrl: $error';
   }
 
   static DateTime monthStart() {

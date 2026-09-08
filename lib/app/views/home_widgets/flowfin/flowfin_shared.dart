@@ -59,7 +59,7 @@ class _FlowFinTabScaffold extends StatelessWidget {
 class _FlowFinMoneyField extends StatefulWidget {
   const _FlowFinMoneyField({
     required this.controller,
-    this.label = 'Amount',
+    this.label = 'Số tiền',
     this.fieldKey,
     this.autofocus = false,
   });
@@ -103,7 +103,7 @@ class _FlowFinDateField extends StatelessWidget {
   const _FlowFinDateField({
     required this.value,
     required this.onChanged,
-    this.label = 'Date',
+    this.label = 'Ngày',
     this.fieldKey,
   });
 
@@ -171,7 +171,7 @@ Future<bool> _flowFinConfirm(
   BuildContext context, {
   required String title,
   required String message,
-  String confirmLabel = 'Delete',
+  String confirmLabel = 'Xoá',
 }) async {
   final confirmed = await showDialog<bool>(
     context: context,
@@ -183,7 +183,7 @@ Future<bool> _flowFinConfirm(
       actions: [
         TextButton(
           onPressed: () => Navigator.of(dialogContext).pop(false),
-          child: const Text('Cancel'),
+          child: const Text('Huỷ'),
         ),
         FilledButton(
           key: const Key('flowfin-confirm'),

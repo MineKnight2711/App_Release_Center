@@ -149,7 +149,7 @@ void main() {
     await registerController([]);
     await _pumpDialogHost(tester);
 
-    expect(find.text('Sign in to FlowFin'), findsOneWidget);
+    expect(find.text('Đăng nhập FlowFin'), findsOneWidget);
     expect(find.byKey(const Key('flowfin-sign-in')), findsOneWidget);
     expect(find.byKey(const Key('flowfin-sign-out')), findsNothing);
   });
@@ -193,7 +193,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('1.250.000 đ'), findsWidgets);
-    expect(find.textContaining('No AI insight'), findsOneWidget);
+    expect(find.textContaining('chưa có phân tích AI'), findsOneWidget);
     expect(find.byKey(const Key('flowfin-error')), findsNothing);
   });
 
@@ -216,7 +216,7 @@ void main() {
 
     expect(find.byKey(const Key('flowfin-error')), findsOneWidget);
     expect(find.text('Email hoặc mật khẩu không đúng'), findsOneWidget);
-    expect(find.text('Sign in to FlowFin'), findsOneWidget);
+    expect(find.text('Đăng nhập FlowFin'), findsOneWidget);
   });
 
   testWidgets('defaults to production, where the real data lives',

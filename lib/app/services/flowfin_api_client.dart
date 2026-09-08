@@ -50,7 +50,7 @@ class FlowFinApiException implements Exception {
 
 /// Raised when the module has no usable session for the active environment.
 class FlowFinAuthRequiredException implements Exception {
-  const FlowFinAuthRequiredException([this.message = 'Sign in to FlowFin first.']);
+  const FlowFinAuthRequiredException([this.message = 'Hãy đăng nhập FlowFin trước.']);
 
   final String message;
 
@@ -826,7 +826,7 @@ class FlowFinApiClient extends GetxService {
       throw const FlowFinApiException(
         statusCode: 500,
         code: 'invalid_session',
-        message: 'FlowFin returned a session without tokens.',
+        message: 'FlowFin trả về phiên không có token.',
       );
     }
     _session = session;
@@ -966,7 +966,7 @@ class FlowFinApiClient extends GetxService {
       throw FlowFinApiException(
         statusCode: response.statusCode,
         code: 'invalid_response',
-        message: 'FlowFin returned a response that is not JSON.',
+        message: 'FlowFin trả về nội dung không phải JSON.',
       );
     }
   }
@@ -985,7 +985,7 @@ class FlowFinApiClient extends GetxService {
         return FlowFinApiException(
           statusCode: response.statusCode,
           code: (error['code'] as String?) ?? 'unknown',
-          message: (error['message'] as String?) ?? 'FlowFin request failed.',
+          message: (error['message'] as String?) ?? 'Gọi FlowFin thất bại.',
           requestId: (error['requestId'] as String?) ?? '',
           details: _parseDetails(error['details']),
         );
@@ -995,7 +995,7 @@ class FlowFinApiClient extends GetxService {
     return FlowFinApiException(
       statusCode: response.statusCode,
       code: 'http_${response.statusCode}',
-      message: 'FlowFin request failed with HTTP ${response.statusCode}.',
+      message: 'Gọi FlowFin thất bại với HTTP ${response.statusCode}.',
     );
   }
 

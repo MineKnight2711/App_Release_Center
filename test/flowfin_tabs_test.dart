@@ -81,7 +81,7 @@ Map<String, Object?> _session() {
 final _wallets = [
   {
     'id': 'w1',
-    'name': 'Tiền mặt',
+    'name': 'Ví chính',
     'type': 'cash',
     'currency': 'VND',
     'initialBalanceMinor': '0',
@@ -143,7 +143,7 @@ Map<String, Object?> _transactions() => {
   'totals': {'incomeMinor': '3000000', 'expenseMinor': '1750000'},
 };
 
-late _RoutedHttpClient client;
+late _RoutedHttpClient _client;
 
 Future<void> _openDialog(
   WidgetTester tester, {
@@ -153,7 +153,7 @@ Future<void> _openDialog(
   final credentials = FlowFinCredentialStoreService(
     secureStore: _MemorySecureStore(),
   );
-  client = _RoutedHttpClient({
+  _client = _RoutedHttpClient({
     'POST /auth/login': _session(),
     'GET /bootstrap': _bootstrap(),
     'GET /stats/overview': _overview(),
@@ -165,7 +165,7 @@ Future<void> _openDialog(
   });
   final api = FlowFinApiClient(
     credentialStore: credentials,
-    httpClient: client,
+    httpClient: _client,
   );
   Get.put<ProjectStoreService>(store);
   Get.put<FlowFinApiClient>(api);
@@ -235,14 +235,14 @@ void main() {
     await _openDialog(tester);
 
     expect(
-      client.sent.any((s) => s.url.path.endsWith('/transactions')),
+      _client.sent.any((s) => s.url.path.endsWith('/transactions')),
       isFalse,
       reason: 'transactions must not load until the tab is visited',
     );
 
     await _openTab(tester, 'transactions');
 
-    expect(client.sent.any((s) => s.url.path.endsWith('/transactions')), isTrue);
+    expect(_client.sent.any((s) => s.url.path.endsWith('/transactions')), isTrue);
     expect(find.text('Cà phê'), findsNothing);
     expect(find.textContaining('Cà phê'), findsOneWidget);
   });
@@ -261,18 +261,18 @@ void main() {
     );
     await tester.tap(find.byKey(const Key('flowfin-composer-type')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Transfer').last);
+    await tester.tap(find.text('Chuyển tiền').last);
     await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const Key('flowfin-composer-save')));
     await tester.pumpAndSettle();
 
     expect(
-      find.textContaining('needs a destination wallet'),
+      find.textContaining('phải có ví đích'),
       findsOneWidget,
     );
     // Nothing was sent — the rule is checked before spending a request.
-    expect(client.sent.any((s) => s.method == 'POST' && s.url.path.endsWith('/transactions')), isFalse);
+    expect(_client.sent.any((s) => s.method == 'POST' && s.url.path.endsWith('/transactions')), isFalse);
   });
 
   testWidgets('creating an expense posts money as a string', (tester) async {
@@ -299,7 +299,7 @@ void main() {
     await tester.tap(find.byKey(const Key('flowfin-composer-save')));
     await tester.pumpAndSettle();
 
-    final posted = client.sent.lastWhere(
+    final posted = _client.sent.lastWhere(
       (s) => s.method == 'POST' && s.url.path.endsWith('/transactions'),
     );
     expect(posted.json['amountMinor'], '50000');
@@ -315,9 +315,9 @@ void main() {
     await tester.tap(find.byKey(const Key('flowfin-transaction-delete-t1')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Delete transaction?'), findsOneWidget);
+    expect(find.text('Xoá giao dịch?'), findsOneWidget);
     expect(
-      client.sent.any((s) => s.method == 'DELETE'),
+      _client.sent.any((s) => s.method == 'DELETE'),
       isFalse,
       reason: 'nothing may be deleted before the prompt is confirmed',
     );
@@ -328,7 +328,7 @@ void main() {
     await _openDialog(tester);
     await _openTab(tester, 'accounts');
 
-    expect(find.text('Tiền mặt'), findsOneWidget);
+    expect(find.text('Ví chính'), findsOneWidget);
     expect(find.text('Vietcombank'), findsOneWidget);
     expect(find.text('Ăn uống'), findsOneWidget);
     expect(find.byKey(const Key('flowfin-wallet-new')), findsOneWidget);
@@ -340,7 +340,7 @@ void main() {
     await _openDialog(tester, extraRoutes: {'GET /reconciliation': {'items': <Object?>[]}});
     await _openTab(tester, 'reconcile');
 
-    expect(find.textContaining('No check-in recorded'), findsWidgets);
+    expect(find.textContaining('chưa có lần chốt số dư'), findsWidgets);
     expect(find.byKey(const Key('flowfin-checkin-w1')), findsOneWidget);
   });
 

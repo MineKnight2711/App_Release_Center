@@ -1,12 +1,12 @@
 part of '../../home_view.dart';
 
 const _flowFinWalletTypes = <String, String>{
-  'cash': 'Cash',
-  'bank': 'Bank',
-  'ewallet': 'E-wallet',
-  'credit': 'Credit',
-  'savings': 'Savings',
-  'other': 'Other',
+  'cash': 'Tiền mặt',
+  'bank': 'Ngân hàng',
+  'ewallet': 'Ví điện tử',
+  'credit': 'Thẻ tín dụng',
+  'savings': 'Tiết kiệm',
+  'other': 'Khác',
 };
 
 class _FlowFinAccountsTab extends StatelessWidget {
@@ -19,20 +19,20 @@ class _FlowFinAccountsTab extends StatelessWidget {
     return Obx(
       () => _FlowFinTabScaffold(
         icon: Icons.account_balance_wallet_outlined,
-        title: 'Wallets & categories',
+        title: 'Ví & danh mục',
         loading: controller.isLoadingDashboard.value,
         actions: [
           OutlinedButton.icon(
             key: const Key('flowfin-wallet-new'),
             onPressed: () => _showWalletForm(context),
             icon: const Icon(Icons.add, size: 16),
-            label: const Text('Wallet'),
+            label: const Text('Thêm ví'),
           ),
           OutlinedButton.icon(
             key: const Key('flowfin-category-new'),
             onPressed: () => _showCategoryForm(context),
             icon: const Icon(Icons.add, size: 16),
-            label: const Text('Category'),
+            label: const Text('Thêm danh mục'),
           ),
         ],
         child: LayoutBuilder(
@@ -100,13 +100,13 @@ class _FlowFinWalletManager extends StatelessWidget {
       children: [
         const _PanelTitle(
           icon: Icons.account_balance_wallet_outlined,
-          title: 'Wallets',
+          title: 'Ví',
         ),
         const SizedBox(height: 8),
         if (wallets.isEmpty)
           const _FlowFinEmpty(
             icon: Icons.account_balance_wallet_outlined,
-            message: 'No wallets yet.',
+            message: 'Chưa có ví nào.',
           )
         else
           ...wallets.map(
@@ -119,8 +119,8 @@ class _FlowFinWalletManager extends StatelessWidget {
               ),
               subtitle: [
                 _flowFinWalletTypes[wallet.type] ?? wallet.type,
-                if (!wallet.includeInTotal) 'excluded from total',
-                if (wallet.isArchived) 'archived',
+                if (!wallet.includeInTotal) 'không tính vào tổng',
+                if (wallet.isArchived) 'đã lưu trữ',
               ].join(' · '),
               trailing: Text(
                 FlowFinMoney.format(controller.balanceMinorFor(wallet.id)),
@@ -132,7 +132,7 @@ class _FlowFinWalletManager extends StatelessWidget {
               ),
               actions: [
                 IconButton(
-                  tooltip: 'Edit',
+                  tooltip: 'Sửa',
                   iconSize: 16,
                   onPressed: () => _FlowFinAccountsTab._showWalletForm(
                     context,
@@ -141,7 +141,7 @@ class _FlowFinWalletManager extends StatelessWidget {
                   icon: const Icon(Icons.edit_outlined),
                 ),
                 IconButton(
-                  tooltip: wallet.isArchived ? 'Restore' : 'Archive',
+                  tooltip: wallet.isArchived ? 'Khôi phục' : 'Lưu trữ',
                   iconSize: 16,
                   onPressed: () => _flowFinRun(
                     context,
@@ -158,21 +158,21 @@ class _FlowFinWalletManager extends StatelessWidget {
                 ),
                 IconButton(
                   key: Key('flowfin-wallet-delete-${wallet.id}'),
-                  tooltip: 'Delete',
+                  tooltip: 'Xoá',
                   iconSize: 16,
                   onPressed: () async {
                     final confirmed = await _flowFinConfirm(
                       context,
-                      title: 'Delete ${wallet.name}?',
+                      title: 'Xoá ví ${wallet.name}?',
                       message:
-                          'Transactions in this wallet stay, but the wallet '
-                          'disappears from every view.',
+                          'Giao dịch trong ví vẫn còn, nhưng ví sẽ biến mất '
+                          'khỏi mọi màn hình.',
                     );
                     if (!confirmed || !context.mounted) return;
                     await _flowFinRun(
                       context,
                       () => controller.deleteWallet(wallet),
-                      successMessage: 'Wallet deleted.',
+                      successMessage: 'Đã xoá ví.',
                     );
                   },
                   icon: const Icon(Icons.delete_outline),
@@ -202,12 +202,12 @@ class _FlowFinCategoryList extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _PanelTitle(icon: Icons.label_outline, title: 'Categories'),
+        const _PanelTitle(icon: Icons.label_outline, title: 'Danh mục'),
         const SizedBox(height: 8),
         if (categories.isEmpty)
           const _FlowFinEmpty(
             icon: Icons.label_outline,
-            message: 'No categories yet.',
+            message: 'Chưa có danh mục nào.',
           )
         else
           ...categories.map(
@@ -221,13 +221,13 @@ class _FlowFinCategoryList extends StatelessWidget {
                     : Colors.redAccent,
               ),
               subtitle: [
-                category.kind == 'income' ? 'Income' : 'Expense',
-                if (category.isDefault) 'default',
-                if (category.isArchived) 'archived',
+                category.kind == 'income' ? 'Khoản thu' : 'Khoản chi',
+                if (category.isDefault) 'mặc định',
+                if (category.isArchived) 'đã lưu trữ',
               ].join(' · '),
               actions: [
                 IconButton(
-                  tooltip: 'Edit',
+                  tooltip: 'Sửa',
                   iconSize: 16,
                   onPressed: () => _FlowFinAccountsTab._showCategoryForm(
                     context,
@@ -236,7 +236,7 @@ class _FlowFinCategoryList extends StatelessWidget {
                   icon: const Icon(Icons.edit_outlined),
                 ),
                 IconButton(
-                  tooltip: category.isArchived ? 'Restore' : 'Archive',
+                  tooltip: category.isArchived ? 'Khôi phục' : 'Lưu trữ',
                   iconSize: 16,
                   onPressed: () => _flowFinRun(
                     context,
@@ -253,21 +253,21 @@ class _FlowFinCategoryList extends StatelessWidget {
                 ),
                 IconButton(
                   key: Key('flowfin-category-delete-${category.id}'),
-                  tooltip: 'Delete',
+                  tooltip: 'Xoá',
                   iconSize: 16,
                   onPressed: () async {
                     final confirmed = await _flowFinConfirm(
                       context,
-                      title: 'Delete ${category.name}?',
+                      title: 'Xoá danh mục ${category.name}?',
                       message:
-                          'Transactions keep their amounts but lose this '
-                          'category label.',
+                          'Giao dịch giữ nguyên số tiền nhưng mất nhãn danh '
+                          'mục này.',
                     );
                     if (!confirmed || !context.mounted) return;
                     await _flowFinRun(
                       context,
                       () => controller.deleteCategory(category),
-                      successMessage: 'Category deleted.',
+                      successMessage: 'Đã xoá danh mục.',
                     );
                   },
                   icon: const Icon(Icons.delete_outline),
@@ -326,7 +326,7 @@ class _FlowFinWalletFormState extends State<_FlowFinWalletForm> {
   Future<void> _submit() async {
     final name = _nameController.text.trim();
     if (name.isEmpty) {
-      setState(() => _error = 'Give the wallet a name.');
+      setState(() => _error = 'Hãy đặt tên cho ví.');
       return;
     }
     final balance = FlowFinMoney.parseInput(_balanceController.text) ?? 0;
@@ -365,7 +365,7 @@ class _FlowFinWalletFormState extends State<_FlowFinWalletForm> {
       surfaceTintColor: Colors.transparent,
       title: _PanelTitle(
         icon: Icons.account_balance_wallet_outlined,
-        title: isNew ? 'New wallet' : 'Edit wallet',
+        title: isNew ? 'Thêm ví' : 'Sửa ví',
       ),
       content: SizedBox(
         width: 420,
@@ -378,11 +378,11 @@ class _FlowFinWalletFormState extends State<_FlowFinWalletForm> {
               controller: _nameController,
               autofocus: true,
               maxLength: 60,
-              decoration: const InputDecoration(labelText: 'Name'),
+              decoration: const InputDecoration(labelText: 'Tên ví'),
             ),
             const SizedBox(height: 8),
             _FlowFinDropdown<String>(
-              label: 'Type',
+              label: 'Loại ví',
               value: _type,
               width: 420,
               items: _flowFinWalletTypes.entries
@@ -399,12 +399,12 @@ class _FlowFinWalletFormState extends State<_FlowFinWalletForm> {
               const SizedBox(height: 12),
               _FlowFinMoneyField(
                 controller: _balanceController,
-                label: 'Opening balance',
+                label: 'Số dư ban đầu',
                 fieldKey: const Key('flowfin-wallet-balance'),
               ),
               const SizedBox(height: 12),
               _FlowFinDateField(
-                label: 'Opened on',
+                label: 'Mở từ ngày',
                 value: _openedOn,
                 onChanged: (value) => setState(() => _openedOn = value),
               ),
@@ -413,7 +413,7 @@ class _FlowFinWalletFormState extends State<_FlowFinWalletForm> {
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               value: _includeInTotal,
-              title: const Text('Count in the total balance'),
+              title: const Text('Tính vào tổng số dư'),
               onChanged: (value) => setState(() => _includeInTotal = value),
             ),
             if (_error.isNotEmpty) _FlowFinErrorNotice(message: _error),
@@ -423,12 +423,12 @@ class _FlowFinWalletFormState extends State<_FlowFinWalletForm> {
       actions: [
         TextButton(
           onPressed: _saving ? null : () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: const Text('Huỷ'),
         ),
         FilledButton(
           key: const Key('flowfin-wallet-save'),
           onPressed: _saving ? null : _submit,
-          child: const Text('Save'),
+          child: const Text('Lưu'),
         ),
       ],
     );
@@ -468,7 +468,7 @@ class _FlowFinCategoryFormState extends State<_FlowFinCategoryForm> {
   Future<void> _submit() async {
     final name = _nameController.text.trim();
     if (name.isEmpty) {
-      setState(() => _error = 'Give the category a name.');
+      setState(() => _error = 'Hãy đặt tên cho danh mục.');
       return;
     }
 
@@ -503,7 +503,7 @@ class _FlowFinCategoryFormState extends State<_FlowFinCategoryForm> {
       surfaceTintColor: Colors.transparent,
       title: _PanelTitle(
         icon: Icons.label_outline,
-        title: isNew ? 'New category' : 'Edit category',
+        title: isNew ? 'Thêm danh mục' : 'Sửa danh mục',
       ),
       content: SizedBox(
         width: 380,
@@ -516,18 +516,18 @@ class _FlowFinCategoryFormState extends State<_FlowFinCategoryForm> {
               controller: _nameController,
               autofocus: true,
               maxLength: 60,
-              decoration: const InputDecoration(labelText: 'Name'),
+              decoration: const InputDecoration(labelText: 'Tên danh mục'),
             ),
             if (isNew)
               // The kind is fixed once created: moving a category between
               // income and expense would reinterpret every transaction on it.
               _FlowFinDropdown<String>(
-                label: 'Kind',
+                label: 'Loại',
                 value: _kind,
                 width: 380,
                 items: const [
-                  DropdownMenuItem(value: 'expense', child: Text('Expense')),
-                  DropdownMenuItem(value: 'income', child: Text('Income')),
+                  DropdownMenuItem(value: 'expense', child: Text('Khoản chi')),
+                  DropdownMenuItem(value: 'income', child: Text('Khoản thu')),
                 ],
                 onChanged: (value) => setState(() => _kind = value ?? 'expense'),
               ),
@@ -541,12 +541,12 @@ class _FlowFinCategoryFormState extends State<_FlowFinCategoryForm> {
       actions: [
         TextButton(
           onPressed: _saving ? null : () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: const Text('Huỷ'),
         ),
         FilledButton(
           key: const Key('flowfin-category-save'),
           onPressed: _saving ? null : _submit,
-          child: const Text('Save'),
+          child: const Text('Lưu'),
         ),
       ],
     );

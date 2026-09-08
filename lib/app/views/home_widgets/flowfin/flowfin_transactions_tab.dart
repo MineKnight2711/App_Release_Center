@@ -10,7 +10,7 @@ class _FlowFinTransactionsTab extends StatelessWidget {
     return Obx(
       () => _FlowFinTabScaffold(
         icon: Icons.receipt_long_outlined,
-        title: 'Transactions',
+        title: 'Giao dịch',
         loading: controller.isLoadingTransactions.value,
         error: controller.transactionsError.value,
         scrollable: false,
@@ -19,13 +19,13 @@ class _FlowFinTransactionsTab extends StatelessWidget {
             key: const Key('flowfin-transactions-refresh'),
             onPressed: controller.loadTransactions,
             icon: const Icon(Icons.refresh_outlined, size: 16),
-            label: const Text('Refresh'),
+            label: const Text('Làm mới'),
           ),
           FilledButton.icon(
             key: const Key('flowfin-transaction-new'),
             onPressed: () => _showComposer(context),
             icon: const Icon(Icons.add, size: 16),
-            label: const Text('New'),
+            label: const Text('Thêm'),
           ),
         ],
         child: Column(
@@ -68,15 +68,15 @@ class _FlowFinTransactionTotals extends StatelessWidget {
       runSpacing: 10,
       children: [
         _FlowFinStatTile(
-          label: 'Income (filtered)',
+          label: 'Thu (đã lọc)',
           value: FlowFinMoney.format(income),
         ),
         _FlowFinStatTile(
-          label: 'Expense (filtered)',
+          label: 'Chi (đã lọc)',
           value: FlowFinMoney.format(expense),
         ),
         _FlowFinStatTile(
-          label: 'Net',
+          label: 'Chênh lệch',
           value: FlowFinMoney.format(income - expense, withSign: true),
         ),
       ],
@@ -132,7 +132,7 @@ class _FlowFinTransactionFiltersState
               key: const Key('flowfin-transaction-search'),
               controller: _searchController,
               decoration: const InputDecoration(
-                labelText: 'Search note',
+                labelText: 'Tìm trong ghi chú',
                 isDense: true,
                 prefixIcon: Icon(Icons.search, size: 18),
               ),
@@ -140,24 +140,24 @@ class _FlowFinTransactionFiltersState
             ),
           ),
           _FlowFinDropdown<String>(
-            label: 'Type',
+            label: 'Loại',
             value: controller.filterType.value,
             width: 150,
             items: const [
-              DropdownMenuItem(value: '', child: Text('All')),
-              DropdownMenuItem(value: 'expense', child: Text('Expense')),
-              DropdownMenuItem(value: 'income', child: Text('Income')),
-              DropdownMenuItem(value: 'transfer', child: Text('Transfer')),
-              DropdownMenuItem(value: 'adjustment', child: Text('Adjustment')),
+              DropdownMenuItem(value: '', child: Text('Tất cả')),
+              DropdownMenuItem(value: 'expense', child: Text('Chi')),
+              DropdownMenuItem(value: 'income', child: Text('Thu')),
+              DropdownMenuItem(value: 'transfer', child: Text('Chuyển tiền')),
+              DropdownMenuItem(value: 'adjustment', child: Text('Điều chỉnh')),
             ],
             onChanged: (value) =>
                 controller.setTransactionFilter(type: value ?? ''),
           ),
           _FlowFinDropdown<String>(
-            label: 'Wallet',
+            label: 'Ví',
             value: controller.filterWalletId.value,
             items: [
-              const DropdownMenuItem(value: '', child: Text('All')),
+              const DropdownMenuItem(value: '', child: Text('Tất cả')),
               ...wallets.map(
                 (wallet) => DropdownMenuItem(
                   value: wallet.id,
@@ -169,10 +169,10 @@ class _FlowFinTransactionFiltersState
                 controller.setTransactionFilter(walletId: value ?? ''),
           ),
           _FlowFinDropdown<String>(
-            label: 'Category',
+            label: 'Danh mục',
             value: controller.filterCategoryId.value,
             items: [
-              const DropdownMenuItem(value: '', child: Text('All')),
+              const DropdownMenuItem(value: '', child: Text('Tất cả')),
               ...categories.map(
                 (category) => DropdownMenuItem(
                   value: category.id,
@@ -190,7 +190,7 @@ class _FlowFinTransactionFiltersState
               controller.clearTransactionFilters();
             },
             icon: const Icon(Icons.filter_alt_off_outlined, size: 16),
-            label: const Text('Clear'),
+            label: const Text('Bỏ lọc'),
           ),
         ],
       );
@@ -209,7 +209,7 @@ class _FlowFinTransactionList extends StatelessWidget {
     if (items.isEmpty && !controller.isLoadingTransactions.value) {
       return const _FlowFinEmpty(
         icon: Icons.receipt_long_outlined,
-        message: 'No transactions match these filters.',
+        message: 'Không có giao dịch nào khớp bộ lọc.',
       );
     }
 
@@ -223,7 +223,7 @@ class _FlowFinTransactionList extends StatelessWidget {
               child: OutlinedButton(
                 key: const Key('flowfin-transactions-more'),
                 onPressed: () => controller.loadTransactions(append: true),
-                child: const Text('Load more'),
+                child: const Text('Tải thêm'),
               ),
             ),
           );
@@ -276,7 +276,7 @@ class _FlowFinTransactionRow extends StatelessWidget {
       ),
       actions: [
         IconButton(
-          tooltip: 'Edit',
+          tooltip: 'Sửa',
           iconSize: 16,
           onPressed: () => _FlowFinTransactionsTab._showComposer(
             context,
@@ -286,21 +286,21 @@ class _FlowFinTransactionRow extends StatelessWidget {
         ),
         IconButton(
           key: Key('flowfin-transaction-delete-${transaction.id}'),
-          tooltip: 'Delete',
+          tooltip: 'Xoá',
           iconSize: 16,
           onPressed: () async {
             final confirmed = await _flowFinConfirm(
               context,
-              title: 'Delete transaction?',
+              title: 'Xoá giao dịch?',
               message:
-                  '${FlowFinMoney.format(transaction.amountMinor)} on '
-                  '${transaction.localDate} will be removed.',
+                  'Khoản ${FlowFinMoney.format(transaction.amountMinor)} ngày '
+                  '${transaction.localDate} sẽ bị xoá.',
             );
             if (!confirmed || !context.mounted) return;
             await _flowFinRun(
               context,
               () => controller.deleteTransaction(transaction),
-              successMessage: 'Transaction deleted.',
+              successMessage: 'Đã xoá giao dịch.',
             );
           },
           icon: const Icon(Icons.delete_outline),
@@ -311,10 +311,10 @@ class _FlowFinTransactionRow extends StatelessWidget {
 
   String get _title {
     return switch (transaction.type) {
-      'income' => 'Income',
-      'expense' => 'Expense',
-      'transfer' => 'Transfer',
-      _ => 'Adjustment',
+      'income' => 'Thu',
+      'expense' => 'Chi',
+      'transfer' => 'Chuyển tiền',
+      _ => 'Điều chỉnh',
     };
   }
 
@@ -397,14 +397,14 @@ class _FlowFinTransactionComposerState
   }
 
   String? _validate(int? amount) {
-    if (_walletId.isEmpty) return 'Pick a wallet.';
-    if (amount == null) return 'Amount must be a whole number.';
-    if (_isAdjustment && amount == 0) return 'An adjustment cannot be zero.';
-    if (!_isAdjustment && amount <= 0) return 'Amount must be greater than zero.';
+    if (_walletId.isEmpty) return 'Hãy chọn ví.';
+    if (amount == null) return 'Số tiền phải là số nguyên.';
+    if (_isAdjustment && amount == 0) return 'Điều chỉnh không được bằng 0.';
+    if (!_isAdjustment && amount <= 0) return 'Số tiền phải lớn hơn 0.';
     if (_isTransfer) {
-      if (_toWalletId.isEmpty) return 'A transfer needs a destination wallet.';
+      if (_toWalletId.isEmpty) return 'Chuyển tiền phải có ví đích.';
       if (_toWalletId == _walletId) {
-        return 'The destination wallet must differ from the source.';
+        return 'Ví đích phải khác ví nguồn.';
       }
     }
     return null;
@@ -454,7 +454,7 @@ class _FlowFinTransactionComposerState
       surfaceTintColor: Colors.transparent,
       title: _PanelTitle(
         icon: Icons.receipt_long_outlined,
-        title: widget.existing == null ? 'New transaction' : 'Edit transaction',
+        title: widget.existing == null ? 'Thêm giao dịch' : 'Sửa giao dịch',
       ),
       content: SizedBox(
         width: 460,
@@ -465,17 +465,20 @@ class _FlowFinTransactionComposerState
             children: [
               if (widget.existing == null)
                 _FlowFinDropdown<String>(
-                  label: 'Type',
+                  label: 'Loại',
                   value: _type,
                   fieldKey: const Key('flowfin-composer-type'),
                   width: 460,
                   items: const [
-                    DropdownMenuItem(value: 'expense', child: Text('Expense')),
-                    DropdownMenuItem(value: 'income', child: Text('Income')),
-                    DropdownMenuItem(value: 'transfer', child: Text('Transfer')),
+                    DropdownMenuItem(value: 'expense', child: Text('Chi')),
+                    DropdownMenuItem(value: 'income', child: Text('Thu')),
+                    DropdownMenuItem(
+                      value: 'transfer',
+                      child: Text('Chuyển tiền'),
+                    ),
                     DropdownMenuItem(
                       value: 'adjustment',
-                      child: Text('Adjustment'),
+                      child: Text('Điều chỉnh'),
                     ),
                   ],
                   onChanged: (value) => setState(() {
@@ -489,11 +492,11 @@ class _FlowFinTransactionComposerState
                 controller: _amountController,
                 fieldKey: const Key('flowfin-composer-amount'),
                 autofocus: true,
-                label: _isAdjustment ? 'Adjustment (may be negative)' : 'Amount',
+                label: _isAdjustment ? 'Điều chỉnh (có thể âm)' : 'Số tiền',
               ),
               const SizedBox(height: 12),
               _FlowFinDropdown<String>(
-                label: _isTransfer ? 'From wallet' : 'Wallet',
+                label: _isTransfer ? 'Ví nguồn' : 'Ví',
                 value: _walletId,
                 width: 460,
                 fieldKey: const Key('flowfin-composer-wallet'),
@@ -510,12 +513,12 @@ class _FlowFinTransactionComposerState
               if (_isTransfer) ...[
                 const SizedBox(height: 12),
                 _FlowFinDropdown<String>(
-                  label: 'To wallet',
+                  label: 'Ví đích',
                   value: _toWalletId,
                   width: 460,
                   fieldKey: const Key('flowfin-composer-to-wallet'),
                   items: [
-                    const DropdownMenuItem(value: '', child: Text('Pick one')),
+                    const DropdownMenuItem(value: '', child: Text('Chọn ví')),
                     ...wallets
                         .where((wallet) => wallet.id != _walletId)
                         .map(
@@ -532,12 +535,12 @@ class _FlowFinTransactionComposerState
               if (_takesCategory) ...[
                 const SizedBox(height: 12),
                 _FlowFinDropdown<String>(
-                  label: 'Category',
+                  label: 'Danh mục',
                   value: _categoryId,
                   width: 460,
                   fieldKey: const Key('flowfin-composer-category'),
                   items: [
-                    const DropdownMenuItem(value: '', child: Text('None')),
+                    const DropdownMenuItem(value: '', child: Text('Không')),
                     ..._categoryChoices.map(
                       (category) => DropdownMenuItem(
                         value: category.id,
@@ -558,7 +561,7 @@ class _FlowFinTransactionComposerState
               TextField(
                 controller: _noteController,
                 maxLength: 500,
-                decoration: const InputDecoration(labelText: 'Note'),
+                decoration: const InputDecoration(labelText: 'Ghi chú'),
               ),
               if (_error.isNotEmpty) ...[
                 const SizedBox(height: 8),
@@ -571,7 +574,7 @@ class _FlowFinTransactionComposerState
       actions: [
         TextButton(
           onPressed: _saving ? null : () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: const Text('Huỷ'),
         ),
         FilledButton(
           key: const Key('flowfin-composer-save'),
@@ -582,7 +585,7 @@ class _FlowFinTransactionComposerState
                   height: 16,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : const Text('Save'),
+              : const Text('Lưu'),
         ),
       ],
     );

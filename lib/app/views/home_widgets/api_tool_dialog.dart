@@ -433,6 +433,10 @@ mixin _ApiToolDialogCore on State<_ApiToolDialog> {
   var _urlEncodedRows = <_ApiToolHeaderEditor>[];
   ApiToolResponse? _response;
   String? _error;
+
+  /// Something worth reading that is not a failure — currently the list of
+  /// oversized values a Postman import had to drop.
+  String? _notice;
   bool _isSending = false;
   bool _isRefreshingRepository = false;
   bool _isImportingPostmanCollection = false;
@@ -919,6 +923,7 @@ mixin _ApiToolDialogCore on State<_ApiToolDialog> {
       _cancelToken = cancelToken;
       _response = null;
       _error = null;
+      _notice = null;
       _sentRequest = request;
     });
 
@@ -1065,9 +1070,13 @@ mixin _ApiToolDialogCore on State<_ApiToolDialog> {
         _activeRequestId = null;
         _response = null;
         _error = null;
+        _notice = _importNotice(result);
       });
       _showApiToolSnack(
-        'Imported ${result.requestCount} request(s) from Postman.',
+        result.warnings.isEmpty
+            ? 'Imported ${result.requestCount} request(s) from Postman.'
+            : 'Imported ${result.requestCount} request(s); '
+                  '${result.warnings.length} oversized value(s) dropped.',
       );
     } on ApiToolPostmanImportException catch (error) {
       if (mounted) setState(() => _error = error.message);
@@ -1145,6 +1154,17 @@ mixin _ApiToolDialogCore on State<_ApiToolDialog> {
       _loadCollectionState(persistDefaults: false);
       _error = null;
     });
+  }
+
+  String? _importNotice(ApiToolPostmanImportResult result) {
+    if (result.warnings.isEmpty) return null;
+    return [
+      'Imported ${result.requestCount} request(s). '
+          '${result.warnings.length} value(s) were too large to store and were '
+          'dropped — Postman had inlined them as base64, and the file entry '
+          'beside each one still points at the real upload:',
+      ...result.warnings.map((warning) => '  • $warning'),
+    ].join('\n');
   }
 
   void _showApiToolSnack(String message) {

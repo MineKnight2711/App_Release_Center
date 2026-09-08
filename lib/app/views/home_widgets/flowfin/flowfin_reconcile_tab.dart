@@ -21,7 +21,7 @@ class _FlowFinReconcileTab extends StatelessWidget {
 
       return _FlowFinTabScaffold(
         icon: Icons.fact_check_outlined,
-        title: 'Reconcile',
+        title: 'Đối soát',
         loading: controller.isLoadingReconciliation.value,
         error: controller.reconciliationError.value,
         actions: [
@@ -34,13 +34,13 @@ class _FlowFinReconcileTab extends StatelessWidget {
             key: const Key('flowfin-reconcile-refresh'),
             onPressed: controller.loadReconciliation,
             icon: const Icon(Icons.refresh_outlined, size: 16),
-            label: const Text('Refresh'),
+            label: const Text('Làm mới'),
           ),
         ],
         child: wallets.isEmpty
             ? const _FlowFinEmpty(
                 icon: Icons.fact_check_outlined,
-                message: 'Add a wallet before reconciling.',
+                message: 'Thêm ví trước khi đối soát.',
               )
             : Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -111,7 +111,7 @@ class _FlowFinReconcileRow extends StatelessWidget {
                   builder: (_) => _FlowFinCheckInDialog(wallet: wallet),
                 ),
                 icon: const Icon(Icons.edit_note_outlined, size: 16),
-                label: const Text('Check in'),
+                label: const Text('Chốt số dư'),
               ),
             ],
           ),
@@ -119,16 +119,16 @@ class _FlowFinReconcileRow extends StatelessWidget {
           if (item == null)
             const _FlowFinNotice(
               icon: Icons.help_outline,
-              message: 'No check-in recorded for this date.',
+              message: 'Ngày này chưa có lần chốt số dư nào.',
             )
           else ...[
             Wrap(
               spacing: 16,
               runSpacing: 6,
               children: [
-                _pair('Expected', item.expectedBalanceMinor),
-                _pair('Counted', item.actualBalanceMinor),
-                _pair('Difference', difference, signed: true),
+                _pair('Sổ ghi', item.expectedBalanceMinor),
+                _pair('Đếm thực tế', item.actualBalanceMinor),
+                _pair('Chênh lệch', difference, signed: true),
               ],
             ),
             if (item.estimated) ...[
@@ -136,8 +136,8 @@ class _FlowFinReconcileRow extends StatelessWidget {
               const _FlowFinNotice(
                 icon: Icons.info_outline,
                 message:
-                    'The expected figure is an estimate — an earlier day has '
-                    'no check-in to anchor it.',
+                    'Số theo sổ chỉ là ước tính — có ngày trước đó chưa chốt '
+                    'số dư để làm mốc.',
               ),
             ],
             if (!settled) ...[
@@ -145,10 +145,10 @@ class _FlowFinReconcileRow extends StatelessWidget {
               _FlowFinNotice(
                 icon: Icons.report_problem_outlined,
                 message: difference > 0
-                    ? 'The wallet holds more than the ledger explains. Enter '
-                          'the missing income, or post an adjustment.'
-                    : 'The wallet holds less than the ledger explains. Enter '
-                          'the missing spend, or post an adjustment.',
+                    ? 'Ví đang nhiều hơn sổ. Nhập khoản thu còn thiếu, hoặc '
+                          'ghi một bút toán điều chỉnh.'
+                    : 'Ví đang ít hơn sổ. Nhập khoản chi còn thiếu, hoặc ghi '
+                          'một bút toán điều chỉnh.',
               ),
               const SizedBox(height: 6),
               // Nothing is posted automatically — this only opens the composer
@@ -158,7 +158,7 @@ class _FlowFinReconcileRow extends StatelessWidget {
                 onPressed: () => _FlowFinTransactionsTab._showComposer(context),
                 icon: const Icon(Icons.tune_outlined, size: 16),
                 label: Text(
-                  'Post an adjustment of ${FlowFinMoney.format(difference, withSign: true)}',
+                  'Ghi điều chỉnh ${FlowFinMoney.format(difference, withSign: true)}',
                 ),
               ),
             ],
@@ -223,7 +223,7 @@ class _FlowFinCheckInDialogState extends State<_FlowFinCheckInDialog> {
   Future<void> _submit() async {
     final balance = FlowFinMoney.parseInput(_balanceController.text);
     if (balance == null) {
-      setState(() => _error = 'Enter the counted balance as a whole number.');
+      setState(() => _error = 'Số dư đếm được phải là số nguyên.');
       return;
     }
 
@@ -255,7 +255,7 @@ class _FlowFinCheckInDialogState extends State<_FlowFinCheckInDialog> {
       surfaceTintColor: Colors.transparent,
       title: _PanelTitle(
         icon: Icons.fact_check_outlined,
-        title: 'Check in · ${widget.wallet.name}',
+        title: 'Chốt số dư · ${widget.wallet.name}',
       ),
       content: SizedBox(
         width: 420,
@@ -264,7 +264,7 @@ class _FlowFinCheckInDialogState extends State<_FlowFinCheckInDialog> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'On ${controller.reconciliationDate.value}',
+              'Ngày ${controller.reconciliationDate.value}',
               style: AppCyberTheme.dataTextStyle(
                 size: 11,
                 color: AppCyberTheme.textMuted,
@@ -273,7 +273,7 @@ class _FlowFinCheckInDialogState extends State<_FlowFinCheckInDialog> {
             const SizedBox(height: 12),
             _FlowFinMoneyField(
               controller: _balanceController,
-              label: 'Counted balance',
+              label: 'Số dư đếm được',
               autofocus: true,
               fieldKey: const Key('flowfin-checkin-balance'),
             ),
@@ -281,7 +281,7 @@ class _FlowFinCheckInDialogState extends State<_FlowFinCheckInDialog> {
             TextField(
               controller: _noteController,
               maxLength: 200,
-              decoration: const InputDecoration(labelText: 'Note'),
+              decoration: const InputDecoration(labelText: 'Ghi chú'),
             ),
             if (result != null) ...[
               const SizedBox(height: 8),
@@ -290,10 +290,10 @@ class _FlowFinCheckInDialogState extends State<_FlowFinCheckInDialog> {
                     ? Icons.check_circle_outline
                     : Icons.report_problem_outlined,
                 message: result.isBalanced
-                    ? 'Matches the ledger exactly.'
-                    : 'Difference of '
-                          '${FlowFinMoney.format(result.differenceMinor, withSign: true)} '
-                          'recorded. Nothing was posted — decide what to enter.',
+                    ? 'Khớp chính xác với sổ.'
+                    : 'Đã ghi nhận chênh lệch '
+                          '${FlowFinMoney.format(result.differenceMinor, withSign: true)}. '
+                          'Chưa ghi bút toán nào — bạn quyết định nhập gì.',
               ),
             ],
             if (_error.isNotEmpty) ...[
@@ -306,12 +306,12 @@ class _FlowFinCheckInDialogState extends State<_FlowFinCheckInDialog> {
       actions: [
         TextButton(
           onPressed: _saving ? null : () => Navigator.of(context).pop(),
-          child: Text(result == null ? 'Cancel' : 'Close'),
+          child: Text(result == null ? 'Huỷ' : 'Đóng'),
         ),
         FilledButton(
           key: const Key('flowfin-checkin-save'),
           onPressed: _saving ? null : _submit,
-          child: const Text('Record'),
+          child: const Text('Ghi nhận'),
         ),
       ],
     );

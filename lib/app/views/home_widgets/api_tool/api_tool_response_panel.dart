@@ -64,6 +64,19 @@ mixin _ApiToolResponseSection on _ApiToolDialogCore {
       );
     }
 
+    final notice = _notice;
+    if (response == null && notice != null) {
+      return SingleChildScrollView(
+        controller: _responseScrollController,
+        padding: const EdgeInsets.only(right: 8, bottom: 4),
+        child: _ApiToolMessage(
+          icon: Icons.warning_amber_outlined,
+          color: AppCyberTheme.amber,
+          message: notice,
+        ),
+      );
+    }
+
     if (response == null) {
       return Center(
         child: Column(

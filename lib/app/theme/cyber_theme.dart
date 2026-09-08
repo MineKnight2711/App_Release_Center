@@ -31,6 +31,7 @@ class AppCyberTheme {
   static const Color _cyberLineBlue = Color(0x8038F6FF);
   static const Color _cyberTextPrimary = Color(0xFFE7F4FF);
   static const Color _cyberTextMuted = Color(0xFF9CAFC5);
+  static const Color _cyberAmber = Color(0xFFFFC24B);
 
   static const Color _defaultBaseBackground = Color(0xFFF6F7F9);
   static const Color _defaultPanelBackground = Color(0xFFFFFFFF);
@@ -40,6 +41,7 @@ class AppCyberTheme {
   static const Color _defaultLineBlue = Color(0xFFE1E6EE);
   static const Color _defaultTextPrimary = Color(0xFF111827);
   static const Color _defaultTextMuted = Color(0xFF64748B);
+  static const Color _defaultAmber = Color(0xFFB45309);
 
   static bool get isCyber => _activeChoice == AppThemeChoice.cyber;
 
@@ -56,6 +58,9 @@ class AppCyberTheme {
   static Color get textPrimary =>
       isCyber ? _cyberTextPrimary : _defaultTextPrimary;
   static Color get textMuted => isCyber ? _cyberTextMuted : _defaultTextMuted;
+
+  /// Carries a caution that is not a failure, so it must not read as an error.
+  static Color get amber => isCyber ? _cyberAmber : _defaultAmber;
 
   static List<Color> get backdropGradientColors {
     return isCyber

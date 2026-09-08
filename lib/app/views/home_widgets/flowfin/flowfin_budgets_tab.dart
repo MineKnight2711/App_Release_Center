@@ -14,7 +14,7 @@ class _FlowFinBudgetsTab extends StatelessWidget {
 
       return _FlowFinTabScaffold(
         icon: Icons.pie_chart_outline,
-        title: 'Budgets · ${FlowFinController.currentPeriodKey()}',
+        title: 'Ngân sách · ${FlowFinController.currentPeriodKey()}',
         loading: controller.isLoadingBudgets.value,
         error: controller.budgetsError.value,
         actions: [
@@ -22,19 +22,19 @@ class _FlowFinBudgetsTab extends StatelessWidget {
             key: const Key('flowfin-budgets-refresh'),
             onPressed: controller.loadBudgets,
             icon: const Icon(Icons.refresh_outlined, size: 16),
-            label: const Text('Refresh'),
+            label: const Text('Làm mới'),
           ),
           FilledButton.icon(
             key: const Key('flowfin-budget-new'),
             onPressed: () => _showForm(context),
             icon: const Icon(Icons.add, size: 16),
-            label: const Text('New'),
+            label: const Text('Thêm'),
           ),
         ],
         child: budgets.isEmpty
             ? const _FlowFinEmpty(
                 icon: Icons.pie_chart_outline,
-                message: 'No budget set for this period.',
+                message: 'Chưa đặt ngân sách cho kỳ này.',
               )
             : Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -90,7 +90,7 @@ class _FlowFinBudgetRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final name = budget.scope == 'total'
-        ? 'Total spending'
+        ? 'Tổng chi tiêu'
         : controller.categoryName(budget.categoryId);
     final ratio = budget.limitMinor <= 0
         ? 0.0
@@ -113,7 +113,7 @@ class _FlowFinBudgetRow extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  name.isEmpty ? 'Category budget' : name,
+                  name.isEmpty ? 'Ngân sách danh mục' : name,
                   style: AppCyberTheme.dataTextStyle(
                     size: 12.5,
                     color: AppCyberTheme.textPrimary,
@@ -130,7 +130,7 @@ class _FlowFinBudgetRow extends StatelessWidget {
                 ),
               ),
               IconButton(
-                tooltip: 'Edit',
+                tooltip: 'Sửa',
                 iconSize: 16,
                 onPressed: () =>
                     _FlowFinBudgetsTab._showForm(context, existing: budget),
@@ -138,19 +138,19 @@ class _FlowFinBudgetRow extends StatelessWidget {
               ),
               IconButton(
                 key: Key('flowfin-budget-delete-${budget.id}'),
-                tooltip: 'Delete',
+                tooltip: 'Xoá',
                 iconSize: 16,
                 onPressed: () async {
                   final confirmed = await _flowFinConfirm(
                     context,
-                    title: 'Delete budget?',
-                    message: 'The limit for $name will be removed.',
+                    title: 'Xoá ngân sách?',
+                    message: 'Hạn mức cho $name sẽ bị xoá.',
                   );
                   if (!confirmed || !context.mounted) return;
                   await _flowFinRun(
                     context,
                     () => controller.deleteBudget(budget),
-                    successMessage: 'Budget deleted.',
+                    successMessage: 'Đã xoá ngân sách.',
                   );
                 },
                 icon: const Icon(Icons.delete_outline),
@@ -173,7 +173,7 @@ class _FlowFinBudgetRow extends StatelessWidget {
             const SizedBox(height: 6),
             const _FlowFinNotice(
               icon: Icons.info_outline,
-              message: 'Open Statistics to load spending per category.',
+              message: 'Mở tab Thống kê để nạp số chi theo danh mục.',
             ),
           ],
         ],
@@ -219,11 +219,11 @@ class _FlowFinBudgetFormState extends State<_FlowFinBudgetForm> {
   Future<void> _submit() async {
     final limit = FlowFinMoney.parseInput(_limitController.text);
     if (limit == null || limit <= 0) {
-      setState(() => _error = 'The limit must be greater than zero.');
+      setState(() => _error = 'Hạn mức phải lớn hơn 0.');
       return;
     }
     if (_scope == 'category' && _categoryId.isEmpty) {
-      setState(() => _error = 'Pick a category for a category budget.');
+      setState(() => _error = 'Ngân sách theo danh mục phải chọn danh mục.');
       return;
     }
 
@@ -262,7 +262,7 @@ class _FlowFinBudgetFormState extends State<_FlowFinBudgetForm> {
       surfaceTintColor: Colors.transparent,
       title: _PanelTitle(
         icon: Icons.pie_chart_outline,
-        title: isNew ? 'New budget' : 'Edit budget',
+        title: isNew ? 'Thêm ngân sách' : 'Sửa ngân sách',
       ),
       content: SizedBox(
         width: 400,
@@ -272,14 +272,14 @@ class _FlowFinBudgetFormState extends State<_FlowFinBudgetForm> {
           children: [
             if (isNew) ...[
               _FlowFinDropdown<String>(
-                label: 'Scope',
+                label: 'Phạm vi',
                 value: _scope,
                 width: 400,
                 items: const [
-                  DropdownMenuItem(value: 'total', child: Text('Total')),
+                  DropdownMenuItem(value: 'total', child: Text('Toàn bộ')),
                   DropdownMenuItem(
                     value: 'category',
-                    child: Text('One category'),
+                    child: Text('Một danh mục'),
                   ),
                 ],
                 onChanged: (value) => setState(() {
@@ -290,11 +290,11 @@ class _FlowFinBudgetFormState extends State<_FlowFinBudgetForm> {
               if (_scope == 'category') ...[
                 const SizedBox(height: 12),
                 _FlowFinDropdown<String>(
-                  label: 'Category',
+                  label: 'Danh mục',
                   value: _categoryId,
                   width: 400,
                   items: [
-                    const DropdownMenuItem(value: '', child: Text('Pick one')),
+                    const DropdownMenuItem(value: '', child: Text('Chọn một')),
                     ...expenseCategories.map(
                       (category) => DropdownMenuItem(
                         value: category.id,
@@ -310,7 +310,7 @@ class _FlowFinBudgetFormState extends State<_FlowFinBudgetForm> {
             ],
             _FlowFinMoneyField(
               controller: _limitController,
-              label: 'Monthly limit',
+              label: 'Hạn mức tháng',
               autofocus: true,
               fieldKey: const Key('flowfin-budget-limit'),
             ),
@@ -324,12 +324,12 @@ class _FlowFinBudgetFormState extends State<_FlowFinBudgetForm> {
       actions: [
         TextButton(
           onPressed: _saving ? null : () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: const Text('Huỷ'),
         ),
         FilledButton(
           key: const Key('flowfin-budget-save'),
           onPressed: _saving ? null : _submit,
-          child: const Text('Save'),
+          child: const Text('Lưu'),
         ),
       ],
     );

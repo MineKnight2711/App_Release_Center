@@ -17,7 +17,7 @@ class _FlowFinImportsTab extends StatelessWidget {
 
       return _FlowFinTabScaffold(
         icon: Icons.file_download_outlined,
-        title: 'Imports',
+        title: 'Nhập liệu',
         loading: controller.isLoadingImports.value,
         error: controller.importsError.value,
         actions: [
@@ -26,13 +26,13 @@ class _FlowFinImportsTab extends StatelessWidget {
               key: const Key('flowfin-import-close'),
               onPressed: () => controller.activeImportBatch.value = null,
               icon: const Icon(Icons.close, size: 16),
-              label: const Text('Close batch'),
+              label: const Text('Đóng lô'),
             ),
           OutlinedButton.icon(
             key: const Key('flowfin-imports-refresh'),
             onPressed: controller.loadImports,
             icon: const Icon(Icons.refresh_outlined, size: 16),
-            label: const Text('Refresh'),
+            label: const Text('Làm mới'),
           ),
         ],
         child: batch == null
@@ -100,22 +100,22 @@ class _FlowFinImportStartState extends State<_FlowFinImportStart> {
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             _FlowFinDropdown<String>(
-              label: 'Source',
+              label: 'Nguồn',
               value: _source,
               width: 170,
               fieldKey: const Key('flowfin-import-source'),
               items: const [
                 DropdownMenuItem(value: 'momo', child: Text('MoMo')),
-                DropdownMenuItem(value: 'receipt', child: Text('Receipt')),
-                DropdownMenuItem(value: 'manual', child: Text('Plain text')),
+                DropdownMenuItem(value: 'receipt', child: Text('Hoá đơn')),
+                DropdownMenuItem(value: 'manual', child: Text('Văn bản thường')),
               ],
               onChanged: (value) => setState(() => _source = value ?? 'momo'),
             ),
             _FlowFinDropdown<String>(
-              label: 'Default wallet',
+              label: 'Ví mặc định',
               value: _walletId,
               items: [
-                const DropdownMenuItem(value: '', child: Text('None')),
+                const DropdownMenuItem(value: '', child: Text('Không')),
                 ...wallets.map(
                   (wallet) => DropdownMenuItem(
                     value: wallet.id,
@@ -133,7 +133,7 @@ class _FlowFinImportStartState extends State<_FlowFinImportStart> {
           controller: _textController,
           maxLines: 8,
           decoration: const InputDecoration(
-            labelText: 'Paste the notification or receipt text',
+            labelText: 'Dán nội dung thông báo hoặc hoá đơn',
             alignLabelWithHint: true,
             border: OutlineInputBorder(),
           ),
@@ -143,28 +143,28 @@ class _FlowFinImportStartState extends State<_FlowFinImportStart> {
           key: const Key('flowfin-import-parse'),
           onPressed: _submitting ? null : _submit,
           icon: const Icon(Icons.auto_fix_high_outlined, size: 16),
-          label: const Text('Parse'),
+          label: const Text('Phân tích'),
         ),
         const SizedBox(height: 20),
-        const _PanelTitle(icon: Icons.history_outlined, title: 'Recent batches'),
+        const _PanelTitle(icon: Icons.history_outlined, title: 'Các lô gần đây'),
         const SizedBox(height: 8),
         if (batches.isEmpty)
           const _FlowFinEmpty(
             icon: Icons.history_outlined,
-            message: 'No import batches yet.',
+            message: 'Chưa có lô nhập liệu nào.',
           )
         else
           ...batches.map(
             (batch) => _FlowFinRow(
               title: '${batch.source} · ${batch.status}',
               subtitle: [
-                '${batch.itemCount} item(s)',
+                '${batch.itemCount} dòng',
                 if (batch.createdAt.isNotEmpty) batch.createdAt,
                 if (batch.lastError.isNotEmpty) batch.lastError,
               ].join(' · '),
               actions: [
                 IconButton(
-                  tooltip: 'Open',
+                  tooltip: 'Mở',
                   iconSize: 16,
                   onPressed: () => _flowFinRun(
                     context,
@@ -225,7 +225,7 @@ class _FlowFinImportReviewState extends State<_FlowFinImportReview> {
 
     if (entries.isEmpty) return;
     if (entries.any((entry) => entry.walletId.isEmpty)) {
-      await _flowFinRun(context, () async => 'Every selected row needs a wallet.');
+      await _flowFinRun(context, () async => 'Mỗi dòng đã chọn đều phải có ví.');
       return;
     }
 
@@ -233,7 +233,7 @@ class _FlowFinImportReviewState extends State<_FlowFinImportReview> {
     final ok = await _flowFinRun(
       context,
       () => widget.controller.confirmImport(entries),
-      successMessage: '${entries.length} transaction(s) created.',
+      successMessage: 'Đã tạo ${entries.length} giao dịch.',
     );
     if (!mounted) return;
     setState(() => _confirming = false);
@@ -250,8 +250,8 @@ class _FlowFinImportReviewState extends State<_FlowFinImportReview> {
       return _FlowFinEmpty(
         icon: Icons.hourglass_empty_outlined,
         message: widget.batch.status == 'pending'
-            ? 'The batch is still being parsed. Refresh in a moment.'
-            : 'Nothing could be read from that text.',
+            ? 'Lô đang được phân tích. Làm mới lại sau giây lát.'
+            : 'Không đọc được gì từ đoạn văn bản đó.',
       );
     }
 
@@ -261,7 +261,7 @@ class _FlowFinImportReviewState extends State<_FlowFinImportReview> {
         Row(
           children: [
             Text(
-              '${_selected.length} of ${items.length} selected',
+              'Đã chọn ${_selected.length}/${items.length} dòng',
               style: AppCyberTheme.dataTextStyle(
                 size: 11.5,
                 color: AppCyberTheme.textMuted,
@@ -272,7 +272,7 @@ class _FlowFinImportReviewState extends State<_FlowFinImportReview> {
               key: const Key('flowfin-import-confirm'),
               onPressed: _confirming || _selected.isEmpty ? null : _confirm,
               icon: const Icon(Icons.check, size: 16),
-              label: const Text('Create transactions'),
+              label: const Text('Tạo giao dịch'),
             ),
           ],
         ),
@@ -309,7 +309,7 @@ class _FlowFinImportReviewState extends State<_FlowFinImportReview> {
                     Expanded(
                       child: Text(
                         [
-                          item.merchant.isEmpty ? 'Unnamed' : item.merchant,
+                          item.merchant.isEmpty ? 'Không rõ' : item.merchant,
                           item.localDate,
                           if (item.direction.isNotEmpty) item.direction,
                         ].join(' · '),
@@ -335,8 +335,8 @@ class _FlowFinImportReviewState extends State<_FlowFinImportReview> {
                   const _FlowFinNotice(
                     icon: Icons.copy_all_outlined,
                     message:
-                        'Looks like a transaction already entered. Unticked by '
-                        'default so it is not counted twice.',
+                        'Có vẻ trùng với một giao dịch đã nhập. Mặc định bỏ '
+                        'tick để không bị đếm hai lần.',
                   ),
                 const SizedBox(height: 6),
                 Wrap(
@@ -344,10 +344,10 @@ class _FlowFinImportReviewState extends State<_FlowFinImportReview> {
                   runSpacing: 8,
                   children: [
                     _FlowFinDropdown<String>(
-                      label: 'Wallet',
+                      label: 'Ví',
                       value: _walletByItem[item.id] ?? '',
                       items: [
-                        const DropdownMenuItem(value: '', child: Text('Pick')),
+                        const DropdownMenuItem(value: '', child: Text('Chọn')),
                         ...wallets.map(
                           (wallet) => DropdownMenuItem(
                             value: wallet.id,
@@ -360,10 +360,10 @@ class _FlowFinImportReviewState extends State<_FlowFinImportReview> {
                       ),
                     ),
                     _FlowFinDropdown<String>(
-                      label: 'Category',
+                      label: 'Danh mục',
                       value: _categoryByItem[item.id] ?? '',
                       items: [
-                        const DropdownMenuItem(value: '', child: Text('None')),
+                        const DropdownMenuItem(value: '', child: Text('Không')),
                         ...categories.map(
                           (category) => DropdownMenuItem(
                             value: category.id,

@@ -13,18 +13,18 @@ class _FlowFinStatisticsTab extends StatelessWidget {
 
       return _FlowFinTabScaffold(
         icon: Icons.insights_outlined,
-        title: 'Statistics · this month',
+        title: 'Thống kê · tháng này',
         loading: controller.isLoadingStats.value,
         error: controller.statsError.value,
         actions: [
           _FlowFinDropdown<String>(
-            label: 'Breakdown',
+            label: 'Phân tích',
             value: controller.breakdownKind.value,
             width: 150,
             fieldKey: const Key('flowfin-breakdown-kind'),
             items: const [
-              DropdownMenuItem(value: 'expense', child: Text('Expense')),
-              DropdownMenuItem(value: 'income', child: Text('Income')),
+              DropdownMenuItem(value: 'expense', child: Text('Khoản chi')),
+              DropdownMenuItem(value: 'income', child: Text('Khoản thu')),
             ],
             onChanged: (value) =>
                 controller.setBreakdownKind(value ?? 'expense'),
@@ -33,7 +33,7 @@ class _FlowFinStatisticsTab extends StatelessWidget {
             key: const Key('flowfin-stats-refresh'),
             onPressed: controller.loadStats,
             icon: const Icon(Icons.refresh_outlined, size: 16),
-            label: const Text('Refresh'),
+            label: const Text('Làm mới'),
           ),
         ],
         child: Column(
@@ -45,7 +45,7 @@ class _FlowFinStatisticsTab extends StatelessWidget {
             if (timeline == null && breakdown == null)
               const _FlowFinEmpty(
                 icon: Icons.insights_outlined,
-                message: 'No statistics loaded yet.',
+                message: 'Chưa nạp số liệu thống kê.',
               ),
           ],
         ),
@@ -67,7 +67,7 @@ class _FlowFinTimelineChart extends StatelessWidget {
     if (points.isEmpty) {
       return const _FlowFinEmpty(
         icon: Icons.show_chart_outlined,
-        message: 'No activity in this period.',
+        message: 'Kỳ này chưa có phát sinh.',
       );
     }
 
@@ -86,15 +86,15 @@ class _FlowFinTimelineChart extends StatelessWidget {
           children: [
             const _PanelTitle(
               icon: Icons.show_chart_outlined,
-              title: 'Daily flow',
+              title: 'Thu chi theo ngày',
             ),
             const SizedBox(width: 12),
             _FlowFinLegendDot(
               color: AppCyberTheme.neonGreen,
-              label: 'Income',
+              label: 'Thu',
             ),
             const SizedBox(width: 10),
-            const _FlowFinLegendDot(color: Colors.redAccent, label: 'Expense'),
+            const _FlowFinLegendDot(color: Colors.redAccent, label: 'Chi'),
           ],
         ),
         const SizedBox(height: 10),
@@ -130,9 +130,9 @@ class _FlowFinTimelineBar extends StatelessWidget {
     return Tooltip(
       message:
           '${point.key}\n'
-          'Income ${FlowFinMoney.format(point.incomeMinor)}\n'
-          'Expense ${FlowFinMoney.format(point.expenseMinor)}\n'
-          'Net ${FlowFinMoney.format(point.netMinor, withSign: true)}',
+          'Thu ${FlowFinMoney.format(point.incomeMinor)}\n'
+          'Chi ${FlowFinMoney.format(point.expenseMinor)}\n'
+          'Chênh lệch ${FlowFinMoney.format(point.netMinor, withSign: true)}',
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 3),
         child: Column(
@@ -221,7 +221,7 @@ class _FlowFinBreakdownList extends StatelessWidget {
     if (breakdown.items.isEmpty) {
       return const _FlowFinEmpty(
         icon: Icons.donut_small_outlined,
-        message: 'Nothing to break down in this period.',
+        message: 'Kỳ này không có gì để phân tích.',
       );
     }
 
@@ -232,7 +232,7 @@ class _FlowFinBreakdownList extends StatelessWidget {
           children: [
             const _PanelTitle(
               icon: Icons.donut_small_outlined,
-              title: 'By category',
+              title: 'Theo danh mục',
             ),
             const Spacer(),
             Text(
