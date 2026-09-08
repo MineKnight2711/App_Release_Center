@@ -37,7 +37,9 @@ class ProjectStoreService extends GetxService implements AuthSessionStore {
   static const _apiToolQuickRequestsKey = 'api_tool_quick_requests';
   static const _apiToolHistoryKey = 'api_tool_history';
   static const _apiToolTimeoutSecondsKey = 'api_tool_timeout_seconds';
+  static const _recentCommandIdsKey = 'recent_command_ids';
   static const _apiToolHistoryLimit = 50;
+  static const _recentCommandIdsLimit = 12;
   static const _defaultApiToolTimeoutSeconds = 30;
 
   late final SharedPreferences _preferences;
@@ -55,6 +57,13 @@ class ProjectStoreService extends GetxService implements AuthSessionStore {
 
   List<String> get dismissedRecentProjectPaths {
     return _preferences.getStringList(_dismissedRecentProjectsKey) ?? const [];
+  }
+
+  /// Command palette entries the user ran most recently, newest first.
+  List<String> get recentCommandIds {
+    final stored = _preferences.getStringList(_recentCommandIdsKey);
+    if (stored == null) return const [];
+    return stored.take(_recentCommandIdsLimit).toList();
   }
 
   @override
@@ -603,6 +612,13 @@ class ProjectStoreService extends GetxService implements AuthSessionStore {
     await _preferences.setStringList(
       _apiToolHistoryKey,
       normalized.map((entry) => jsonEncode(entry.toJson())).toList(),
+    );
+  }
+
+  Future<void> saveRecentCommandIds(List<String> ids) async {
+    await _preferences.setStringList(
+      _recentCommandIdsKey,
+      ids.take(_recentCommandIdsLimit).toList(),
     );
   }
 

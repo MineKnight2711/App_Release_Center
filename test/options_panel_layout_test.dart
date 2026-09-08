@@ -1,11 +1,13 @@
 import 'dart:io';
 
+import 'package:app_management_center/app/controllers/app_shell_controller.dart';
 import 'package:app_management_center/app/controllers/home_controller.dart';
 import 'package:app_management_center/app/data/release_center_connect.dart';
 import 'package:app_management_center/app/models/api_tool.dart';
 import 'package:app_management_center/app/models/app_store_project.dart';
 import 'package:app_management_center/app/models/ch_play_project.dart';
 import 'package:app_management_center/app/models/cicd_dependency.dart';
+import 'package:app_management_center/app/models/release_fastlane_lane.dart';
 import 'package:app_management_center/app/models/release_project.dart';
 import 'package:app_management_center/app/models/release_workflow.dart';
 import 'package:app_management_center/app/models/resource_catalog.dart';
@@ -124,15 +126,168 @@ void main() {
     expect(find.text('STEP 3/3  |  100%'), findsOneWidget);
   });
 
-  testWidgets('moves app controls into automation header', (tester) async {
+  testWidgets('keeps the automation header to search, release and status', (
+    tester,
+  ) async {
     await _pumpHome(tester, harness);
 
     expect(find.text('App Management Center'), findsNothing);
-    expect(find.text('AUTOMATION'), findsOneWidget);
-    expect(find.byKey(const Key('open-api-tool')), findsOneWidget);
-    expect(find.text('Cyber'), findsOneWidget);
+    // At this window width the panel title collapses to its icon so the search
+    // bar keeps room; the four controls below are what the header is for.
+    expect(find.text('AUTOMATION'), findsNothing);
+    expect(find.byKey(const Key('open-command-palette')), findsOneWidget);
+    expect(find.byKey(const Key('run-release-workflow')), findsOneWidget);
     expect(find.text('Idle'), findsOneWidget);
-    expect(find.text('Extend'), findsOneWidget);
+    expect(find.byKey(const Key('automation-menu')), findsOneWidget);
+  });
+
+  testWidgets('moves the tools and theme switch into the automation menu', (
+    tester,
+  ) async {
+    await _pumpHome(tester, harness);
+
+    await tester.tap(find.byKey(const Key('automation-menu')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('API Tool'), findsOneWidget);
+    expect(find.text('API Monitor'), findsOneWidget);
+    expect(find.text('FlowFin'), findsOneWidget);
+    expect(find.text('Switch to Default theme'), findsOneWidget);
+    expect(find.text('Generate Android JKS'), findsOneWidget);
+  });
+
+  testWidgets('opens the command palette with Ctrl+K and closes it with Esc', (
+    tester,
+  ) async {
+    await _pumpHome(tester, harness);
+
+    expect(find.byKey(const Key('command-palette')), findsNothing);
+
+    await _pressPaletteShortcut(tester);
+    expect(find.byKey(const Key('command-palette')), findsOneWidget);
+    expect(find.byKey(const Key('command-palette-query')), findsOneWidget);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('command-palette')), findsNothing);
+  });
+
+  testWidgets('opens the command palette from the header search bar', (
+    tester,
+  ) async {
+    await _pumpHome(tester, harness);
+
+    await tester.tap(find.byKey(const Key('open-command-palette')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('command-palette')), findsOneWidget);
+  });
+
+  testWidgets('filters commands and runs the highlighted one with Enter', (
+    tester,
+  ) async {
+    await _pumpHome(tester, harness);
+    final shell = Get.find<AppShellController>();
+    expect(shell.optionsTab.value, ShellOptionsTab.release);
+
+    await _pressPaletteShortcut(tester);
+    await tester.enterText(
+      find.byKey(const Key('command-palette-query')),
+      'resources options',
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('command-palette-item-goto.options:resources')),
+      findsOneWidget,
+    );
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('command-palette')), findsNothing);
+    expect(shell.optionsTab.value, ShellOptionsTab.resources);
+  });
+
+  testWidgets('lists project-scoped Fastlane lanes as commands', (
+    tester,
+  ) async {
+    await _pumpHome(tester, harness);
+    harness.controller.project.value = ReleaseProject(
+      path: harness.projectDirectory.path,
+      scripts: const [],
+      fastlaneLanes: const [
+        ReleaseFastlaneLane(name: 'deploy_internal', platform: 'android'),
+      ],
+      hasFirebaseDeployTools: true,
+      hasPlayReleaseTools: true,
+      pubspecVersion: '1.0.0+1',
+    );
+    await tester.pump();
+
+    await _pressPaletteShortcut(tester);
+    await tester.enterText(
+      find.byKey(const Key('command-palette-query')),
+      'deploy internal',
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Fastlane: Deploy Internal'), findsOneWidget);
+    expect(find.text('fastlane android deploy_internal'), findsOneWidget);
+  });
+
+  testWidgets('greys out commands that cannot run and says why', (
+    tester,
+  ) async {
+    await _pumpHome(tester, harness);
+
+    await _pressPaletteShortcut(tester);
+    await tester.enterText(
+      find.byKey(const Key('command-palette-query')),
+      'stop the running command',
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Stop the running command'), findsOneWidget);
+    expect(find.text('Nothing is running'), findsOneWidget);
+  });
+
+  testWidgets('opens on the commands used most recently', (tester) async {
+    await _pumpHome(tester, harness);
+    final shell = Get.find<AppShellController>();
+
+    await _pressPaletteShortcut(tester);
+    await tester.enterText(
+      find.byKey(const Key('command-palette-query')),
+      'fastlane command',
+    );
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+
+    expect(shell.flowTab.value, ShellFlowTab.fastlaneCommand);
+    expect(shell.recentCommandIds.first, 'goto.flow:fastlaneCommand');
+    expect(
+      harness.controller.store.recentCommandIds.first,
+      'goto.flow:fastlaneCommand',
+    );
+
+    // Reopening with an empty query puts it above the entry that normally
+    // leads the list.
+    await _pressPaletteShortcut(tester);
+    final recentTop = tester
+        .getTopLeft(
+          find.byKey(
+            const Key('command-palette-item-goto.flow:fastlaneCommand'),
+          ),
+        )
+        .dy;
+    final defaultFirstTop = tester
+        .getTopLeft(
+          find.byKey(const Key('command-palette-item-project.choose')),
+        )
+        .dy;
+    expect(recentTop, lessThan(defaultFirstTop));
   });
 
   testWidgets('opens project setup wizard from project summary', (
@@ -203,10 +358,7 @@ void main() {
       find.byKey(const Key('store-version-chplay-selected-play')),
       findsOneWidget,
     );
-    expect(
-      find.byKey(const Key('store-version-appstore-selected-ios')),
-      findsOneWidget,
-    );
+    expect(find.text('com.example.selected.play'), findsOneWidget);
     expect(
       find.byKey(const Key('store-version-chplay-other-play')),
       findsNothing,
@@ -215,9 +367,25 @@ void main() {
       find.byKey(const Key('store-version-appstore-other-ios')),
       findsNothing,
     );
-    expect(find.text('com.example.selected.play'), findsOneWidget);
-    expect(find.text('com.example.selected.ios'), findsOneWidget);
     expect(find.text('com.example.other.play'), findsNothing);
+    expect(find.text('com.example.other.ios'), findsNothing);
+
+    // The cards list scrolls, so the App Store card is built only once the
+    // list reaches it.
+    await tester.drag(
+      find.byKey(const Key('store-version-chplay-selected-play')),
+      const Offset(0, -260),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('store-version-appstore-selected-ios')),
+      findsOneWidget,
+    );
+    expect(find.text('com.example.selected.ios'), findsOneWidget);
+    expect(
+      find.byKey(const Key('store-version-appstore-other-ios')),
+      findsNothing,
+    );
     expect(find.text('com.example.other.ios'), findsNothing);
   });
 
@@ -277,7 +445,7 @@ void main() {
     Get.put<ApiToolService>(apiTool);
     await _pumpHome(tester, harness);
 
-    await tester.tap(find.byKey(const Key('open-api-tool')));
+    await _openAutomationMenuItem(tester, 'API Tool');
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('api-tool-dialog')), findsOneWidget);
@@ -329,7 +497,7 @@ void main() {
     Get.put<ApiToolService>(apiTool);
     await _pumpHome(tester, harness);
 
-    await tester.tap(find.byKey(const Key('open-api-tool')));
+    await _openAutomationMenuItem(tester, 'API Tool');
     await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const Key('api-tool-name')),
@@ -396,7 +564,7 @@ void main() {
     Get.put<ApiToolService>(apiTool);
     await _pumpHome(tester, harness);
 
-    await tester.tap(find.byKey(const Key('open-api-tool')));
+    await _openAutomationMenuItem(tester, 'API Tool');
     await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const Key('api-tool-url')),
@@ -437,7 +605,7 @@ void main() {
     Get.put<ApiToolService>(apiTool);
     await _pumpHome(tester, harness);
 
-    await tester.tap(find.byKey(const Key('open-api-tool')));
+    await _openAutomationMenuItem(tester, 'API Tool');
     await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const Key('api-tool-url')),
@@ -529,7 +697,7 @@ void main() {
       ]);
       await _pumpHome(tester, harness);
 
-      await tester.tap(find.byKey(const Key('open-api-tool')));
+      await _openAutomationMenuItem(tester, 'API Tool');
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('api-tool-quick-requests-tab')));
       await tester.pumpAndSettle();
@@ -569,7 +737,7 @@ void main() {
       Get.put<ApiToolService>(_FakeApiToolService());
       await _pumpHome(tester, harness);
 
-      await tester.tap(find.byKey(const Key('open-api-tool')));
+      await _openAutomationMenuItem(tester, 'API Tool');
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('api-tool-quick-requests-tab')));
       await tester.pumpAndSettle();
@@ -633,7 +801,7 @@ void main() {
     Get.put<ApiToolService>(_FakeApiToolService());
     await _pumpHome(tester, harness);
 
-    await tester.tap(find.byKey(const Key('open-api-tool')));
+    await _openAutomationMenuItem(tester, 'API Tool');
     await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const Key('api-tool-name')),
@@ -713,7 +881,7 @@ void main() {
     ]);
     await _pumpHome(tester, harness);
 
-    await tester.tap(find.byKey(const Key('open-api-tool')));
+    await _openAutomationMenuItem(tester, 'API Tool');
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('api-tool-quick-requests-tab')));
     await tester.pumpAndSettle();
@@ -737,7 +905,7 @@ void main() {
     Get.put<ApiToolService>(_FakeApiToolService());
     await _pumpHome(tester, harness);
 
-    await tester.tap(find.byKey(const Key('open-api-tool')));
+    await _openAutomationMenuItem(tester, 'API Tool');
     await tester.pumpAndSettle();
 
     await _openApiToolMenu(tester, 'api-tool-new-menu');
@@ -814,7 +982,7 @@ void main() {
     Get.put<ApiToolService>(_FakeApiToolService());
     await _pumpHome(tester, harness);
 
-    await tester.tap(find.byKey(const Key('open-api-tool')));
+    await _openAutomationMenuItem(tester, 'API Tool');
     await tester.pumpAndSettle();
 
     final toolbar = find.byKey(const Key('api-tool-collection-toolbar'));
@@ -896,7 +1064,7 @@ void main() {
     ]);
     await _pumpHome(tester, harness);
 
-    await tester.tap(find.byKey(const Key('open-api-tool')));
+    await _openAutomationMenuItem(tester, 'API Tool');
     await tester.pumpAndSettle();
 
     final collection = find.byKey(
@@ -977,7 +1145,7 @@ void main() {
     ]);
     await _pumpHome(tester, harness);
 
-    await tester.tap(find.byKey(const Key('open-api-tool')));
+    await _openAutomationMenuItem(tester, 'API Tool');
     await tester.pumpAndSettle();
     await _openApiToolMenu(tester, 'api-tool-more-menu');
     await tester.tap(find.byKey(const Key('api-tool-delete-collection')));
@@ -1016,7 +1184,7 @@ void main() {
     Get.put<ApiToolService>(apiTool);
     await _pumpHome(tester, harness);
 
-    await tester.tap(find.byKey(const Key('open-api-tool')));
+    await _openAutomationMenuItem(tester, 'API Tool');
     await tester.pumpAndSettle();
 
     await _openApiToolMenu(tester, 'api-tool-more-menu');
@@ -1104,7 +1272,7 @@ void main() {
     ]);
     await _pumpHome(tester, harness);
 
-    await tester.tap(find.byKey(const Key('open-api-tool')));
+    await _openAutomationMenuItem(tester, 'API Tool');
     await tester.pumpAndSettle();
 
     await _dragEnvToken(tester, 'Base Url', const Key('api-tool-url'));
@@ -1188,7 +1356,7 @@ void main() {
     Get.put<ApiToolService>(apiTool);
     await _pumpHome(tester, harness);
 
-    await tester.tap(find.byKey(const Key('open-api-tool')));
+    await _openAutomationMenuItem(tester, 'API Tool');
     await tester.pumpAndSettle();
 
     await tester.enterText(
@@ -1232,7 +1400,7 @@ void main() {
       ),
     ]);
 
-    await tester.tap(find.byKey(const Key('open-api-tool')));
+    await _openAutomationMenuItem(tester, 'API Tool');
     await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const Key('api-tool-url')),
@@ -1258,7 +1426,7 @@ void main() {
     Get.put<ApiToolService>(_FakeApiToolService());
     await _pumpHome(tester, harness);
 
-    await tester.tap(find.byKey(const Key('open-api-tool')));
+    await _openAutomationMenuItem(tester, 'API Tool');
     await tester.pumpAndSettle();
 
     await tester.enterText(
@@ -1358,7 +1526,7 @@ void main() {
     ]);
     await _pumpHome(tester, harness);
 
-    await tester.tap(find.byKey(const Key('open-api-tool')));
+    await _openAutomationMenuItem(tester, 'API Tool');
     await tester.pumpAndSettle();
     await tester.tap(
       find.byKey(const Key('api-tool-root-folder-collection-1')),
@@ -1395,7 +1563,7 @@ void main() {
     Get.put<ApiToolService>(apiTool);
     await _pumpHome(tester, harness);
 
-    await tester.tap(find.byKey(const Key('open-api-tool')));
+    await _openAutomationMenuItem(tester, 'API Tool');
     await tester.pumpAndSettle();
 
     // URL -> rows.
@@ -1475,7 +1643,7 @@ void main() {
     Get.put<ApiToolService>(_FakeApiToolService());
     await _pumpHome(tester, harness);
 
-    await tester.tap(find.byKey(const Key('open-api-tool')));
+    await _openAutomationMenuItem(tester, 'API Tool');
     await tester.pumpAndSettle();
 
     await tester.enterText(
@@ -1542,7 +1710,7 @@ void main() {
     Get.put<ApiToolService>(apiTool);
     await _pumpHome(tester, harness);
 
-    await tester.tap(find.byKey(const Key('open-api-tool')));
+    await _openAutomationMenuItem(tester, 'API Tool');
     await tester.pumpAndSettle();
 
     await tester.enterText(
@@ -1569,7 +1737,7 @@ void main() {
     Get.put<ApiToolService>(_FakeApiToolService());
     await _pumpHome(tester, harness);
 
-    await tester.tap(find.byKey(const Key('open-api-tool')));
+    await _openAutomationMenuItem(tester, 'API Tool');
     await tester.pumpAndSettle();
 
     await tester.enterText(
@@ -1621,9 +1789,8 @@ void main() {
     ]) {
       view.physicalSize = size;
       await _pumpHome(tester, harness);
-      await tester.ensureVisible(find.byKey(const Key('open-api-tool')));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('open-api-tool')));
+      await _openAutomationMenuItem(tester, 'API Tool');
       await tester.pumpAndSettle();
       expect(
         find.byKey(const Key('api-tool-dialog')),
@@ -1650,7 +1817,7 @@ void main() {
     Get.put<ApiToolService>(_FakeApiToolService());
     await _pumpHome(tester, harness);
 
-    await tester.tap(find.byKey(const Key('open-api-tool')));
+    await _openAutomationMenuItem(tester, 'API Tool');
     await tester.pumpAndSettle();
 
     // Send once so the response panel has measurable content.
@@ -1723,9 +1890,8 @@ void main() {
         TestWidgetsFlutterBinding.instance.platformDispatcher.views.first;
     view.physicalSize = const Size(880, 1100);
     await _pumpHome(tester, harness);
-    await tester.ensureVisible(find.byKey(const Key('open-api-tool')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('open-api-tool')));
+    await _openAutomationMenuItem(tester, 'API Tool');
     await tester.pumpAndSettle();
 
     final sidebarSplitter = find.byKey(const Key('api-tool-sidebar-splitter'));
@@ -2066,13 +2232,7 @@ void main() {
   ) async {
     await _pumpHome(tester, harness);
 
-    await tester.tap(find.text('Extend'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Generate Android JKS'), findsOneWidget);
-
-    await tester.tap(find.text('Generate Android JKS'));
-    await tester.pumpAndSettle();
+    await _openAutomationMenuItem(tester, 'Generate Android JKS');
     expect(find.widgetWithText(TextField, 'JKS password'), findsOneWidget);
 
     await tester.enterText(
@@ -2458,6 +2618,25 @@ bool _hasStdinField(WidgetTester tester, HomeController controller) {
       .any((field) => field.controller == controller.stdinController);
 }
 
+/// Ctrl+K is bound at the scaffold, so the shortcut works without focusing any
+/// particular field first.
+Future<void> _pressPaletteShortcut(WidgetTester tester) async {
+  await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+  await tester.sendKeyEvent(LogicalKeyboardKey.keyK);
+  await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+  await tester.pumpAndSettle();
+}
+
+/// The header keeps one overflow menu now; tools open through it.
+Future<void> _openAutomationMenuItem(WidgetTester tester, String label) async {
+  await tester.ensureVisible(find.byKey(const Key('automation-menu')));
+  await tester.pumpAndSettle();
+  await tester.tap(find.byKey(const Key('automation-menu')));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text(label));
+  await tester.pumpAndSettle();
+}
+
 /// The request workbench opens on the Params tab; most assertions need a
 /// different tab first.
 Future<void> _openApiToolTab(WidgetTester tester, String tabKey) async {
@@ -2641,6 +2820,8 @@ class _Harness {
     Get.put<ResourceCatalogPasswordStoreService>(resourceCatalogPasswords);
     Get.put<ResourceCatalogCryptoService>(resourceCatalogCrypto);
     Get.put<ResourceCatalogExcelService>(resourceCatalogExcel);
+
+    Get.put<AppShellController>(AppShellController(store: store));
 
     final controller = Get.put<HomeController>(
       HomeController(

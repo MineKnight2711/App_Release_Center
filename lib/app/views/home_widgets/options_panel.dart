@@ -1,99 +1,145 @@
 part of '../home_view.dart';
 
-class _OptionsPanel extends GetView<HomeController> {
+class _OptionsPanel extends StatefulWidget {
   const _OptionsPanel();
+
+  @override
+  State<_OptionsPanel> createState() => _OptionsPanelState();
+}
+
+class _OptionsPanelState extends State<_OptionsPanel>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabs;
+  late final Worker _shellTabWorker;
+
+  AppShellController get shell => Get.find<AppShellController>();
+
+  @override
+  void initState() {
+    super.initState();
+    _tabs = TabController(
+      length: ShellOptionsTab.values.length,
+      vsync: this,
+      initialIndex: shell.optionsTab.value.index,
+    );
+    _tabs.addListener(_publishTabToShell);
+    _shellTabWorker = ever<ShellOptionsTab>(
+      shell.optionsTab,
+      _adoptTabFromShell,
+    );
+  }
+
+  @override
+  void dispose() {
+    _shellTabWorker.dispose();
+    _tabs.removeListener(_publishTabToShell);
+    _tabs.dispose();
+    super.dispose();
+  }
+
+  /// Keeps the shell in step when the user clicks a tab button directly, so the
+  /// palette's "Go to" entries and the tab strip never disagree.
+  void _publishTabToShell() {
+    if (_tabs.indexIsChanging) return;
+    shell.showOptionsTab(ShellOptionsTab.values[_tabs.index]);
+  }
+
+  void _adoptTabFromShell(ShellOptionsTab tab) {
+    if (!mounted || _tabs.index == tab.index) return;
+    _tabs.animateTo(tab.index);
+  }
 
   @override
   Widget build(BuildContext context) {
     return _Panel(
-      child: DefaultTabController(
-        length: _OptionsTab.values.length,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: const [
-            _PanelTitle(icon: Icons.tune_outlined, title: 'Options'),
-            SizedBox(height: 10),
-            _OptionsTabSelector(),
-            SizedBox(height: 10),
-            Expanded(
-              child: TabBarView(
-                children: [
-                  _OptionsTabShell(child: _ReleaseOptions()),
-                  _OptionsTabShell(child: _CiCdSetupOptions()),
-                  _OptionsTabShell(child: _ResourceOptions()),
-                  _OptionsTabShell(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _TelegramReleaseOptions(),
-                        SizedBox(height: 10),
-                        _InstallerTelegramOptions(),
-                      ],
-                    ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _PanelTitle(icon: Icons.tune_outlined, title: 'Options'),
+          const SizedBox(height: 10),
+          _OptionsTabSelector(controller: _tabs),
+          const SizedBox(height: 10),
+          Expanded(
+            child: TabBarView(
+              controller: _tabs,
+              children: const [
+                _OptionsTabShell(child: _ReleaseOptions()),
+                _OptionsTabShell(child: _CiCdSetupOptions()),
+                _OptionsTabShell(child: _ResourceOptions()),
+                _OptionsTabShell(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _TelegramReleaseOptions(),
+                      SizedBox(height: 10),
+                      _InstallerTelegramOptions(),
+                    ],
                   ),
-                  _OptionsTabShell(child: _NotificationOptions()),
-                  _OptionsTabShell(child: _RemoteControlOptions()),
-                ],
-              ),
+                ),
+                _OptionsTabShell(child: _NotificationOptions()),
+                _OptionsTabShell(child: _RemoteControlOptions()),
+              ],
             ),
-            SizedBox(height: 12),
-            _CommandInputDock(),
-          ],
-        ),
+          ),
+          const SizedBox(height: 12),
+          const _CommandInputDock(),
+        ],
       ),
     );
   }
 }
 
-enum _OptionsTab { release, setup, resources, telegram, push, remote }
-
-extension _OptionsTabMeta on _OptionsTab {
+extension _OptionsTabMeta on ShellOptionsTab {
   IconData get icon {
     return switch (this) {
-      _OptionsTab.release => Icons.rocket_launch_outlined,
-      _OptionsTab.setup => Icons.construction_outlined,
-      _OptionsTab.resources => Icons.inventory_2_outlined,
-      _OptionsTab.telegram => Icons.send_outlined,
-      _OptionsTab.push => Icons.notifications_active_outlined,
-      _OptionsTab.remote => Icons.settings_remote_outlined,
+      ShellOptionsTab.release => Icons.rocket_launch_outlined,
+      ShellOptionsTab.setup => Icons.construction_outlined,
+      ShellOptionsTab.resources => Icons.inventory_2_outlined,
+      ShellOptionsTab.telegram => Icons.send_outlined,
+      ShellOptionsTab.push => Icons.notifications_active_outlined,
+      ShellOptionsTab.remote => Icons.settings_remote_outlined,
     };
   }
 
   String get label {
     return switch (this) {
-      _OptionsTab.release => 'Release',
-      _OptionsTab.setup => 'Setup',
-      _OptionsTab.resources => 'Resources',
-      _OptionsTab.telegram => 'Telegram',
-      _OptionsTab.push => 'Push',
-      _OptionsTab.remote => 'Remote',
+      ShellOptionsTab.release => 'Release',
+      ShellOptionsTab.setup => 'Setup',
+      ShellOptionsTab.resources => 'Resources',
+      ShellOptionsTab.telegram => 'Telegram',
+      ShellOptionsTab.push => 'Push',
+      ShellOptionsTab.remote => 'Remote',
     };
   }
 }
 
 class _OptionsTabSelector extends StatefulWidget {
-  const _OptionsTabSelector();
+  const _OptionsTabSelector({required this.controller});
+
+  final TabController controller;
 
   @override
   State<_OptionsTabSelector> createState() => _OptionsTabSelectorState();
 }
 
 class _OptionsTabSelectorState extends State<_OptionsTabSelector> {
-  TabController? _controller;
+  @override
+  void initState() {
+    super.initState();
+    widget.controller.addListener(_handleTabChange);
+  }
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final nextController = DefaultTabController.maybeOf(context);
-    if (_controller == nextController) return;
-    _controller?.removeListener(_handleTabChange);
-    _controller = nextController;
-    _controller?.addListener(_handleTabChange);
+  void didUpdateWidget(covariant _OptionsTabSelector oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller == widget.controller) return;
+    oldWidget.controller.removeListener(_handleTabChange);
+    widget.controller.addListener(_handleTabChange);
   }
 
   @override
   void dispose() {
-    _controller?.removeListener(_handleTabChange);
+    widget.controller.removeListener(_handleTabChange);
     super.dispose();
   }
 
@@ -103,10 +149,10 @@ class _OptionsTabSelectorState extends State<_OptionsTabSelector> {
 
   @override
   Widget build(BuildContext context) {
-    final selectedIndex = _controller?.index ?? 0;
+    final selectedIndex = widget.controller.index;
     const spacing = 8.0;
     final rows = <Widget>[];
-    final tabs = _OptionsTab.values;
+    final tabs = ShellOptionsTab.values;
 
     for (var index = 0; index < tabs.length; index += 2) {
       final first = tabs[index];
@@ -145,10 +191,7 @@ class _OptionsTabSelectorState extends State<_OptionsTabSelector> {
     return Column(children: rows);
   }
 
-  void _select(_OptionsTab tab) {
-    final controller = DefaultTabController.maybeOf(context) ?? _controller;
-    controller?.animateTo(tab.index);
-  }
+  void _select(ShellOptionsTab tab) => widget.controller.animateTo(tab.index);
 }
 
 class _OptionsTabButton extends StatelessWidget {
@@ -158,9 +201,9 @@ class _OptionsTabButton extends StatelessWidget {
     required this.onTap,
   });
 
-  final _OptionsTab tab;
+  final ShellOptionsTab tab;
   final bool selected;
-  final ValueChanged<_OptionsTab> onTap;
+  final ValueChanged<ShellOptionsTab> onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -183,14 +226,7 @@ class _OptionsTabButton extends StatelessWidget {
         child: InkWell(
           key: Key('options-tab-${tab.name}'),
           borderRadius: BorderRadius.circular(8),
-          onTap: () {
-            final controller = DefaultTabController.maybeOf(context);
-            if (controller != null) {
-              controller.animateTo(tab.index);
-            } else {
-              onTap(tab);
-            }
-          },
+          onTap: () => onTap(tab),
           child: AnimatedContainer(
             height: 42,
             duration: const Duration(milliseconds: 160),
@@ -3215,7 +3251,8 @@ class _InstallerTelegramOptions extends GetView<HomeController> {
           controller.hasGoogleDriveCredentials.value;
       final isWindowsSupported =
           controller.releaseInstallerArtifacts.isWindowsSupported;
-      final hasInstallerProject = controller.hasSelectedAppManagementCenterProject;
+      final hasInstallerProject =
+          controller.hasSelectedAppManagementCenterProject;
       final canBuild =
           isWindowsSupported &&
           hasInstallerProject &&

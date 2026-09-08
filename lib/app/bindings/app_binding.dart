@@ -1,3 +1,4 @@
+import 'package:app_management_center/app/controllers/app_shell_controller.dart';
 import 'package:app_management_center/app/controllers/flowfin_controller.dart';
 import 'package:app_management_center/app/controllers/home_controller.dart';
 import 'package:app_management_center/app/data/release_center_connect.dart';
@@ -240,6 +241,10 @@ class AppBinding extends Bindings {
 
   @override
   void dependencies() {
+    Get.put<AppShellController>(
+      AppShellController(store: Get.find<ProjectStoreService>()),
+      permanent: true,
+    );
     Get.lazyPut<FlowFinController>(
       () => FlowFinController(
         client: Get.find<FlowFinApiClient>(),

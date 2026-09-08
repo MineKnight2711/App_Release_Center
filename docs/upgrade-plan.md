@@ -188,6 +188,16 @@ cách chiếm một dòng. Không có luật này, sau ba tháng sẽ thôi nhì
   Firebase hay relay của app này. Session tách theo môi trường trong secure
   store. Dialog có đăng nhập + overview.
 
+- Command palette (Ctrl+K / Ctrl+P) là cửa vào duy nhất cho mọi hành động: dự
+  án gần đây, lane Fastlane, script, tool, bảo trì, nhảy tab. Mở ra là danh
+  sách lệnh vừa dùng (lưu qua `AppShellController` + `ProjectStoreService`),
+  nên trường hợp hay gặp tốn đúng một phím và không phải gõ gì. Header
+  Automation gọn từ 7 nút xuống còn thanh tìm + Run Release + trạng thái + một
+  menu `⋯`.
+- `AppShellController` tách trạng thái điều hướng (tab nào đang mở, palette mở
+  chưa, lệnh gần đây) ra khỏi `HomeController` — bước đầu để mục 7 vỡ được file
+  127KB đó ra.
+
 ## 10. Câu chưa trả lời
 
 - **Tên sản phẩm.** "App Management Center" là tên mô tả, mà app này không có

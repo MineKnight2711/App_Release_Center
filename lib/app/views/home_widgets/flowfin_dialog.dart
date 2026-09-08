@@ -36,37 +36,6 @@ Future<void> showFlowFinDialog(BuildContext context) async {
   }
 }
 
-class _FlowFinButton extends StatelessWidget {
-  const _FlowFinButton({this.compact = false});
-
-  final bool compact;
-
-  @override
-  Widget build(BuildContext context) {
-    if (compact) {
-      return Tooltip(
-        message: 'Mở FlowFin',
-        child: OutlinedButton(
-          key: const Key('open-flowfin'),
-          onPressed: () => showFlowFinDialog(context),
-          style: OutlinedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 10),
-            minimumSize: const Size(36, 36),
-          ),
-          child: const Icon(Icons.savings_outlined, size: 18),
-        ),
-      );
-    }
-
-    return OutlinedButton.icon(
-      key: const Key('open-flowfin'),
-      onPressed: () => showFlowFinDialog(context),
-      icon: const Icon(Icons.savings_outlined, size: 18),
-      label: const Text('FlowFin'),
-    );
-  }
-}
-
 class _FlowFinDialog extends StatefulWidget {
   const _FlowFinDialog();
 
@@ -683,9 +652,7 @@ class _FlowFinWalletList extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  FlowFinMoney.format(
-                    controller.balanceMinorFor(wallet.id),
-                  ),
+                  FlowFinMoney.format(controller.balanceMinorFor(wallet.id)),
                   style: AppCyberTheme.dataTextStyle(
                     size: 12,
                     color: AppCyberTheme.textPrimary,

@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'dart:io';
 import 'dart:ui' show ImageFilter;
 
+import 'package:app_management_center/app/controllers/app_shell_controller.dart';
 import 'package:app_management_center/app/controllers/flowfin_controller.dart';
 import 'package:app_management_center/app/controllers/home_controller.dart';
 import 'package:app_management_center/app/models/api_tool.dart';
@@ -48,6 +49,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_windows/webview_windows.dart';
 
 part 'home_widgets/api_monitor_dialog.dart';
+part 'home_widgets/command_palette.dart';
 part 'home_widgets/flow_panel.dart';
 part 'home_widgets/flowfin_dialog.dart';
 part 'home_widgets/flowfin/flowfin_shared.dart';
@@ -110,57 +112,78 @@ class _HomeScaffoldState extends State<_HomeScaffold> {
     return Obx(() {
       final themeChoice = themeService.choice.value;
 
-      return Scaffold(
-        key: ValueKey(themeChoice),
-        bottomNavigationBar: GlobalCommandProgress(runner: controller.runner),
-        body: Stack(
-          children: [
-            Positioned.fill(child: _HudBackdrop()),
-            SafeArea(
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final usableWidth =
-                      constraints.maxWidth - (_outerPadding * 2);
-                  final isWide = usableWidth >= _desktopBreakpoint;
-                  final mobileOptionsHeight =
-                      (constraints.maxHeight - (_outerPadding * 2))
-                          .clamp(580.0, 760.0)
-                          .toDouble();
-                  final content = isWide
-                      ? _WideHomeLayout(
-                          leftPanelWidth: _leftPanelWidth,
-                          rightPanelWidth: _rightPanelWidth,
-                          splitterThickness: _splitterThickness,
-                          onLeftResize: (delta) =>
-                              _resizeLeft(delta, usableWidth),
-                          onRightResize: (delta) =>
-                              _resizeRight(delta, usableWidth),
-                        )
-                      : SingleChildScrollView(
-                          child: Column(
-                            children: [
-                              const _ProjectPanel(),
-                              const SizedBox(height: 16),
-                              const SizedBox(height: 520, child: _MainPanel()),
-                              const SizedBox(height: 16),
-                              SizedBox(
-                                height: mobileOptionsHeight,
-                                child: const _OptionsPanel(),
-                              ),
-                            ],
-                          ),
-                        );
+      final shell = Get.find<AppShellController>();
 
-                  return Padding(
-                    padding: const EdgeInsets.all(_outerPadding),
-                    child: content,
-                  );
-                },
-              ),
+      return CallbackShortcuts(
+        bindings: {
+          for (final activator in _paletteActivators)
+            activator: shell.togglePalette,
+        },
+        child: Focus(
+          autofocus: true,
+          child: Scaffold(
+            key: ValueKey(themeChoice),
+            bottomNavigationBar: GlobalCommandProgress(
+              runner: controller.runner,
             ),
-            if (Get.isRegistered<AuthService>())
-              const Positioned(top: 24, right: 24, child: _AccountHud()),
-          ],
+            body: Stack(
+              children: [
+                Positioned.fill(child: _HudBackdrop()),
+                SafeArea(
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final usableWidth =
+                          constraints.maxWidth - (_outerPadding * 2);
+                      final isWide = usableWidth >= _desktopBreakpoint;
+                      final mobileOptionsHeight =
+                          (constraints.maxHeight - (_outerPadding * 2))
+                              .clamp(580.0, 760.0)
+                              .toDouble();
+                      final content = isWide
+                          ? _WideHomeLayout(
+                              leftPanelWidth: _leftPanelWidth,
+                              rightPanelWidth: _rightPanelWidth,
+                              splitterThickness: _splitterThickness,
+                              onLeftResize: (delta) =>
+                                  _resizeLeft(delta, usableWidth),
+                              onRightResize: (delta) =>
+                                  _resizeRight(delta, usableWidth),
+                            )
+                          : SingleChildScrollView(
+                              child: Column(
+                                children: [
+                                  const _ProjectPanel(),
+                                  const SizedBox(height: 16),
+                                  const SizedBox(
+                                    height: 520,
+                                    child: _MainPanel(),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  SizedBox(
+                                    height: mobileOptionsHeight,
+                                    child: const _OptionsPanel(),
+                                  ),
+                                ],
+                              ),
+                            );
+
+                      return Padding(
+                        padding: const EdgeInsets.all(_outerPadding),
+                        child: content,
+                      );
+                    },
+                  ),
+                ),
+                if (Get.isRegistered<AuthService>())
+                  const Positioned(top: 24, right: 24, child: _AccountHud()),
+                Obx(
+                  () => shell.isPaletteOpen.value
+                      ? const _CommandPalette()
+                      : const SizedBox.shrink(),
+                ),
+              ],
+            ),
+          ),
         ),
       );
     });
@@ -226,6 +249,15 @@ class _HomeScaffoldState extends State<_HomeScaffold> {
     return adjusted.toDouble();
   }
 }
+
+/// Ctrl+K is the primary binding; Ctrl+P matches the muscle memory of editors
+/// the user already lives in.
+const _paletteActivators = <SingleActivator>[
+  SingleActivator(LogicalKeyboardKey.keyK, control: true),
+  SingleActivator(LogicalKeyboardKey.keyK, meta: true),
+  SingleActivator(LogicalKeyboardKey.keyP, control: true),
+  SingleActivator(LogicalKeyboardKey.keyP, meta: true),
+];
 
 class _AccountHud extends StatelessWidget {
   const _AccountHud();

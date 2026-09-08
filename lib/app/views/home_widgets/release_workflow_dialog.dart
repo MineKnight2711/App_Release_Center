@@ -39,7 +39,10 @@ Future<void> showReleaseWorkflowDialog(BuildContext context) async {
 }
 
 class _ReleaseWorkflowButton extends GetView<HomeController> {
-  const _ReleaseWorkflowButton();
+  const _ReleaseWorkflowButton({this.compact = false});
+
+  /// Drops the label when the header has no room for it.
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -53,16 +56,37 @@ class _ReleaseWorkflowButton extends GetView<HomeController> {
               !workflow.isPreparing.value);
       final running = workflow.isRunning || workflow.isPreparing.value;
       final reduceMotion = MediaQuery.of(context).disableAnimations;
+      final icon = running && !reduceMotion
+          ? const SizedBox.square(
+              dimension: 15,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : Icon(hasRun ? Icons.monitor_heart_outlined : Icons.rocket_launch);
+      final label = hasRun ? 'Monitor Release' : 'Run Release';
+      final onPressed = enabled
+          ? () => showReleaseWorkflowDialog(context)
+          : null;
+
+      if (compact) {
+        return Tooltip(
+          message: label,
+          child: FilledButton(
+            key: const Key('run-release-workflow'),
+            onPressed: onPressed,
+            style: FilledButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              minimumSize: const Size(36, 36),
+            ),
+            child: icon,
+          ),
+        );
+      }
+
       return FilledButton.icon(
         key: const Key('run-release-workflow'),
-        onPressed: enabled ? () => showReleaseWorkflowDialog(context) : null,
-        icon: running && !reduceMotion
-            ? const SizedBox.square(
-                dimension: 15,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
-            : Icon(hasRun ? Icons.monitor_heart_outlined : Icons.rocket_launch),
-        label: Text(hasRun ? 'Monitor Release' : 'Run Release'),
+        onPressed: onPressed,
+        icon: icon,
+        label: Text(label),
       );
     });
   }

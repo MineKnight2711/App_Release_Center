@@ -58,20 +58,6 @@ Future<void> showApiToolDialog(BuildContext context) async {
   }
 }
 
-class _ApiToolButton extends StatelessWidget {
-  const _ApiToolButton();
-
-  @override
-  Widget build(BuildContext context) {
-    return OutlinedButton.icon(
-      key: const Key('open-api-tool'),
-      onPressed: () => showApiToolDialog(context),
-      icon: const Icon(Icons.http_outlined),
-      label: const Text('API Tool'),
-    );
-  }
-}
-
 class _ApiToolDialog extends StatefulWidget {
   const _ApiToolDialog();
 

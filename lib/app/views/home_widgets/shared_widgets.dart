@@ -551,64 +551,6 @@ class _StatusPill extends StatelessWidget {
   }
 }
 
-class _ThemeSwitchMenu extends StatelessWidget {
-  const _ThemeSwitchMenu();
-
-  @override
-  Widget build(BuildContext context) {
-    final themeService = Get.find<ThemeService>();
-
-    return Obx(() {
-      final selected = themeService.choice.value;
-
-      return PopupMenuButton<AppThemeChoice>(
-        tooltip: 'Switch theme',
-        initialValue: selected,
-        onSelected: themeService.setChoice,
-        position: PopupMenuPosition.under,
-        offset: const Offset(0, 8),
-        color: AppCyberTheme.panelBackgroundStrong,
-        surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-          side: BorderSide(
-            color: AppCyberTheme.isCyber
-                ? AppCyberTheme.electricBlue.withValues(alpha: 0.35)
-                : AppCyberTheme.lineBlue,
-          ),
-        ),
-        itemBuilder: (context) => AppThemeChoice.values.map((choice) {
-          return PopupMenuItem<AppThemeChoice>(
-            value: choice,
-            child: Row(
-              children: [
-                Icon(
-                  choice == selected
-                      ? Icons.radio_button_checked
-                      : Icons.radio_button_unchecked,
-                  size: 17,
-                ),
-                const SizedBox(width: 10),
-                Icon(choice.icon, size: 18),
-                const SizedBox(width: 8),
-                Text(
-                  choice.label,
-                  style: AppCyberTheme.dataTextStyle(
-                    size: 11.6,
-                    color: AppCyberTheme.textPrimary,
-                    weight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-          );
-        }).toList(),
-        child: _StatusPill(label: selected.label, running: false),
-      );
-    });
-  }
-}
-
 class _MetaChip extends StatelessWidget {
   const _MetaChip({
     required this.icon,
