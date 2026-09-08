@@ -219,12 +219,13 @@ void main() {
     expect(find.text('Sign in to FlowFin'), findsOneWidget);
   });
 
-  testWidgets('defaults to staging rather than production', (tester) async {
+  testWidgets('defaults to production, where the real data lives',
+      (tester) async {
     await registerController([]);
     await _pumpDialogHost(tester);
 
     expect(find.byKey(const Key('flowfin-environment')), findsOneWidget);
-    expect(find.text('Staging'), findsOneWidget);
-    expect(find.text('Production'), findsNothing);
+    expect(find.text('Production'), findsOneWidget);
+    expect(find.text('Staging'), findsNothing);
   });
 }

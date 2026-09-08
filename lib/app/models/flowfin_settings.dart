@@ -35,18 +35,27 @@ extension FlowFinEnvironmentMeta on FlowFinEnvironment {
 
   bool get isProduction => this == FlowFinEnvironment.production;
 
+  /// Production is the default because that is where the real money data
+  /// lives; staging is close to empty, so defaulting there shows figures that
+  /// look real and are not. Reads are safe — the module only reads today — and
+  /// writes must ask for confirmation on production, the way release does.
+  static const defaultEnvironment = FlowFinEnvironment.production;
+
   static FlowFinEnvironment fromId(String? id) {
     return switch (id?.trim()) {
+      'local' => FlowFinEnvironment.local,
       'staging' => FlowFinEnvironment.staging,
       'production' => FlowFinEnvironment.production,
-      _ => FlowFinEnvironment.local,
+      // Unreadable settings land on the same default as a fresh install
+      // rather than on a dead localhost URL.
+      _ => defaultEnvironment,
     };
   }
 }
 
 class FlowFinSettings {
   const FlowFinSettings({
-    this.environment = FlowFinEnvironment.staging,
+    this.environment = FlowFinEnvironmentMeta.defaultEnvironment,
     this.baseUrlOverrides = const {},
   });
 

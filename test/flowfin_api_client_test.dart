@@ -133,6 +133,39 @@ void main() {
     });
   });
 
+  group('settings defaults', () {
+    test('a fresh install points at production', () {
+      expect(
+        const FlowFinSettings().environment,
+        FlowFinEnvironment.production,
+      );
+      expect(
+        const FlowFinSettings().baseUrl,
+        'https://qlct-api.huynhphuocdat2.workers.dev/v1',
+      );
+    });
+
+    test('unreadable stored settings fall back to the same default', () {
+      expect(
+        FlowFinSettings.fromJson(const {}).environment,
+        FlowFinEnvironmentMeta.defaultEnvironment,
+      );
+      expect(
+        FlowFinSettings.fromJson(const {'environment': 'nonsense'}).environment,
+        FlowFinEnvironmentMeta.defaultEnvironment,
+      );
+    });
+
+    test('an explicitly stored environment still round-trips', () {
+      for (final environment in FlowFinEnvironment.values) {
+        final restored = FlowFinSettings.fromJson(
+          FlowFinSettings(environment: environment).toJson(),
+        );
+        expect(restored.environment, environment);
+      }
+    });
+  });
+
   group('login', () {
     test('stores the session in the secure store, namespaced per environment',
         () async {
