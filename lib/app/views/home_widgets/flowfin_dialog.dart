@@ -108,7 +108,7 @@ class _FlowFinDialogState extends State<_FlowFinDialog> {
                 Expanded(
                   child: Obx(() {
                     if (!controller.isSignedIn) return const _FlowFinSignIn();
-                    return const _FlowFinOverview();
+                    return const _FlowFinWorkspace();
                   }),
                 ),
               ],
@@ -116,6 +116,144 @@ class _FlowFinDialogState extends State<_FlowFinDialog> {
           ),
         ),
       ),
+    );
+  }
+}
+
+enum _FlowFinTab {
+  overview,
+  transactions,
+  accounts,
+  budgets,
+  statistics,
+  reconcile,
+  imports,
+  settings,
+}
+
+extension _FlowFinTabMeta on _FlowFinTab {
+  IconData get icon {
+    return switch (this) {
+      _FlowFinTab.overview => Icons.dashboard_outlined,
+      _FlowFinTab.transactions => Icons.receipt_long_outlined,
+      _FlowFinTab.accounts => Icons.account_balance_wallet_outlined,
+      _FlowFinTab.budgets => Icons.pie_chart_outline,
+      _FlowFinTab.statistics => Icons.insights_outlined,
+      _FlowFinTab.reconcile => Icons.fact_check_outlined,
+      _FlowFinTab.imports => Icons.file_download_outlined,
+      _FlowFinTab.settings => Icons.tune_outlined,
+    };
+  }
+
+  String get label {
+    return switch (this) {
+      _FlowFinTab.overview => 'Overview',
+      _FlowFinTab.transactions => 'Transactions',
+      _FlowFinTab.accounts => 'Accounts',
+      _FlowFinTab.budgets => 'Budgets',
+      _FlowFinTab.statistics => 'Statistics',
+      _FlowFinTab.reconcile => 'Reconcile',
+      _FlowFinTab.imports => 'Imports',
+      _FlowFinTab.settings => 'Settings',
+    };
+  }
+}
+
+class _FlowFinWorkspace extends StatefulWidget {
+  const _FlowFinWorkspace();
+
+  @override
+  State<_FlowFinWorkspace> createState() => _FlowFinWorkspaceState();
+}
+
+class _FlowFinWorkspaceState extends State<_FlowFinWorkspace>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabController;
+
+  /// Each tab loads on first visit rather than up front, so opening the dialog
+  /// costs one bootstrap call instead of eight.
+  final _loaded = <_FlowFinTab>{_FlowFinTab.overview};
+
+  FlowFinController get controller => Get.find<FlowFinController>();
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(
+      length: _FlowFinTab.values.length,
+      vsync: this,
+    )..addListener(_onTabChanged);
+  }
+
+  @override
+  void dispose() {
+    _tabController.removeListener(_onTabChanged);
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  void _onTabChanged() {
+    if (_tabController.indexIsChanging) return;
+    _ensureLoaded(_FlowFinTab.values[_tabController.index]);
+  }
+
+  void _ensureLoaded(_FlowFinTab tab) {
+    if (!_loaded.add(tab)) return;
+    switch (tab) {
+      case _FlowFinTab.transactions:
+        unawaited(controller.loadTransactions());
+      case _FlowFinTab.budgets:
+        unawaited(controller.loadBudgets());
+      case _FlowFinTab.statistics:
+        unawaited(controller.loadStats());
+      case _FlowFinTab.reconcile:
+        unawaited(controller.loadReconciliation());
+      case _FlowFinTab.imports:
+        unawaited(controller.loadImports());
+      case _FlowFinTab.settings:
+        unawaited(controller.loadAccount());
+      case _FlowFinTab.overview:
+      case _FlowFinTab.accounts:
+        break;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TabBar(
+          controller: _tabController,
+          isScrollable: true,
+          tabAlignment: TabAlignment.start,
+          tabs: _FlowFinTab.values
+              .map(
+                (tab) => Tab(
+                  key: Key('flowfin-tab-${tab.name}'),
+                  icon: Icon(tab.icon, size: 18),
+                  text: tab.label,
+                ),
+              )
+              .toList(),
+        ),
+        const SizedBox(height: 10),
+        Expanded(
+          child: TabBarView(
+            controller: _tabController,
+            children: const [
+              _FlowFinOverview(),
+              _FlowFinTransactionsTab(),
+              _FlowFinAccountsTab(),
+              _FlowFinBudgetsTab(),
+              _FlowFinStatisticsTab(),
+              _FlowFinReconcileTab(),
+              _FlowFinImportsTab(),
+              _FlowFinSettingsTab(),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
