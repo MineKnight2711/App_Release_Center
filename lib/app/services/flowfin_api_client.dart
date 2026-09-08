@@ -179,21 +179,53 @@ class FlowFinApiClient extends GetxService {
     return FlowFinBootstrap.fromJson(await _send('GET', '/bootstrap'));
   }
 
+  // ----- stats
+
   Future<FlowFinStatsOverview> statsOverview({
     required String from,
     required String to,
   }) async {
-    final body = await _send(
-      'GET',
-      '/stats/overview',
-      query: {'from': from, 'to': to},
+    return FlowFinStatsOverview.fromJson(
+      await _send('GET', '/stats/overview', query: {'from': from, 'to': to}),
     );
-    return FlowFinStatsOverview.fromJson(body);
   }
+
+  Future<FlowFinTimeline> statsTimeline({
+    required String from,
+    required String to,
+    String bucket = 'day',
+  }) async {
+    return FlowFinTimeline.fromJson(
+      await _send(
+        'GET',
+        '/stats/timeline',
+        query: {'from': from, 'to': to, 'bucket': bucket},
+      ),
+    );
+  }
+
+  Future<FlowFinBreakdown> statsBreakdown({
+    required String from,
+    required String to,
+    String groupBy = 'category',
+    String kind = 'expense',
+  }) async {
+    return FlowFinBreakdown.fromJson(
+      await _send(
+        'GET',
+        '/stats/breakdown',
+        query: {'from': from, 'to': to, 'groupBy': groupBy, 'kind': kind},
+      ),
+    );
+  }
+
+  // ----- transactions
 
   Future<FlowFinTransactionPage> listTransactions({
     String? walletId,
     String? categoryId,
+    String? type,
+    String? query,
     String? from,
     String? to,
     String? cursor,
@@ -204,7 +236,10 @@ class FlowFinApiClient extends GetxService {
       '/transactions',
       query: {
         if (walletId != null && walletId.isNotEmpty) 'walletId': walletId,
-        if (categoryId != null && categoryId.isNotEmpty) 'categoryId': categoryId,
+        if (categoryId != null && categoryId.isNotEmpty)
+          'categoryId': categoryId,
+        if (type != null && type.isNotEmpty) 'type': type,
+        if (query != null && query.trim().isNotEmpty) 'q': query.trim(),
         if (from != null && from.isNotEmpty) 'from': from,
         if (to != null && to.isNotEmpty) 'to': to,
         if (cursor != null && cursor.isNotEmpty) 'cursor': cursor,
@@ -214,22 +249,17 @@ class FlowFinApiClient extends GetxService {
     return FlowFinTransactionPage.fromJson(body);
   }
 
-  Future<List<FlowFinWallet>> listWallets({bool includeArchived = false}) async {
-    final body = await _send(
-      'GET',
-      '/wallets',
-      query: {if (includeArchived) 'includeArchived': 'true'},
-    );
-    final items = body['items'] ?? body['wallets'];
-    if (items is! List) return const [];
-    return items
-        .whereType<Map>()
-        .map((entry) => FlowFinWallet.fromJson(entry.cast<String, Object?>()))
-        .toList(growable: false);
+  Future<FlowFinTransaction> getTransaction(String id) async {
+    final body = await _send('GET', '/transactions/$id');
+    return FlowFinTransaction.fromJson(_unwrap(body, 'transaction'));
   }
 
-  /// Creates a transaction. [id] and [clientMutationId] default to fresh UUIDs;
-  /// pass the same pair again to retry safely after a timeout.
+  /// [id] and [clientMutationId] default to fresh UUIDs; pass the same pair
+  /// again to retry safely after a timeout.
+  ///
+  /// The API enforces the rules this app must not fight: a transfer needs a
+  /// different destination wallet and carries no category; an adjustment is
+  /// non-zero and carries no category; everything else is strictly positive.
   Future<FlowFinTransaction> createTransaction({
     required String type,
     required int amountMinor,
@@ -238,6 +268,7 @@ class FlowFinApiClient extends GetxService {
     String? categoryId,
     String? toWalletId,
     String note = '',
+    String source = 'manual',
     String? id,
     String? clientMutationId,
   }) async {
@@ -252,26 +283,542 @@ class FlowFinApiClient extends GetxService {
         'amountMinor': formatMinor(amountMinor),
         'walletId': walletId,
         'localDate': localDate,
-        if (categoryId != null && categoryId.isNotEmpty) 'categoryId': categoryId,
-        if (toWalletId != null && toWalletId.isNotEmpty) 'toWalletId': toWalletId,
+        'source': source,
+        if (categoryId != null && categoryId.isNotEmpty)
+          'categoryId': categoryId,
+        if (toWalletId != null && toWalletId.isNotEmpty)
+          'toWalletId': toWalletId,
         if (note.trim().isNotEmpty) 'note': note.trim(),
       },
     );
-    return FlowFinTransaction.fromJson(body);
+    return FlowFinTransaction.fromJson(_unwrap(body, 'transaction'));
+  }
+
+  Future<FlowFinTransaction> updateTransaction({
+    required String id,
+    required int baseVersion,
+    int? amountMinor,
+    String? walletId,
+    String? categoryId,
+    String? toWalletId,
+    String? localDate,
+    String? note,
+    String? clientMutationId,
+  }) async {
+    final body = await _send(
+      'PATCH',
+      '/transactions/$id',
+      body: {
+        'clientMutationId': clientMutationId ?? newId(),
+        'baseVersion': baseVersion,
+        if (amountMinor != null) 'amountMinor': formatMinor(amountMinor),
+        'walletId': ?walletId,
+        if (categoryId != null) 'categoryId': categoryId.isEmpty ? null : categoryId,
+        if (toWalletId != null) 'toWalletId': toWalletId.isEmpty ? null : toWalletId,
+        'localDate': ?localDate,
+        if (note != null) 'note': note.trim().isEmpty ? null : note.trim(),
+      },
+    );
+    return FlowFinTransaction.fromJson(_unwrap(body, 'transaction'));
   }
 
   Future<void> deleteTransaction({
     required String id,
+    required int baseVersion,
+    String? clientMutationId,
+  }) {
+    return _delete('/transactions/$id', baseVersion, clientMutationId);
+  }
+
+  // ----- wallets
+
+  Future<List<FlowFinWallet>> listWallets({bool includeArchived = false}) async {
+    final body = await _send(
+      'GET',
+      '/wallets',
+      query: {if (includeArchived) 'includeArchived': 'true'},
+    );
+    return _items(body, FlowFinWallet.fromJson);
+  }
+
+  Future<FlowFinWallet> createWallet({
+    required String name,
+    required String type,
+    required int initialBalanceMinor,
+    required String openedOn,
+    String? color,
+    String? icon,
+    bool includeInTotal = true,
+    int sortOrder = 0,
+    String? id,
     String? clientMutationId,
   }) async {
-    await _send(
-      'DELETE',
-      '/transactions/$id',
-      query: {'clientMutationId': clientMutationId ?? newId()},
+    final body = await _send(
+      'POST',
+      '/wallets',
+      body: {
+        'id': id ?? newId(),
+        'clientMutationId': clientMutationId ?? newId(),
+        'name': name.trim(),
+        'type': type,
+        'initialBalanceMinor': formatMinor(initialBalanceMinor),
+        'openedOn': openedOn,
+        'includeInTotal': includeInTotal,
+        'sortOrder': sortOrder,
+        if (color != null && color.isNotEmpty) 'color': color,
+        if (icon != null && icon.isNotEmpty) 'icon': icon,
+      },
+    );
+    return FlowFinWallet.fromJson(_unwrap(body, 'wallet'));
+  }
+
+  Future<FlowFinWallet> updateWallet({
+    required String id,
+    required int baseVersion,
+    String? name,
+    String? type,
+    String? color,
+    String? icon,
+    bool? includeInTotal,
+    int? sortOrder,
+    bool? archived,
+    String? clientMutationId,
+  }) async {
+    final body = await _send(
+      'PATCH',
+      '/wallets/$id',
+      body: {
+        'clientMutationId': clientMutationId ?? newId(),
+        'baseVersion': baseVersion,
+        if (name != null) 'name': name.trim(),
+        'type': ?type,
+        if (color != null) 'color': color.isEmpty ? null : color,
+        if (icon != null) 'icon': icon.isEmpty ? null : icon,
+        'includeInTotal': ?includeInTotal,
+        'sortOrder': ?sortOrder,
+        'archived': ?archived,
+      },
+    );
+    return FlowFinWallet.fromJson(_unwrap(body, 'wallet'));
+  }
+
+  Future<void> deleteWallet({
+    required String id,
+    required int baseVersion,
+    String? clientMutationId,
+  }) {
+    return _delete('/wallets/$id', baseVersion, clientMutationId);
+  }
+
+  // ----- categories
+
+  Future<List<FlowFinCategory>> listCategories({String? kind}) async {
+    final body = await _send(
+      'GET',
+      '/categories',
+      query: {if (kind != null && kind.isNotEmpty) 'kind': kind},
+    );
+    return _items(body, FlowFinCategory.fromJson);
+  }
+
+  Future<FlowFinCategory> createCategory({
+    required String name,
+    required String kind,
+    String? icon,
+    String? color,
+    int sortOrder = 0,
+    String? id,
+    String? clientMutationId,
+  }) async {
+    final body = await _send(
+      'POST',
+      '/categories',
+      body: {
+        'id': id ?? newId(),
+        'clientMutationId': clientMutationId ?? newId(),
+        'name': name.trim(),
+        'kind': kind,
+        'sortOrder': sortOrder,
+        if (icon != null && icon.isNotEmpty) 'icon': icon,
+        if (color != null && color.isNotEmpty) 'color': color,
+      },
+    );
+    return FlowFinCategory.fromJson(_unwrap(body, 'category'));
+  }
+
+  Future<FlowFinCategory> updateCategory({
+    required String id,
+    required int baseVersion,
+    String? name,
+    String? icon,
+    String? color,
+    int? sortOrder,
+    bool? archived,
+    String? clientMutationId,
+  }) async {
+    final body = await _send(
+      'PATCH',
+      '/categories/$id',
+      body: {
+        'clientMutationId': clientMutationId ?? newId(),
+        'baseVersion': baseVersion,
+        if (name != null) 'name': name.trim(),
+        if (icon != null) 'icon': icon.isEmpty ? null : icon,
+        if (color != null) 'color': color.isEmpty ? null : color,
+        'sortOrder': ?sortOrder,
+        'archived': ?archived,
+      },
+    );
+    return FlowFinCategory.fromJson(_unwrap(body, 'category'));
+  }
+
+  Future<void> deleteCategory({
+    required String id,
+    required int baseVersion,
+    String? clientMutationId,
+  }) {
+    return _delete('/categories/$id', baseVersion, clientMutationId);
+  }
+
+  // ----- budgets
+
+  Future<List<FlowFinBudget>> listBudgets({String? periodKey}) async {
+    final body = await _send(
+      'GET',
+      '/budgets',
+      query: {if (periodKey != null && periodKey.isNotEmpty) 'periodKey': periodKey},
+    );
+    return _items(body, FlowFinBudget.fromJson);
+  }
+
+  Future<FlowFinBudget> createBudget({
+    required String scope,
+    required int limitMinor,
+    String? categoryId,
+    String? periodKey,
+    String? id,
+    String? clientMutationId,
+  }) async {
+    final body = await _send(
+      'POST',
+      '/budgets',
+      body: {
+        'id': id ?? newId(),
+        'clientMutationId': clientMutationId ?? newId(),
+        'scope': scope,
+        'limitMinor': formatMinor(limitMinor),
+        if (categoryId != null && categoryId.isNotEmpty)
+          'categoryId': categoryId,
+        if (periodKey != null && periodKey.isNotEmpty) 'periodKey': periodKey,
+      },
+    );
+    return FlowFinBudget.fromJson(_unwrap(body, 'budget'));
+  }
+
+  Future<FlowFinBudget> updateBudget({
+    required String id,
+    required int baseVersion,
+    required int limitMinor,
+    String? clientMutationId,
+  }) async {
+    final body = await _send(
+      'PATCH',
+      '/budgets/$id',
+      body: {
+        'clientMutationId': clientMutationId ?? newId(),
+        'baseVersion': baseVersion,
+        'limitMinor': formatMinor(limitMinor),
+      },
+    );
+    return FlowFinBudget.fromJson(_unwrap(body, 'budget'));
+  }
+
+  Future<void> deleteBudget({
+    required String id,
+    required int baseVersion,
+    String? clientMutationId,
+  }) {
+    return _delete('/budgets/$id', baseVersion, clientMutationId);
+  }
+
+  // ----- check-in and reconciliation
+
+  Future<List<FlowFinSnapshot>> listSnapshots({
+    String? walletId,
+    String? from,
+    String? to,
+  }) async {
+    final body = await _send(
+      'GET',
+      '/balance-snapshots',
+      query: {
+        if (walletId != null && walletId.isNotEmpty) 'walletId': walletId,
+        if (from != null && from.isNotEmpty) 'from': from,
+        if (to != null && to.isNotEmpty) 'to': to,
+      },
+    );
+    return _items(body, FlowFinSnapshot.fromJson);
+  }
+
+  /// Records a counted balance and returns how it compares with the ledger.
+  /// A difference is reported, never auto-corrected.
+  Future<({FlowFinSnapshot snapshot, FlowFinReconciliation? reconciliation})>
+  upsertSnapshot({
+    required String walletId,
+    required String localDate,
+    required int balanceMinor,
+    String note = '',
+    String? id,
+    String? clientMutationId,
+  }) async {
+    final body = await _send(
+      'PUT',
+      '/balance-snapshots',
+      body: {
+        'id': id ?? newId(),
+        'clientMutationId': clientMutationId ?? newId(),
+        'walletId': walletId,
+        'localDate': localDate,
+        'balanceMinor': formatMinor(balanceMinor),
+        if (note.trim().isNotEmpty) 'note': note.trim(),
+      },
+    );
+    final rawReconciliation = body['reconciliation'];
+    return (
+      snapshot: FlowFinSnapshot.fromJson(_unwrap(body, 'snapshot')),
+      reconciliation: rawReconciliation is Map
+          ? FlowFinReconciliation.fromJson(
+              rawReconciliation.cast<String, Object?>(),
+            )
+          : null,
     );
   }
 
+  Future<void> deleteSnapshot({
+    required String id,
+    required int baseVersion,
+    String? clientMutationId,
+  }) {
+    return _delete('/balance-snapshots/$id', baseVersion, clientMutationId);
+  }
+
+  Future<List<FlowFinReconciliation>> reconciliation({
+    required String date,
+    String? walletId,
+  }) async {
+    final body = await _send(
+      'GET',
+      '/reconciliation',
+      query: {
+        'date': date,
+        if (walletId != null && walletId.isNotEmpty) 'walletId': walletId,
+      },
+    );
+    return _items(body, FlowFinReconciliation.fromJson);
+  }
+
+  // ----- insights
+
+  Future<List<FlowFinInsight>> listInsights({
+    String? type,
+    String? periodKey,
+    int limit = 20,
+  }) async {
+    final body = await _send(
+      'GET',
+      '/insights',
+      query: {
+        if (type != null && type.isNotEmpty) 'type': type,
+        if (periodKey != null && periodKey.isNotEmpty) 'periodKey': periodKey,
+        'limit': '$limit',
+      },
+    );
+    return _items(body, FlowFinInsight.fromJson);
+  }
+
+  Future<FlowFinInsight?> latestInsight() async {
+    final body = await _send('GET', '/insights/latest');
+    final raw = body['insight'];
+    if (raw is! Map) return null;
+    return FlowFinInsight.fromJson(raw.cast<String, Object?>());
+  }
+
+  /// Queues a fresh insight. AI is best-effort: a failure here must never stop
+  /// the rest of the module from working.
+  Future<Map<String, Object?>> refreshInsight({
+    required String insightType,
+    String? periodKey,
+  }) {
+    return _send(
+      'POST',
+      '/insights/refresh',
+      body: {
+        'insightType': insightType,
+        if (periodKey != null && periodKey.isNotEmpty) 'periodKey': periodKey,
+      },
+    );
+  }
+
+  // ----- imports
+
+  /// Desktop has no camera, so batches are created from pasted text — a MoMo
+  /// notification or a receipt transcription — which is what the API takes.
+  Future<FlowFinImportBatch> createImport({
+    required String source,
+    required String text,
+    String? defaultWalletId,
+    String? id,
+    String? clientMutationId,
+  }) async {
+    final body = await _send(
+      'POST',
+      '/imports',
+      body: {
+        'id': id ?? newId(),
+        'clientMutationId': clientMutationId ?? newId(),
+        'source': source,
+        'text': text,
+        if (defaultWalletId != null && defaultWalletId.isNotEmpty)
+          'defaultWalletId': defaultWalletId,
+      },
+    );
+    return FlowFinImportBatch.fromJson(_unwrap(body, 'batch'));
+  }
+
+  Future<List<FlowFinImportBatch>> listImports({int limit = 20}) async {
+    final body = await _send('GET', '/imports', query: {'limit': '$limit'});
+    return _items(body, FlowFinImportBatch.fromJson);
+  }
+
+  Future<FlowFinImportBatch> getImport(String id) async {
+    final body = await _send('GET', '/imports/$id');
+    return FlowFinImportBatch.fromJson(_unwrap(body, 'batch'));
+  }
+
+  Future<FlowFinImportItem> updateImportItem({
+    required String batchId,
+    required String itemId,
+    required int baseVersion,
+    int? amountMinor,
+    String? direction,
+    String? localDate,
+    String? merchant,
+    String? clientMutationId,
+  }) async {
+    final body = await _send(
+      'PATCH',
+      '/imports/$batchId/items/$itemId',
+      body: {
+        'clientMutationId': clientMutationId ?? newId(),
+        'baseVersion': baseVersion,
+        if (amountMinor != null) 'amountMinor': formatMinor(amountMinor),
+        'direction': ?direction,
+        'localDate': ?localDate,
+        if (merchant != null) 'merchant': merchant.isEmpty ? null : merchant,
+      },
+    );
+    return FlowFinImportItem.fromJson(_unwrap(body, 'item'));
+  }
+
+  Future<Map<String, Object?>> confirmImport({
+    required String batchId,
+    required List<FlowFinImportConfirmEntry> entries,
+    String? clientMutationId,
+  }) {
+    return _send(
+      'POST',
+      '/imports/$batchId/confirm',
+      body: {
+        'clientMutationId': clientMutationId ?? newId(),
+        'items': entries.map((entry) => entry.toJson()).toList(),
+      },
+    );
+  }
+
+  Future<void> deleteImport({
+    required String id,
+    required int baseVersion,
+    String? clientMutationId,
+  }) {
+    return _delete('/imports/$id', baseVersion, clientMutationId);
+  }
+
+  // ----- account
+
+  Future<({FlowFinUser user, FlowFinNotificationPrefs prefs})> me() async {
+    final body = await _send('GET', '/me');
+    return (
+      user: FlowFinUser.fromJson(_unwrap(body, 'user')),
+      prefs: FlowFinNotificationPrefs.fromJson(
+        _unwrap(body, 'notificationPreferences'),
+      ),
+    );
+  }
+
+  Future<({FlowFinUser user, FlowFinNotificationPrefs prefs})> updateMe({
+    String? displayName,
+    String? timezone,
+    String? locale,
+    FlowFinNotificationPrefs? notificationPreferences,
+  }) async {
+    final body = await _send(
+      'PATCH',
+      '/me',
+      body: {
+        if (displayName != null) 'displayName': displayName.trim(),
+        'timezone': ?timezone,
+        'locale': ?locale,
+        if (notificationPreferences != null)
+          'notificationPreferences': notificationPreferences.toJson(),
+      },
+    );
+    return (
+      user: FlowFinUser.fromJson(_unwrap(body, 'user')),
+      prefs: FlowFinNotificationPrefs.fromJson(
+        _unwrap(body, 'notificationPreferences'),
+      ),
+    );
+  }
+
+  Future<Map<String, Object?>> exportMyData() => _send('GET', '/me/export');
+
   // --------------------------------------------------------------- plumbing
+
+  /// Deletes carry the mutation id in `X-Client-Mutation-Id` rather than the
+  /// body, and the API requires `baseVersion` so a stale tab cannot delete a
+  /// row someone else has since changed.
+  Future<void> _delete(
+    String path,
+    int baseVersion,
+    String? clientMutationId,
+  ) async {
+    await _send(
+      'DELETE',
+      path,
+      query: {'baseVersion': '$baseVersion'},
+      headers: {'x-client-mutation-id': clientMutationId ?? newId()},
+    );
+  }
+
+  /// Responses wrap their payload (`{"wallet": {...}, "meta": {...}}`). A bare
+  /// payload is tolerated so a future unwrapped endpoint does not break here.
+  Map<String, Object?> _unwrap(Map<String, Object?> body, String key) {
+    final inner = body[key];
+    if (inner is Map) return inner.cast<String, Object?>();
+    return body;
+  }
+
+  List<T> _items<T>(
+    Map<String, Object?> body,
+    T Function(Map<String, Object?>) build,
+  ) {
+    final items = body['items'];
+    if (items is! List) return const [];
+    return items
+        .whereType<Map>()
+        .map((entry) => build(entry.cast<String, Object?>()))
+        .toList(growable: false);
+  }
 
   Future<FlowFinSession> _adoptSession(Map<String, Object?> body) async {
     final session = FlowFinSession.fromJson(body);
@@ -300,6 +847,7 @@ class FlowFinApiClient extends GetxService {
     String path, {
     Map<String, String> query = const {},
     Map<String, Object?>? body,
+    Map<String, String> headers = const {},
   }) async {
     final token = await _validAccessToken();
 
@@ -309,6 +857,7 @@ class FlowFinApiClient extends GetxService {
         path,
         query: query,
         body: body,
+        headers: headers,
         accessToken: token,
       );
     } on FlowFinApiException catch (error) {
@@ -325,6 +874,7 @@ class FlowFinApiClient extends GetxService {
         path,
         query: query,
         body: body,
+        headers: headers,
         accessToken: refreshed.accessToken,
       );
     }
@@ -377,6 +927,7 @@ class FlowFinApiClient extends GetxService {
     String path, {
     Map<String, String> query = const {},
     Map<String, Object?>? body,
+    Map<String, String> headers = const {},
     String? accessToken,
   }) async {
     final uri = Uri.parse('${settings.baseUrl}$path').replace(
@@ -385,6 +936,7 @@ class FlowFinApiClient extends GetxService {
 
     final request = http.Request(method, uri);
     request.headers['accept'] = 'application/json';
+    request.headers.addAll(headers);
     if (accessToken != null) {
       request.headers['authorization'] = 'Bearer $accessToken';
     }

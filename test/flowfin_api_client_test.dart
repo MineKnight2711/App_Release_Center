@@ -448,4 +448,252 @@ void main() {
       expect(secureStore.values.containsKey('flowfin.session.staging'), isFalse);
     });
   });
+
+  group('response envelopes', () {
+    late _FakeHttpClient fake;
+
+    FlowFinApiClient signedInClient(List<http.Response> afterLogin) {
+      fake = _FakeHttpClient([_json(_sessionPayload()), ...afterLogin]);
+      return FlowFinApiClient(
+        credentialStore: credentials,
+        httpClient: fake,
+        now: () => fixedNow,
+      )..settings = const FlowFinSettings(
+        environment: FlowFinEnvironment.staging,
+      );
+    }
+
+    test('createTransaction unwraps the transaction envelope', () async {
+      final client = signedInClient([
+        _json({
+          'transaction': {
+            'id': 't1',
+            'type': 'expense',
+            'amountMinor': '150000',
+            'currency': 'VND',
+            'walletId': 'w1',
+            'localDate': '2026-09-07',
+            'version': 1,
+          },
+          'meta': {'version': 1, 'cursor': 'c1'},
+          'budgetAlerts': [],
+        }),
+      ]);
+      await client.login(email: 'a@b.c', password: 'secret');
+
+      final created = await client.createTransaction(
+        type: 'expense',
+        amountMinor: 150000,
+        walletId: 'w1',
+        localDate: '2026-09-07',
+      );
+
+      expect(created.id, 't1');
+      expect(created.amountMinor, 150000);
+    });
+
+    test('list endpoints read the items array', () async {
+      final client = signedInClient([
+        _json({
+          'items': [
+            {
+              'id': 'w1',
+              'name': 'Tiền mặt',
+              'type': 'cash',
+              'currency': 'VND',
+              'initialBalanceMinor': '0',
+            },
+          ],
+        }),
+        _json({
+          'items': [
+            {'id': 'c1', 'name': 'Ăn uống', 'kind': 'expense'},
+          ],
+        }),
+      ]);
+      await client.login(email: 'a@b.c', password: 'secret');
+
+      expect((await client.listWallets()).single.name, 'Tiền mặt');
+      expect((await client.listCategories()).single.name, 'Ăn uống');
+    });
+
+    test('listTransactions reads the totals for the whole filtered set',
+        () async {
+      final client = signedInClient([
+        _json({
+          'items': [],
+          'nextCursor': null,
+          'totals': {'incomeMinor': '3000000', 'expenseMinor': '1750000'},
+        }),
+      ]);
+      await client.login(email: 'a@b.c', password: 'secret');
+
+      final page = await client.listTransactions();
+
+      expect(page.incomeMinor, 3000000);
+      expect(page.expenseMinor, 1750000);
+      expect(page.hasMore, isFalse);
+    });
+
+    test('upsertSnapshot returns the reconciliation alongside the snapshot',
+        () async {
+      final client = signedInClient([
+        _json({
+          'snapshot': {
+            'id': 's1',
+            'walletId': 'w1',
+            'localDate': '2026-09-07',
+            'balanceMinor': '900000',
+          },
+          'reconciliation': {
+            'walletId': 'w1',
+            'localDate': '2026-09-07',
+            'expectedBalanceMinor': '1000000',
+            'actualBalanceMinor': '900000',
+            'differenceMinor': '-100000',
+            'status': 'mismatch',
+          },
+        }),
+      ]);
+      await client.login(email: 'a@b.c', password: 'secret');
+
+      final result = await client.upsertSnapshot(
+        walletId: 'w1',
+        localDate: '2026-09-07',
+        balanceMinor: 900000,
+      );
+
+      expect(result.snapshot.id, 's1');
+      expect(result.reconciliation?.differenceMinor, -100000);
+      expect(result.reconciliation?.isBalanced, isFalse);
+    });
+  });
+
+  group('mutations', () {
+    late _FakeHttpClient fake;
+
+    Future<FlowFinApiClient> signedIn(List<http.Response> afterLogin) async {
+      fake = _FakeHttpClient([_json(_sessionPayload()), ...afterLogin]);
+      final client = FlowFinApiClient(
+        credentialStore: credentials,
+        httpClient: fake,
+        now: () => fixedNow,
+      )..settings = const FlowFinSettings(
+        environment: FlowFinEnvironment.staging,
+      );
+      await client.login(email: 'a@b.c', password: 'secret');
+      return client;
+    }
+
+    test('deletes send the mutation id as a header and baseVersion as a query',
+        () async {
+      final client = await signedIn([_json(const <String, Object?>{})]);
+
+      await client.deleteTransaction(id: 't1', baseVersion: 3);
+
+      final request = fake.requests.last;
+      expect(request.method, 'DELETE');
+      expect(request.url.path, endsWith('/transactions/t1'));
+      expect(request.url.queryParameters['baseVersion'], '3');
+      final mutationId = request.headers['x-client-mutation-id'];
+      expect(mutationId, isNotNull);
+      expect(mutationId!.length, greaterThanOrEqualTo(8));
+      // The id must not also ride along in the query string.
+      expect(request.url.queryParameters.containsKey('clientMutationId'), isFalse);
+    });
+
+    test('updates carry baseVersion for optimistic concurrency', () async {
+      final client = await signedIn([
+        _json({
+          'transaction': {
+            'id': 't1',
+            'type': 'expense',
+            'amountMinor': '200000',
+            'currency': 'VND',
+            'walletId': 'w1',
+            'localDate': '2026-09-07',
+            'version': 4,
+          },
+        }),
+      ]);
+
+      await client.updateTransaction(
+        id: 't1',
+        baseVersion: 3,
+        amountMinor: 200000,
+      );
+
+      final body = fake.requests.last.jsonBody;
+      expect(body['baseVersion'], 3);
+      expect(body['amountMinor'], '200000');
+    });
+
+    test('clearing an optional field sends an explicit null', () async {
+      final client = await signedIn([
+        _json({
+          'transaction': {
+            'id': 't1',
+            'type': 'expense',
+            'amountMinor': '1',
+            'currency': 'VND',
+            'walletId': 'w1',
+            'localDate': '2026-09-07',
+          },
+        }),
+      ]);
+
+      await client.updateTransaction(id: 't1', baseVersion: 1, note: '');
+
+      final body = fake.requests.last.jsonBody;
+      expect(body.containsKey('note'), isTrue);
+      expect(body['note'], isNull);
+    });
+
+    test('a version conflict is reported, not retried', () async {
+      final client = await signedIn([
+        _json({
+          'error': {
+            'code': 'version_conflict',
+            'message': 'Bản ghi đã được sửa ở nơi khác',
+          },
+        }, status: 409),
+      ]);
+
+      await expectLater(
+        client.updateBudget(id: 'b1', baseVersion: 1, limitMinor: 100),
+        throwsA(
+          isA<FlowFinApiException>()
+              .having((e) => e.isVersionConflict, 'isVersionConflict', isTrue),
+        ),
+      );
+      // Login plus the one failed attempt — no silent retry.
+      expect(fake.requests.length, 2);
+    });
+
+    test('wallet and category writes send money as a string', () async {
+      final client = await signedIn([
+        _json({
+          'wallet': {
+            'id': 'w1',
+            'name': 'Ví mới',
+            'type': 'cash',
+            'currency': 'VND',
+            'initialBalanceMinor': '500000',
+          },
+        }),
+      ]);
+
+      await client.createWallet(
+        name: 'Ví mới',
+        type: 'cash',
+        initialBalanceMinor: 500000,
+        openedOn: '2026-09-07',
+      );
+
+      final body = fake.requests.last.jsonBody;
+      expect(body['initialBalanceMinor'], '500000');
+      expect(body['openedOn'], '2026-09-07');
+      expect((body['clientMutationId'] as String).length, greaterThanOrEqualTo(8));
+    });
+  });
 }
