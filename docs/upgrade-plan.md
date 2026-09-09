@@ -198,6 +198,15 @@ cách chiếm một dòng. Không có luật này, sau ba tháng sẽ thôi nhì
   chưa, lệnh gần đây) ra khỏi `HomeController` — bước đầu để mục 7 vỡ được file
   127KB đó ra.
 
+- Toàn bộ vỏ desktop đã Việt hoá, giữ nguyên thuật ngữ kỹ thuật. Việc này lộ
+  ra ba lỗi thật: dock tiến trình so sánh chuỗi hiển thị để biết có lỗi hay
+  không, `_PanelTitle` không giới hạn bề rộng nên tràn panel, và palette không
+  khớp khi gõ không dấu.
+- `GitInspectorService` đọc remote/branch thật từ repo; hộp thoại pull đổi từ
+  hai ô gõ tay thành hai dropdown chọn sẵn theo upstream của branch hiện tại.
+  Đây là mẫu cho mục 5.4: **app tính sẵn, người chỉ xác nhận**. Chỗ nào không
+  đọc được thì rơi về gõ tay chứ không chặn.
+
 ## 10. Câu chưa trả lời
 
 - **Tên sản phẩm.** "App Management Center" là tên mô tả, mà app này không có

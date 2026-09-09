@@ -170,106 +170,233 @@ Future<_AndroidKeystoreGenerationInput?> _showAndroidKeystoreGenerationDialog(
   );
 }
 
+/// Asks which branch to pull, having already read the answer from the repo.
+///
+/// The old prompt was two empty text fields, so every pull cost typing a remote
+/// and a branch name exactly right. Now the repository's own remotes and
+/// branches are the choices, preselected at the current branch's upstream; the
+/// common case is Enter. Free text stays as the fallback for a repo git cannot
+/// describe.
 Future<_PullRemoteBranchInput?> _showPullRemoteBranchDialog(
   BuildContext context,
 ) async {
-  final remoteController = TextEditingController(text: 'origin');
-  final branchController = TextEditingController();
-  String? validationError;
+  final projectPath = Get.find<HomeController>().project.value?.path;
+  final options = projectPath == null
+      ? const GitBranchOptions()
+      : await Get.find<GitInspectorService>().readBranchOptions(projectPath);
+  if (!context.mounted) return null;
 
-  final result = await showDialog<_PullRemoteBranchInput>(
+  return showDialog<_PullRemoteBranchInput>(
     context: context,
-    builder: (dialogContext) {
-      return StatefulBuilder(
-        builder: (context, setState) {
-          return AlertDialog(
-            backgroundColor: AppCyberTheme.panelBackgroundStrong,
-            surfaceTintColor: Colors.transparent,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-              side: BorderSide(
-                color: AppCyberTheme.isCyber
-                    ? AppCyberTheme.electricBlue.withValues(alpha: 0.4)
-                    : AppCyberTheme.lineBlue,
-              ),
-            ),
-            titlePadding: const EdgeInsets.fromLTRB(20, 16, 20, 6),
-            contentPadding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
-            actionsPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-            title: const _PanelTitle(
-              icon: Icons.call_received_outlined,
-              title: 'Pull branch',
-            ),
-            content: SizedBox(
-              width: 360,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  TextField(
-                    controller: remoteController,
-                    decoration: const InputDecoration(
-                      labelText: 'Tên remote',
-                      hintText: 'origin',
-                      prefixIcon: Icon(Icons.hub_outlined),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: branchController,
-                    decoration: const InputDecoration(
-                      labelText: 'Tên branch',
-                      hintText: 'develop',
-                      prefixIcon: Icon(Icons.alt_route_outlined),
-                    ),
-                  ),
-                  if (validationError != null) ...[
-                    const SizedBox(height: 10),
-                    Text(
-                      validationError!,
-                      style: AppCyberTheme.dataTextStyle(
-                        size: 11,
-                        color: Theme.of(context).colorScheme.error,
-                        weight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            actions: [
-              OutlinedButton(
-                onPressed: () => Navigator.of(dialogContext).pop(),
-                child: const Text('Cancel'),
-              ),
-              FilledButton.icon(
-                onPressed: () {
-                  final remote = remoteController.text.trim();
-                  final branch = branchController.text.trim();
-                  if (remote.isEmpty || branch.isEmpty) {
-                    setState(() {
-                      validationError = 'Phải nhập remote và branch.';
-                    });
-                    return;
-                  }
+    builder: (_) => _PullRemoteBranchDialog(options: options),
+  );
+}
 
-                  Navigator.of(
-                    dialogContext,
-                  ).pop(_PullRemoteBranchInput(remote: remote, branch: branch));
-                },
-                icon: const Icon(Icons.sync_alt_outlined),
-                label: const Text('Pull'),
+class _PullRemoteBranchDialog extends StatefulWidget {
+  const _PullRemoteBranchDialog({required this.options});
+
+  final GitBranchOptions options;
+
+  @override
+  State<_PullRemoteBranchDialog> createState() =>
+      _PullRemoteBranchDialogState();
+}
+
+class _PullRemoteBranchDialogState extends State<_PullRemoteBranchDialog> {
+  late final TextEditingController _remoteController;
+  late final TextEditingController _branchController;
+
+  String? _remote;
+  String? _branch;
+  String? _validationError;
+
+  bool get _hasChoices => !widget.options.isEmpty;
+
+  @override
+  void initState() {
+    super.initState();
+    _remote = widget.options.suggestedRemote;
+    _branch = widget.options.suggestedBranch;
+    _remoteController = TextEditingController(text: _remote ?? 'origin');
+    _branchController = TextEditingController(
+      text: _branch ?? widget.options.currentBranch ?? '',
+    );
+  }
+
+  @override
+  void dispose() {
+    _remoteController.dispose();
+    _branchController.dispose();
+    super.dispose();
+  }
+
+  void _selectRemote(String? remote) {
+    if (remote == null) return;
+    setState(() {
+      _remote = remote;
+      final branches = widget.options.branchesFor(remote);
+      // The previous branch may not exist on the newly picked remote.
+      if (_branch == null || !branches.contains(_branch)) {
+        final current = widget.options.currentBranch;
+        _branch = branches.contains(current)
+            ? current
+            : (branches.isEmpty ? null : branches.first);
+      }
+      _validationError = null;
+    });
+  }
+
+  void _submit() {
+    final remote = _hasChoices
+        ? (_remote ?? '')
+        : _remoteController.text.trim();
+    final branch = _hasChoices
+        ? (_branch ?? '')
+        : _branchController.text.trim();
+    if (remote.isEmpty || branch.isEmpty) {
+      setState(() {
+        _validationError = 'Phải chọn remote và branch.';
+      });
+      return;
+    }
+    Navigator.of(
+      context,
+    ).pop(_PullRemoteBranchInput(remote: remote, branch: branch));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final branches = _remote == null
+        ? const <String>[]
+        : widget.options.branchesFor(_remote!);
+
+    return AlertDialog(
+      backgroundColor: AppCyberTheme.panelBackgroundStrong,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: BorderSide(
+          color: AppCyberTheme.isCyber
+              ? AppCyberTheme.electricBlue.withValues(alpha: 0.4)
+              : AppCyberTheme.lineBlue,
+        ),
+      ),
+      titlePadding: const EdgeInsets.fromLTRB(20, 16, 20, 6),
+      contentPadding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
+      actionsPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+      title: const _PanelTitle(
+        icon: Icons.call_received_outlined,
+        title: 'Pull branch',
+      ),
+      content: SizedBox(
+        width: 380,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (_hasChoices) ...[
+              DropdownButtonFormField<String>(
+                key: const Key('pull-branch-remote'),
+                initialValue: _remote,
+                isExpanded: true,
+                decoration: const InputDecoration(
+                  labelText: 'Remote',
+                  prefixIcon: Icon(Icons.hub_outlined),
+                ),
+                items: [
+                  for (final remote in widget.options.remotes)
+                    DropdownMenuItem(value: remote, child: Text(remote)),
+                ],
+                onChanged: _selectRemote,
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                key: const Key('pull-branch-branch'),
+                initialValue: _branch,
+                isExpanded: true,
+                decoration: InputDecoration(
+                  labelText: 'Branch',
+                  prefixIcon: const Icon(Icons.alt_route_outlined),
+                  helperText: branches.isEmpty
+                      ? 'Remote này chưa có branch nào'
+                      : null,
+                ),
+                items: [
+                  for (final branch in branches)
+                    DropdownMenuItem(value: branch, child: Text(branch)),
+                ],
+                onChanged: (value) => setState(() {
+                  _branch = value;
+                  _validationError = null;
+                }),
+              ),
+            ] else ...[
+              TextField(
+                key: const Key('pull-branch-remote-text'),
+                controller: _remoteController,
+                decoration: const InputDecoration(
+                  labelText: 'Tên remote',
+                  hintText: 'origin',
+                  prefixIcon: Icon(Icons.hub_outlined),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                key: const Key('pull-branch-branch-text'),
+                controller: _branchController,
+                decoration: const InputDecoration(
+                  labelText: 'Tên branch',
+                  hintText: 'develop',
+                  prefixIcon: Icon(Icons.alt_route_outlined),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Không đọc được remote từ dự án này, hãy nhập tay.',
+                style: AppCyberTheme.dataTextStyle(
+                  size: 11,
+                  color: AppCyberTheme.textMuted,
+                ),
               ),
             ],
-          );
-        },
-      );
-    },
-  );
-
-  remoteController.dispose();
-  branchController.dispose();
-  return result;
+            if (widget.options.currentBranch != null) ...[
+              const SizedBox(height: 10),
+              Text(
+                'Đang ở branch ${widget.options.currentBranch}',
+                style: AppCyberTheme.dataTextStyle(
+                  size: 11,
+                  color: AppCyberTheme.textMuted,
+                ),
+              ),
+            ],
+            if (_validationError != null) ...[
+              const SizedBox(height: 10),
+              Text(
+                _validationError!,
+                style: AppCyberTheme.dataTextStyle(
+                  size: 11,
+                  color: Theme.of(context).colorScheme.error,
+                  weight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        OutlinedButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Huỷ'),
+        ),
+        FilledButton.icon(
+          key: const Key('pull-branch-confirm'),
+          onPressed: _submit,
+          icon: const Icon(Icons.sync_alt_outlined),
+          label: const Text('Pull'),
+        ),
+      ],
+    );
+  }
 }
 
 Future<bool?> _showAndroidCicdCloneDialog(
@@ -393,7 +520,7 @@ Future<bool?> _showAndroidCicdCloneDialog(
         actions: [
           OutlinedButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancel'),
+            child: const Text('Huỷ'),
           ),
           FilledButton.icon(
             onPressed: () => Navigator.of(dialogContext).pop(true),
@@ -465,12 +592,16 @@ class _AndroidKeystoreGenerationDialogState
               ),
               const SizedBox(height: 12),
               TextField(
+                key: const Key('android-jks-password'),
                 controller: _storePasswordController,
                 obscureText: true,
                 enableSuggestions: false,
                 autocorrect: false,
                 decoration: const InputDecoration(
                   labelText: 'Mật khẩu JKS',
+                  // The service already generates a strong password when this
+                  // is blank; saying so is what stops people typing one.
+                  helperText: 'Để trống thì app tự tạo mật khẩu mạnh',
                   prefixIcon: Icon(Icons.password_outlined),
                 ),
               ),
@@ -502,7 +633,7 @@ class _AndroidKeystoreGenerationDialogState
       actions: [
         OutlinedButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: const Text('Huỷ'),
         ),
         FilledButton.icon(
           onPressed: _submit,

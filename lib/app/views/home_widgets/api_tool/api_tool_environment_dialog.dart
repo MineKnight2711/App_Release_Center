@@ -171,7 +171,7 @@ class _ApiToolEnvironmentDialogState extends State<_ApiToolEnvironmentDialog> {
                   key: const Key('api-tool-add-environment'),
                   onPressed: _addEnvironment,
                   icon: const Icon(Icons.add_outlined),
-                  label: const Text('Add'),
+                  label: const Text('Thêm'),
                 ),
                 const SizedBox(width: 8),
                 IconButton(

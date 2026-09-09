@@ -25,6 +25,7 @@ import 'package:app_management_center/app/services/cicd_dependency_doctor_servic
 import 'package:app_management_center/app/services/cicd_dependency_installer_service.dart';
 import 'package:app_management_center/app/services/command_notification_service.dart';
 import 'package:app_management_center/app/services/gemini_env_service.dart';
+import 'package:app_management_center/app/services/git_inspector_service.dart';
 import 'package:app_management_center/app/services/google_drive_credential_store_service.dart';
 import 'package:app_management_center/app/services/google_drive_release_upload_service.dart';
 import 'package:app_management_center/app/services/notification_credential_store_service.dart';
@@ -2267,6 +2268,90 @@ void main() {
     await tester.pumpAndSettle();
   });
 
+  testWidgets('pull branch offers the repo remotes and preselects upstream', (
+    tester,
+  ) async {
+    await _pumpHome(tester, harness);
+    final inspector =
+        Get.find<GitInspectorService>() as _FakeGitInspectorService;
+    inspector.options = const GitBranchOptions(
+      remotes: ['origin', 'backup'],
+      branchesByRemote: {
+        'origin': ['develop', 'main'],
+        'backup': ['mirror'],
+      },
+      currentBranch: 'develop',
+      suggestedRemote: 'origin',
+      suggestedBranch: 'develop',
+    );
+
+    await _openAutomationMenuItem(tester, 'Pull branch từ remote');
+
+    expect(inspector.inspectedPaths, [harness.projectDirectory.path]);
+    expect(find.byKey(const Key('pull-branch-remote')), findsOneWidget);
+    expect(find.byKey(const Key('pull-branch-branch')), findsOneWidget);
+    // Nothing to type: the upstream is already selected.
+    expect(
+      tester
+          .widget<DropdownButtonFormField<String>>(
+            find.byKey(const Key('pull-branch-remote')),
+          )
+          .initialValue,
+      'origin',
+    );
+    expect(
+      tester
+          .widget<DropdownButtonFormField<String>>(
+            find.byKey(const Key('pull-branch-branch')),
+          )
+          .initialValue,
+      'develop',
+    );
+    expect(find.text('Đang ở branch develop'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('pull-branch-remote')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('backup').last);
+    await tester.pumpAndSettle();
+
+    // Switching remote re-picks a branch that actually exists on it.
+    expect(
+      tester
+          .widget<DropdownButtonFormField<String>>(
+            find.byKey(const Key('pull-branch-branch')),
+          )
+          .initialValue,
+      'mirror',
+    );
+
+    // Confirming here would start a real git pull, whose spinner never
+    // settles; the selection above is what this test is about.
+    await tester.tap(find.text('Huỷ'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('pull-branch-confirm')), findsNothing);
+  });
+
+  testWidgets('pull branch falls back to text when git says nothing', (
+    tester,
+  ) async {
+    await _pumpHome(tester, harness);
+    (Get.find<GitInspectorService>() as _FakeGitInspectorService).options =
+        const GitBranchOptions();
+
+    await _openAutomationMenuItem(tester, 'Pull branch từ remote');
+
+    expect(find.byKey(const Key('pull-branch-remote')), findsNothing);
+    expect(find.byKey(const Key('pull-branch-remote-text')), findsOneWidget);
+    expect(find.byKey(const Key('pull-branch-branch-text')), findsOneWidget);
+    expect(
+      find.text('Không đọc được remote từ dự án này, hãy nhập tay.'),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('Huỷ'));
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('shows Android JKS generation in extended actions', (
     tester,
   ) async {
@@ -2861,6 +2946,7 @@ class _Harness {
     Get.put<ResourceCatalogCryptoService>(resourceCatalogCrypto);
     Get.put<ResourceCatalogExcelService>(resourceCatalogExcel);
 
+    Get.put<GitInspectorService>(_FakeGitInspectorService());
     Get.put<AppShellController>(AppShellController(store: store));
 
     final controller = Get.put<HomeController>(
@@ -2905,6 +2991,17 @@ class _Harness {
     if (root.existsSync()) {
       root.deleteSync(recursive: true);
     }
+  }
+}
+
+class _FakeGitInspectorService extends GitInspectorService {
+  GitBranchOptions options = const GitBranchOptions();
+  final inspectedPaths = <String>[];
+
+  @override
+  Future<GitBranchOptions> readBranchOptions(String projectPath) async {
+    inspectedPaths.add(projectPath);
+    return options;
   }
 }
 

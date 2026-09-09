@@ -31,6 +31,7 @@ import 'package:app_management_center/app/services/api_tool_postman_import_servi
 import 'package:app_management_center/app/services/api_tool_repository_service.dart';
 import 'package:app_management_center/app/services/api_tool_service.dart';
 import 'package:app_management_center/app/services/auth_service.dart';
+import 'package:app_management_center/app/services/git_inspector_service.dart';
 import 'package:app_management_center/app/services/project_store_service.dart';
 import 'package:app_management_center/app/services/release_runner_service.dart';
 import 'package:app_management_center/app/services/release_workflow_service.dart';

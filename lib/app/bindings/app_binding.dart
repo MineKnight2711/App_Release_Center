@@ -20,6 +20,7 @@ import 'package:app_management_center/app/services/command_notification_service.
 import 'package:app_management_center/app/services/flowfin_api_client.dart';
 import 'package:app_management_center/app/services/flowfin_credential_store_service.dart';
 import 'package:app_management_center/app/services/gemini_env_service.dart';
+import 'package:app_management_center/app/services/git_inspector_service.dart';
 import 'package:app_management_center/app/services/google_drive_credential_store_service.dart';
 import 'package:app_management_center/app/services/google_drive_release_upload_service.dart';
 import 'package:app_management_center/app/services/notification_credential_store_service.dart';
@@ -88,6 +89,7 @@ class AppBinding extends Bindings {
       AndroidKeystoreGenerationService(),
       permanent: true,
     );
+    Get.put<GitInspectorService>(GitInspectorService(), permanent: true);
     Get.put<ReleaseCenterConnect>(ReleaseCenterConnect(), permanent: true);
     Get.put<GeminiEnvService>(GeminiEnvService(), permanent: true);
     Get.put<ReleaseNoteGenerationService>(

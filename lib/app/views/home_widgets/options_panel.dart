@@ -2097,7 +2097,7 @@ class _ResourceCatalogOptions extends GetView<HomeController> {
           else ...[
             _ResourceCatalogSectionHeader(
               icon: Icons.link_outlined,
-              label: 'Resources',
+              label: 'Tài nguyên',
               count: resources.length,
             ),
             const SizedBox(height: 8),
