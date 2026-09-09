@@ -34,7 +34,7 @@ class RemoteControlService extends GetxService {
 
   final settings = const RemoteControlSettings().obs;
   final mobileSettings = const MobileControlSettings().obs;
-  final agentStatus = 'Remote control idle'.obs;
+  final agentStatus = 'Điều khiển từ xa đang chờ'.obs;
   final desktopState = Rxn<RemoteDesktopState>();
   final activeMobileCommand = Rxn<RemoteCommand>();
   final mobileStatus = ''.obs;
@@ -94,9 +94,7 @@ class RemoteControlService extends GetxService {
   }) async {
     final endpoint = endpointBaseUrl.trim();
     if (endpoint.isEmpty || pairingCode.trim().isEmpty) {
-      throw const RemoteControlException(
-        'Endpoint and pairing code are required.',
-      );
+      throw const RemoteControlException('Phải có endpoint và mã ghép.');
     }
 
     final response = await _connect.post(
@@ -120,7 +118,7 @@ class RemoteControlService extends GetxService {
         : const <String, Object?>{};
     if (token.isEmpty) {
       throw const RemoteControlException(
-        'Pairing response did not include a control token.',
+        'Phản hồi ghép nối không kèm control token.',
       );
     }
 
@@ -131,7 +129,7 @@ class RemoteControlService extends GetxService {
     );
     await _store.saveMobileControlSettings(updated);
     mobileSettings.value = updated;
-    mobileStatus.value = 'Linked to desktop relay.';
+    mobileStatus.value = 'Đã liên kết với relay của máy tính.';
   }
 
   Future<void> clearMobileLink() async {
@@ -249,11 +247,11 @@ class RemoteControlService extends GetxService {
     _heartbeatTimer = null;
 
     if (Platform.isAndroid || Platform.isIOS || !settings.value.enabled) {
-      agentStatus.value = 'Remote control disabled.';
+      agentStatus.value = 'Đã tắt điều khiển từ xa.';
       return;
     }
 
-    agentStatus.value = 'Remote control enabled.';
+    agentStatus.value = 'Đã bật điều khiển từ xa.';
     await _sendHeartbeat();
     _heartbeatTimer = Timer.periodic(
       const Duration(seconds: 10),
@@ -288,7 +286,7 @@ class RemoteControlService extends GetxService {
     try {
       final endpoint = _desktopEndpoint;
       if (endpoint == null) {
-        agentStatus.value = 'Remote endpoint is not configured.';
+        agentStatus.value = 'Chưa cấu hình endpoint điều khiển từ xa.';
         await Future<void>.delayed(const Duration(seconds: 5));
         return const [];
       }
@@ -314,7 +312,7 @@ class RemoteControlService extends GetxService {
           )
           .toList();
     } catch (error) {
-      agentStatus.value = 'Remote poll failed: $error';
+      agentStatus.value = 'Lấy lệnh từ xa lỗi: $error';
       await Future<void>.delayed(const Duration(seconds: 5));
       return const [];
     }
@@ -355,7 +353,7 @@ class RemoteControlService extends GetxService {
       exitCode = await _executeRemoteCommand(queuedCommand);
     } catch (error) {
       errorMessage = error.toString();
-      _runner.appendSystemLog('Remote command failed: $errorMessage');
+      _runner.appendSystemLog('Lệnh từ xa lỗi: $errorMessage');
     } finally {
       _inputTimer?.cancel();
       _publishTimer?.cancel();
@@ -389,7 +387,7 @@ class RemoteControlService extends GetxService {
         return _executeFastlane(command.payload);
       default:
         throw RemoteControlException(
-          'Unsupported remote command: ${command.type}.',
+          'Lệnh từ xa không hỗ trợ: ${command.type}.',
         );
     }
   }
@@ -397,7 +395,7 @@ class RemoteControlService extends GetxService {
   Future<int> _executeShell(Map<String, Object?> payload) {
     final command = payload['command']?.toString().trim() ?? '';
     if (command.isEmpty) {
-      throw const RemoteControlException('Remote shell command is empty.');
+      throw const RemoteControlException('Lệnh shell từ xa trống.');
     }
 
     final workingDirectory = _allowedWorkingDirectory(
@@ -405,7 +403,7 @@ class RemoteControlService extends GetxService {
     );
     return _runner.runCommand(
       workingDirectory: workingDirectory,
-      statusLabel: 'Remote shell',
+      statusLabel: 'Shell từ xa',
       activePath: 'remote:shell:${DateTime.now().microsecondsSinceEpoch}',
       executable: Platform.isWindows ? 'powershell.exe' : 'sh',
       arguments: Platform.isWindows
@@ -425,7 +423,7 @@ class RemoteControlService extends GetxService {
           _samePath(entry.path, scriptPath) || entry.fileName == scriptPath,
     );
     if (script == null) {
-      throw RemoteControlException('Script is not available: $scriptPath.');
+      throw RemoteControlException('Không có script: $scriptPath.');
     }
 
     return _runner.run(
@@ -449,7 +447,7 @@ class RemoteControlService extends GetxService {
       (entry) => entry.key == laneKey || entry.name == laneKey,
     );
     if (lane == null) {
-      throw RemoteControlException('Fastlane lane is not available: $laneKey.');
+      throw RemoteControlException('Không có lane Fastlane: $laneKey.');
     }
 
     return _runner.runFastlaneLane(
@@ -512,7 +510,7 @@ class RemoteControlService extends GetxService {
         }
       }
     } catch (error) {
-      agentStatus.value = 'Remote input poll failed: $error';
+      agentStatus.value = 'Lấy input từ xa lỗi: $error';
     }
   }
 
@@ -581,10 +579,10 @@ class RemoteControlService extends GetxService {
         'send heartbeat',
       );
       agentStatus.value = _activeDesktopCommandId == null
-          ? 'Remote control online.'
-          : 'Remote command running.';
+          ? 'Điều khiển từ xa đang online.'
+          : 'Lệnh từ xa đang chạy.';
     } catch (error) {
-      agentStatus.value = 'Remote heartbeat failed: $error';
+      agentStatus.value = 'Tín hiệu điều khiển từ xa lỗi: $error';
     }
   }
 
@@ -651,7 +649,7 @@ class RemoteControlService extends GetxService {
     final roots = _allowedRoots();
     if (roots.isEmpty) {
       throw const RemoteControlException(
-        'No allowed project roots are configured for remote shell.',
+        'Chưa cấu hình thư mục dự án nào cho phép chạy shell từ xa.',
       );
     }
 
@@ -663,7 +661,7 @@ class RemoteControlService extends GetxService {
     }
 
     throw RemoteControlException(
-      'Remote path is outside allowed project roots: $candidate.',
+      'Đường dẫn nằm ngoài các thư mục dự án được phép: $candidate.',
     );
   }
 
@@ -717,7 +715,7 @@ class RemoteControlService extends GetxService {
   MobileControlSettings _requireMobileSettings() {
     final settings = mobileSettings.value;
     if (!settings.isLinked) {
-      throw const RemoteControlException('This phone is not linked yet.');
+      throw const RemoteControlException('Điện thoại này chưa được liên kết.');
     }
     return settings;
   }
@@ -738,7 +736,7 @@ class RemoteControlService extends GetxService {
   Map<String, Object?> _bodyMap(Object? body) {
     if (body is Map<String, Object?>) return body;
     if (body is Map) return Map<String, Object?>.from(body);
-    throw const RemoteControlException('Expected JSON object from relay.');
+    throw const RemoteControlException('Relay phải trả về một object JSON.');
   }
 
   void _ensureResponseOk(int statusCode, Object? body, String action) {
@@ -746,7 +744,7 @@ class RemoteControlService extends GetxService {
     final message = body is Map && body['error'] != null
         ? body['error'].toString()
         : 'HTTP $statusCode';
-    throw RemoteControlException('Failed to $action: $message');
+    throw RemoteControlException('$action lỗi: $message');
   }
 
   List<String> _stringList(Object? value) {

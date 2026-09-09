@@ -10,12 +10,12 @@ enum CiCdDependencyStatus {
 extension CiCdDependencyStatusLabel on CiCdDependencyStatus {
   String get label {
     return switch (this) {
-      CiCdDependencyStatus.installed => 'Installed',
-      CiCdDependencyStatus.missing => 'Missing',
-      CiCdDependencyStatus.outdated => 'Needs update',
-      CiCdDependencyStatus.manual => 'Manual',
-      CiCdDependencyStatus.unsupported => 'Unsupported',
-      CiCdDependencyStatus.error => 'Error',
+      CiCdDependencyStatus.installed => 'Đã cài',
+      CiCdDependencyStatus.missing => 'Chưa cài',
+      CiCdDependencyStatus.outdated => 'Cần cập nhật',
+      CiCdDependencyStatus.manual => 'Làm thủ công',
+      CiCdDependencyStatus.unsupported => 'Không hỗ trợ',
+      CiCdDependencyStatus.error => 'Lỗi',
     };
   }
 }
@@ -25,19 +25,20 @@ enum CiCdSetupGroup { core, android, rubyFastlane, optionalTools }
 extension CiCdSetupGroupLabel on CiCdSetupGroup {
   String get label {
     return switch (this) {
-      CiCdSetupGroup.core => 'Core',
+      CiCdSetupGroup.core => 'Cốt lõi',
       CiCdSetupGroup.android => 'Android',
       CiCdSetupGroup.rubyFastlane => 'Ruby / Fastlane',
-      CiCdSetupGroup.optionalTools => 'Optional tools',
+      CiCdSetupGroup.optionalTools => 'Công cụ tuỳ chọn',
     };
   }
 
   String get description {
     return switch (this) {
-      CiCdSetupGroup.core => 'Git, Flutter, Dart and shell tools.',
-      CiCdSetupGroup.android => 'JDK 17, Android SDK tools and licenses.',
-      CiCdSetupGroup.rubyFastlane => 'Ruby, RubyGems, Bundler and Fastlane.',
-      CiCdSetupGroup.optionalTools => 'Firebase CLI, GitHub CLI and Play key.',
+      CiCdSetupGroup.core => 'Git, Flutter, Dart và các công cụ shell.',
+      CiCdSetupGroup.android => 'JDK 17, công cụ Android SDK và license.',
+      CiCdSetupGroup.rubyFastlane => 'Ruby, RubyGems, Bundler và Fastlane.',
+      CiCdSetupGroup.optionalTools =>
+        'Firebase CLI, GitHub CLI và key của Play.',
     };
   }
 }
@@ -49,7 +50,7 @@ extension CiCdSetupPlatformLabel on CiCdSetupPlatform {
     return switch (this) {
       CiCdSetupPlatform.windows => 'Windows',
       CiCdSetupPlatform.macos => 'macOS',
-      CiCdSetupPlatform.other => 'Other',
+      CiCdSetupPlatform.other => 'Khác',
     };
   }
 }
@@ -82,120 +83,121 @@ class CiCdSetupCatalog {
   static const all = [
     CiCdSetupOption(
       id: 'package-manager',
-      label: 'Package manager',
+      label: 'Trình quản lý package',
       group: CiCdSetupGroup.core,
-      description: 'winget on Windows, Homebrew on macOS.',
+      description: 'winget trên Windows, Homebrew trên macOS.',
       checkIds: ['winget', 'homebrew', 'package-manager'],
     ),
     CiCdSetupOption(
       id: 'git',
       label: 'Git CLI',
       group: CiCdSetupGroup.core,
-      description: 'Required for clone, pull, CI scripts and version control.',
+      description: 'Cần cho clone, pull, script CI và quản lý version.',
     ),
     CiCdSetupOption(
       id: 'git-bash',
       label: 'Git Bash',
       group: CiCdSetupGroup.core,
-      description: 'Windows shell used by many Flutter/Fastlane scripts.',
+      description: 'Shell trên Windows mà nhiều script Flutter/Fastlane dùng.',
     ),
     CiCdSetupOption(
       id: 'flutter',
       label: 'Flutter SDK',
       group: CiCdSetupGroup.core,
-      description: 'Flutter toolchain for build, test and release commands.',
+      description: 'Bộ công cụ Flutter cho lệnh build, test và release.',
     ),
     CiCdSetupOption(
       id: 'dart',
       label: 'Dart CLI',
       group: CiCdSetupGroup.core,
-      description: 'Dart command availability for Flutter tooling.',
+      description: 'Kiểm tra lệnh dart có sẵn cho bộ công cụ Flutter.',
     ),
     CiCdSetupOption(
       id: 'jdk',
       label: 'JDK 17',
       group: CiCdSetupGroup.android,
-      description: 'Java runtime required by Android Gradle builds.',
+      description: 'Java runtime mà bản build Gradle của Android cần.',
     ),
     CiCdSetupOption(
       id: 'android-sdkmanager',
       label: 'Android SDK cmdline-tools',
       group: CiCdSetupGroup.android,
-      description: 'Provides sdkmanager for Android SDK package setup.',
+      description: 'Cung cấp sdkmanager để cài package Android SDK.',
     ),
     CiCdSetupOption(
       id: 'android-platform-tools',
       label: 'Android platform-tools',
       group: CiCdSetupGroup.android,
-      description: 'Provides adb and platform tools used by Android builds.',
+      description: 'Cung cấp adb và các platform tool cho bản build Android.',
     ),
     CiCdSetupOption(
       id: 'android-build-tools',
       label: 'Android build-tools',
       group: CiCdSetupGroup.android,
-      description: 'Build-tools package installed through sdkmanager.',
+      description: 'Package build-tools cài qua sdkmanager.',
     ),
     CiCdSetupOption(
       id: 'android-platforms',
       label: 'Android SDK platform',
       group: CiCdSetupGroup.android,
-      description: 'Android API platform package installed through sdkmanager.',
+      description: 'Package platform theo Android API, cài qua sdkmanager.',
     ),
     CiCdSetupOption(
       id: 'android-licenses',
       label: 'Android licenses',
       group: CiCdSetupGroup.android,
-      description: 'Interactive sdkmanager --licenses confirmation step.',
+      description: 'Bước xác nhận sdkmanager --licenses, phải trả lời tay.',
     ),
     CiCdSetupOption(
       id: 'ruby',
-      label: 'Ruby language',
+      label: 'Ngôn ngữ Ruby',
       group: CiCdSetupGroup.rubyFastlane,
-      description: 'Ruby runtime used by Fastlane and project gems.',
+      description: 'Ruby runtime mà Fastlane và các gem của dự án dùng.',
     ),
     CiCdSetupOption(
       id: 'gem',
       label: 'RubyGems',
       group: CiCdSetupGroup.rubyFastlane,
-      description: 'Ruby package manager used to install Bundler/Fastlane.',
+      description:
+          'Trình quản lý package của Ruby, dùng để cài Bundler/Fastlane.',
     ),
     CiCdSetupOption(
       id: 'bundler',
       label: 'Bundler',
       group: CiCdSetupGroup.rubyFastlane,
-      description: 'Installs project-local gems from Gemfile.',
+      description: 'Cài các gem riêng của dự án từ Gemfile.',
     ),
     CiCdSetupOption(
       id: 'fastlane',
       label: 'Fastlane',
       group: CiCdSetupGroup.rubyFastlane,
-      description: 'Release automation CLI for Android deploy workflows.',
+      description: 'CLI tự động hoá release cho luồng deploy Android.',
     ),
     CiCdSetupOption(
       id: 'project-bundle',
-      label: 'Project bundle install',
+      label: 'Chạy bundle install cho dự án',
       group: CiCdSetupGroup.rubyFastlane,
-      description: 'Runs bundle install when android/fastlane/Gemfile exists.',
+      description: 'Chạy bundle install khi có android/fastlane/Gemfile.',
     ),
     CiCdSetupOption(
       id: 'firebase-cli',
       label: 'Firebase CLI',
       group: CiCdSetupGroup.optionalTools,
-      description: 'Optional CLI for Firebase App Distribution workflows.',
+      description: 'CLI tuỳ chọn cho luồng Firebase App Distribution.',
       defaultSelected: false,
     ),
     CiCdSetupOption(
       id: 'github-cli',
       label: 'GitHub CLI',
       group: CiCdSetupGroup.optionalTools,
-      description: 'Optional CLI for repository and release automation.',
+      description: 'CLI tuỳ chọn để tự động hoá repository và release.',
       defaultSelected: false,
     ),
     CiCdSetupOption(
       id: 'google-play-service-account',
-      label: 'Google Play service account',
+      label: 'Service account Google Play',
       group: CiCdSetupGroup.optionalTools,
-      description: 'Manual JSON key check for Play Store upload.',
+      description: 'Tự kiểm tra file JSON key để upload lên Play Store.',
       defaultSelected: false,
     ),
   ];
@@ -351,7 +353,7 @@ class CiCdInstallStep {
   bool get isManual => executable.trim().isEmpty;
 
   String get commandPreview {
-    if (isManual) return fallbackUrl.isEmpty ? 'Manual step' : fallbackUrl;
+    if (isManual) return fallbackUrl.isEmpty ? 'Bước thủ công' : fallbackUrl;
     return [executable, ...arguments].map(_quoteCommandPart).join(' ');
   }
 }

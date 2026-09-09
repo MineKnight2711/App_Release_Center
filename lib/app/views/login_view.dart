@@ -22,7 +22,7 @@ class _LoginViewState extends State<LoginView> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _displayNameController = TextEditingController();
-  final _teamNameController = TextEditingController(text: 'Release Team');
+  final _teamNameController = TextEditingController(text: 'Nhóm release');
   final _inviteCodeController = TextEditingController();
 
   var _mode = _AuthPanelMode.signIn;
@@ -102,7 +102,7 @@ class _LoginViewState extends State<LoginView> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Sign in with your team account.',
+                      'Đăng nhập bằng tài khoản nhóm của bạn.',
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ],
@@ -115,7 +115,7 @@ class _LoginViewState extends State<LoginView> {
             const _AuthMessage(
               icon: Icons.warning_amber_outlined,
               message:
-                  'Firebase is not configured. Add Firebase values to .env, then reopen the app.',
+                  'Chưa cấu hình Firebase. Thêm thông tin Firebase vào .env rồi mở lại app.',
             ),
           ] else ...[
             SegmentedButton<_AuthPanelMode>(
@@ -123,12 +123,12 @@ class _LoginViewState extends State<LoginView> {
                 ButtonSegment(
                   value: _AuthPanelMode.signIn,
                   icon: Icon(Icons.login_outlined),
-                  label: Text('Login'),
+                  label: Text('Đăng nhập'),
                 ),
                 ButtonSegment(
                   value: _AuthPanelMode.register,
                   icon: Icon(Icons.person_add_alt_outlined),
-                  label: Text('Register'),
+                  label: Text('Đăng ký'),
                 ),
               ],
               selected: {_mode},
@@ -155,10 +155,10 @@ class _LoginViewState extends State<LoginView> {
               controller: _passwordController,
               obscureText: _obscurePassword,
               decoration: InputDecoration(
-                labelText: 'Password',
+                labelText: 'Mật khẩu',
                 prefixIcon: const Icon(Icons.password_outlined),
                 suffixIcon: IconButton(
-                  tooltip: _obscurePassword ? 'Show password' : 'Hide password',
+                  tooltip: _obscurePassword ? 'Hiện mật khẩu' : 'Ẩn mật khẩu',
                   onPressed: () {
                     setState(() => _obscurePassword = !_obscurePassword);
                   },
@@ -177,7 +177,7 @@ class _LoginViewState extends State<LoginView> {
                 key: const Key('auth-display-name'),
                 controller: _displayNameController,
                 decoration: const InputDecoration(
-                  labelText: 'Display name',
+                  labelText: 'Tên hiển thị',
                   prefixIcon: Icon(Icons.badge_outlined),
                 ),
               ),
@@ -187,12 +187,12 @@ class _LoginViewState extends State<LoginView> {
                   ButtonSegment(
                     value: _RegisterTarget.createTeam,
                     icon: Icon(Icons.group_add_outlined),
-                    label: Text('Create team'),
+                    label: Text('Tạo nhóm'),
                   ),
                   ButtonSegment(
                     value: _RegisterTarget.joinInvite,
                     icon: Icon(Icons.mark_email_unread_outlined),
-                    label: Text('Join invite'),
+                    label: Text('Vào bằng mã mời'),
                   ),
                 ],
                 selected: {_registerTarget},
@@ -209,7 +209,7 @@ class _LoginViewState extends State<LoginView> {
                   key: const Key('auth-team-name'),
                   controller: _teamNameController,
                   decoration: const InputDecoration(
-                    labelText: 'Team name',
+                    labelText: 'Tên nhóm',
                     prefixIcon: Icon(Icons.groups_outlined),
                   ),
                 )
@@ -218,7 +218,7 @@ class _LoginViewState extends State<LoginView> {
                   key: const Key('auth-invite-code'),
                   controller: _inviteCodeController,
                   decoration: const InputDecoration(
-                    labelText: 'Invite code',
+                    labelText: 'Mã mời',
                     prefixIcon: Icon(Icons.vpn_key_outlined),
                   ),
                   onSubmitted: (_) => _submit(),
@@ -268,7 +268,7 @@ class _LoginViewState extends State<LoginView> {
     final email = _emailController.text.trim();
     final password = _passwordController.text;
     if (email.isEmpty || password.isEmpty) {
-      setState(() => _localError = 'Email and password are required.');
+      setState(() => _localError = 'Phải nhập email và mật khẩu.');
       return;
     }
 
@@ -283,7 +283,7 @@ class _LoginViewState extends State<LoginView> {
       if (_registerTarget == _RegisterTarget.createTeam) {
         final teamName = _teamNameController.text.trim();
         if (teamName.isEmpty) {
-          setState(() => _localError = 'Team name is required.');
+          setState(() => _localError = 'Phải nhập tên nhóm.');
           return;
         }
         await _auth.registerWithNewTeam(
@@ -295,7 +295,7 @@ class _LoginViewState extends State<LoginView> {
       } else {
         final inviteCode = _inviteCodeController.text.trim();
         if (inviteCode.isEmpty) {
-          setState(() => _localError = 'Invite code is required.');
+          setState(() => _localError = 'Phải nhập mã mời.');
           return;
         }
         await _auth.registerWithInvite(
@@ -319,7 +319,7 @@ class TeamSetupView extends StatefulWidget {
 }
 
 class _TeamSetupViewState extends State<TeamSetupView> {
-  final _teamNameController = TextEditingController(text: 'Release Team');
+  final _teamNameController = TextEditingController(text: 'Nhóm release');
   final _inviteCodeController = TextEditingController();
   var _target = _RegisterTarget.createTeam;
   var _localError = '';
@@ -359,7 +359,7 @@ class _TeamSetupViewState extends State<TeamSetupView> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Text(
-                        'Choose a team',
+                        'Chọn nhóm',
                         style: Theme.of(context).textTheme.titleLarge,
                       ),
                       const SizedBox(height: 4),
@@ -373,12 +373,12 @@ class _TeamSetupViewState extends State<TeamSetupView> {
                           ButtonSegment(
                             value: _RegisterTarget.createTeam,
                             icon: Icon(Icons.group_add_outlined),
-                            label: Text('Create team'),
+                            label: Text('Tạo nhóm'),
                           ),
                           ButtonSegment(
                             value: _RegisterTarget.joinInvite,
                             icon: Icon(Icons.mark_email_unread_outlined),
-                            label: Text('Join invite'),
+                            label: Text('Vào bằng mã mời'),
                           ),
                         ],
                         selected: {_target},
@@ -395,7 +395,7 @@ class _TeamSetupViewState extends State<TeamSetupView> {
                           key: const Key('team-setup-name'),
                           controller: _teamNameController,
                           decoration: const InputDecoration(
-                            labelText: 'Team name',
+                            labelText: 'Tên nhóm',
                             prefixIcon: Icon(Icons.groups_outlined),
                           ),
                         )
@@ -404,7 +404,7 @@ class _TeamSetupViewState extends State<TeamSetupView> {
                           key: const Key('team-setup-invite-code'),
                           controller: _inviteCodeController,
                           decoration: const InputDecoration(
-                            labelText: 'Invite code',
+                            labelText: 'Mã mời',
                             prefixIcon: Icon(Icons.vpn_key_outlined),
                           ),
                           onSubmitted: (_) => _submit(),
@@ -430,7 +430,7 @@ class _TeamSetupViewState extends State<TeamSetupView> {
                             child: OutlinedButton.icon(
                               onPressed: () => unawaited(_auth.signOut()),
                               icon: const Icon(Icons.logout_outlined),
-                              label: const Text('Logout'),
+                              label: const Text('Đăng xuất'),
                             ),
                           ),
                           const SizedBox(width: 10),
@@ -447,7 +447,7 @@ class _TeamSetupViewState extends State<TeamSetupView> {
                                         ),
                                       )
                                     : const Icon(Icons.check_outlined),
-                                label: const Text('Continue'),
+                                label: const Text('Tiếp tục'),
                               ),
                             ),
                           ),
@@ -470,14 +470,14 @@ class _TeamSetupViewState extends State<TeamSetupView> {
       if (_target == _RegisterTarget.createTeam) {
         final teamName = _teamNameController.text.trim();
         if (teamName.isEmpty) {
-          setState(() => _localError = 'Team name is required.');
+          setState(() => _localError = 'Phải nhập tên nhóm.');
           return;
         }
         await _auth.createTeamForCurrentUser(teamName);
       } else {
         final inviteCode = _inviteCodeController.text.trim();
         if (inviteCode.isEmpty) {
-          setState(() => _localError = 'Invite code is required.');
+          setState(() => _localError = 'Phải nhập mã mời.');
           return;
         }
         await _auth.joinCurrentUserWithInvite(inviteCode);

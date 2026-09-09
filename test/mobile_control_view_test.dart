@@ -42,10 +42,10 @@ void main() {
 
     await tester.pumpWidget(const GetMaterialApp(home: MobileControlView()));
 
-    expect(find.text('Pair Phone'), findsOneWidget);
+    expect(find.text('Ghép điện thoại'), findsOneWidget);
     expect(find.text('Relay endpoint'), findsOneWidget);
-    expect(find.text('Pairing code'), findsOneWidget);
-    expect(find.text('Link'), findsOneWidget);
+    expect(find.text('Mã ghép'), findsOneWidget);
+    expect(find.text('Liên kết'), findsOneWidget);
   });
 }
 

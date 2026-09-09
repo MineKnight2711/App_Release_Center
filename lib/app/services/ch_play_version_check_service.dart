@@ -48,7 +48,7 @@ class ChPlayVersionCheckService extends GetxService {
       return ChPlayVersionSnapshot(
         localVersion: localVersion,
         status: ChPlayComparisonStatus.missingCredentials,
-        message: 'Import a Google Play service-account JSON key.',
+        message: 'Hãy nhập file JSON service-account của Google Play.',
         lastCheckedAt: checkedAt,
       );
     }
@@ -57,7 +57,7 @@ class ChPlayVersionCheckService extends GetxService {
       return ChPlayVersionSnapshot(
         localVersion: localVersion,
         status: ChPlayComparisonStatus.failed,
-        message: 'Application ID is required.',
+        message: 'Phải có Application ID.',
         lastCheckedAt: checkedAt,
       );
     }
@@ -67,7 +67,7 @@ class ChPlayVersionCheckService extends GetxService {
       return ChPlayVersionSnapshot(
         localVersion: localVersion,
         status: ChPlayComparisonStatus.failed,
-        message: 'Project does not contain an android folder.',
+        message: 'Dự án không có thư mục android.',
         lastCheckedAt: checkedAt,
       );
     }
@@ -102,7 +102,7 @@ class ChPlayVersionCheckService extends GetxService {
         return ChPlayVersionSnapshot(
           localVersion: localVersion,
           status: ChPlayComparisonStatus.failed,
-          message: 'Fastlane failed with exit code ${result.exitCode}.',
+          message: 'Fastlane lỗi, exit code ${result.exitCode}.',
           lastCheckedAt: checkedAt,
         );
       }
@@ -112,7 +112,7 @@ class ChPlayVersionCheckService extends GetxService {
         return ChPlayVersionSnapshot(
           localVersion: localVersion,
           status: ChPlayComparisonStatus.failed,
-          message: 'Fastlane output did not include STORE_CODE_ONLY.',
+          message: 'Output của Fastlane không có STORE_CODE_ONLY.',
           lastCheckedAt: checkedAt,
         );
       }
@@ -121,7 +121,7 @@ class ChPlayVersionCheckService extends GetxService {
         localVersion: localVersion,
         storeVersionCode: storeCode,
         status: compare(localVersion.code, storeCode),
-        message: 'Checked ${project.track}.',
+        message: 'Đã kiểm tra ${project.track}.',
         lastCheckedAt: checkedAt,
       );
     } finally {

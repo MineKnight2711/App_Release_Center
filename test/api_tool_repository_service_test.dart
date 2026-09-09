@@ -17,7 +17,7 @@ void main() {
     ).init(firebaseEnabled: false);
     final request = ApiToolRequest(
       id: 'request-1',
-      name: 'Local',
+      name: 'Ở máy',
       method: ApiToolMethod.get,
       url: 'https://example.com',
       updatedAt: DateTime(2026, 8, 4),
@@ -25,9 +25,9 @@ void main() {
 
     await repository.saveApiToolRequests([request]);
 
-    expect(repository.workspaceLabel.value, 'Local workspace');
+    expect(repository.workspaceLabel.value, 'Workspace ở máy');
     expect(localStore.apiToolRequests.single.id, 'request-1');
-    expect(repository.apiToolRequests.single.name, 'Local');
+    expect(repository.apiToolRequests.single.name, 'Ở máy');
   });
 
   test('stores Quick Requests in the active local workspace', () async {
@@ -145,7 +145,7 @@ void main() {
 
     await repository.saveApiToolCollections([collection]);
 
-    expect(repository.workspaceLabel.value, 'Team: Release Team');
+    expect(repository.workspaceLabel.value, 'Nhóm: Nhóm release');
     expect(teamData.savedCollections.single.id, 'collection-1');
     expect(localStore.apiToolCollections, isEmpty);
   });
@@ -300,7 +300,7 @@ void main() {
     );
     final request = ApiToolRequest(
       id: 'postman-request',
-      name: 'Login',
+      name: 'Đăng nhập',
       method: ApiToolMethod.post,
       url: 'https://example.com/login',
       collectionId: collection.id,
@@ -317,7 +317,7 @@ void main() {
     expect(localStore.apiToolCollections.single.id, collection.id);
     expect(localStore.apiToolFolders.single.id, folder.id);
     expect(localStore.apiToolRequests.single.id, request.id);
-    expect(repository.apiToolRequests.single.name, 'Login');
+    expect(repository.apiToolRequests.single.name, 'Đăng nhập');
   });
 
   test('imports HTTP Tools into team workspace', () async {
@@ -339,7 +339,7 @@ void main() {
     );
     final request = ApiToolRequest(
       id: 'postman-request',
-      name: 'Login',
+      name: 'Đăng nhập',
       method: ApiToolMethod.post,
       url: 'https://example.com/login',
       collectionId: collection.id,
@@ -355,7 +355,7 @@ void main() {
     expect(teamData.savedCollections.single.id, collection.id);
     expect(teamData.savedRequests.single.id, request.id);
     expect(localStore.apiToolCollections, isEmpty);
-    expect(repository.apiToolRequests.single.name, 'Login');
+    expect(repository.apiToolRequests.single.name, 'Đăng nhập');
   });
 
   test('imports local Quick Requests into the team workspace', () async {
@@ -423,7 +423,7 @@ AuthService _teamAuthService() {
     teamDataSource: _FakeTeamDataSource(
       const TeamMembership(
         teamId: 'team-1',
-        teamName: 'Release Team',
+        teamName: 'Nhóm release',
         role: TeamRole.dev,
       ),
     ),

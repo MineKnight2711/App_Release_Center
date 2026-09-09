@@ -25,13 +25,13 @@ class ReleaseScript {
 
   String get label {
     return switch (kind) {
-      ReleaseScriptKind.release => 'Release flow',
+      ReleaseScriptKind.release => 'Luồng release',
       ReleaseScriptKind.versionCode => 'Version code',
       ReleaseScriptKind.versionName => 'Version name',
       ReleaseScriptKind.commit => 'Commit',
       ReleaseScriptKind.merge => 'Merge PR',
       ReleaseScriptKind.deploy => 'Deploy',
-      ReleaseScriptKind.imageValidation => 'Play images',
+      ReleaseScriptKind.imageValidation => 'Ảnh Play',
       ReleaseScriptKind.shell => _humanize(fileName),
       ReleaseScriptKind.dartTool => _humanize(fileName),
     };
@@ -39,15 +39,16 @@ class ReleaseScript {
 
   String get description {
     return switch (kind) {
-      ReleaseScriptKind.release => 'Runs version, commit, merge, and deploy.',
-      ReleaseScriptKind.versionCode => 'Updates the Android build number.',
-      ReleaseScriptKind.versionName => 'Updates the release version name.',
-      ReleaseScriptKind.commit => 'Commits and pushes release changes.',
-      ReleaseScriptKind.merge => 'Creates and waits for the dev pull request.',
-      ReleaseScriptKind.deploy => 'Runs deployment options for this project.',
-      ReleaseScriptKind.imageValidation => 'Checks Google Play image assets.',
-      ReleaseScriptKind.shell => 'Runs this shell script.',
-      ReleaseScriptKind.dartTool => 'Runs this Dart tool.',
+      ReleaseScriptKind.release => 'Chạy version, commit, merge rồi deploy.',
+      ReleaseScriptKind.versionCode => 'Cập nhật build number của Android.',
+      ReleaseScriptKind.versionName => 'Cập nhật version name của bản release.',
+      ReleaseScriptKind.commit =>
+        'Commit rồi push các thay đổi của bản release.',
+      ReleaseScriptKind.merge => 'Tạo pull request lên dev rồi chờ.',
+      ReleaseScriptKind.deploy => 'Chạy các tuỳ chọn deploy của dự án này.',
+      ReleaseScriptKind.imageValidation => 'Kiểm tra bộ ảnh cho Google Play.',
+      ReleaseScriptKind.shell => 'Chạy shell script này.',
+      ReleaseScriptKind.dartTool => 'Chạy Dart tool này.',
     };
   }
 

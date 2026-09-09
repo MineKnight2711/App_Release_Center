@@ -16,7 +16,8 @@ Future<void> showApiMonitorDialog(
       barrierColor: Colors.black.withValues(alpha: 0.66),
       transitionDuration: const Duration(milliseconds: 220),
       pageBuilder: (_, _, _) => _ApiMonitorDialog(
-        initialUrl: initialUrl ??
+        initialUrl:
+            initialUrl ??
             Get.find<ApiMonitorService>().dashboardUrl.value.trim(),
       ),
       transitionBuilder: (context, animation, secondaryAnimation, child) {
@@ -75,7 +76,7 @@ class _ApiMonitorDialogState extends State<_ApiMonitorDialog> {
       if (mounted) {
         setState(() {
           _errorMessage =
-              'In-App WebView is only supported on Windows desktop runtime.';
+              'WebView trong app chỉ chạy được trên Windows desktop.';
           _isLoading = false;
         });
       }
@@ -132,7 +133,7 @@ class _ApiMonitorDialogState extends State<_ApiMonitorDialog> {
       if (mounted) {
         setState(() {
           _errorMessage =
-              'Could not initialize WebView2 engine.\nPlease ensure Microsoft Edge WebView2 Runtime is installed.';
+              'Không khởi tạo được WebView2.\nHãy kiểm tra đã cài Microsoft Edge WebView2 Runtime chưa.';
           _isLoading = false;
         });
       }
@@ -208,9 +209,7 @@ class _ApiMonitorDialogState extends State<_ApiMonitorDialog> {
                       thickness: 1,
                       color: AppCyberTheme.lineBlue.withValues(alpha: 0.3),
                     ),
-                  Expanded(
-                    child: _buildBody(context),
-                  ),
+                  Expanded(child: _buildBody(context)),
                 ],
               ),
             ),
@@ -302,7 +301,7 @@ class _ApiMonitorDialogState extends State<_ApiMonitorDialog> {
       mainAxisSize: MainAxisSize.min,
       children: [
         IconButton(
-          tooltip: 'Back',
+          tooltip: 'Lùi',
           iconSize: 18,
           onPressed: _canGoBack && _isInitialized
               ? () => _controller.goBack()
@@ -310,7 +309,7 @@ class _ApiMonitorDialogState extends State<_ApiMonitorDialog> {
           icon: const Icon(Icons.arrow_back_ios_new_rounded),
         ),
         IconButton(
-          tooltip: 'Forward',
+          tooltip: 'Tiến',
           iconSize: 18,
           onPressed: _canGoForward && _isInitialized
               ? () => _controller.goForward()
@@ -318,20 +317,20 @@ class _ApiMonitorDialogState extends State<_ApiMonitorDialog> {
           icon: const Icon(Icons.arrow_forward_ios_rounded),
         ),
         IconButton(
-          tooltip: 'Reload',
+          tooltip: 'Tải lại',
           iconSize: 18,
           onPressed: _isInitialized ? () => _controller.reload() : null,
           icon: const Icon(Icons.refresh_rounded),
         ),
         const SizedBox(width: 4),
         IconButton(
-          tooltip: 'Copy URL',
+          tooltip: 'Sao chép URL',
           iconSize: 18,
           onPressed: _copyUrl,
           icon: const Icon(Icons.copy_outlined),
         ),
         IconButton(
-          tooltip: 'Open in Browser',
+          tooltip: 'Mở bằng trình duyệt',
           iconSize: 18,
           onPressed: _openInBrowser,
           icon: const Icon(Icons.open_in_browser_rounded),
@@ -345,7 +344,7 @@ class _ApiMonitorDialogState extends State<_ApiMonitorDialog> {
         const SizedBox(width: 6),
         IconButton(
           key: const Key('close-api-monitor-dialog'),
-          tooltip: 'Close',
+          tooltip: 'Đóng',
           iconSize: 20,
           onPressed: () => Navigator.of(context).pop(),
           icon: const Icon(Icons.close_rounded),
@@ -380,7 +379,7 @@ class _ApiMonitorDialogState extends State<_ApiMonitorDialog> {
               FilledButton.icon(
                 onPressed: _openInBrowser,
                 icon: const Icon(Icons.open_in_browser),
-                label: const Text('Open in System Browser'),
+                label: const Text('Mở bằng trình duyệt hệ thống'),
               ),
             ],
           ),
@@ -404,7 +403,7 @@ class _ApiMonitorDialogState extends State<_ApiMonitorDialog> {
             ),
             const SizedBox(height: 14),
             Text(
-              'Initializing In-App WebView...',
+              'Đang khởi tạo WebView...',
               style: AppCyberTheme.dataTextStyle(
                 size: 12,
                 color: AppCyberTheme.textMuted,
@@ -415,10 +414,7 @@ class _ApiMonitorDialogState extends State<_ApiMonitorDialog> {
       );
     }
 
-    return Container(
-      color: Colors.white,
-      child: Webview(_controller),
-    );
+    return Container(color: Colors.white, child: Webview(_controller));
   }
 
   Future<void> _copyUrl() async {
@@ -427,7 +423,7 @@ class _ApiMonitorDialogState extends State<_ApiMonitorDialog> {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Copied API Monitor URL to clipboard'),
+          content: Text('Đã sao chép URL API Monitor'),
           duration: Duration(seconds: 2),
         ),
       );

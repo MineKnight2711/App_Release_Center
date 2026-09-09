@@ -852,7 +852,7 @@ class _ApiToolResponseHero extends StatelessWidget {
           if (truncated)
             const _MetaChip(
               icon: Icons.content_cut_outlined,
-              label: 'Body truncated',
+              label: 'Body đã bị cắt bớt',
               highlighted: true,
             ),
         ],
@@ -873,7 +873,7 @@ class _ApiToolHeaderTable extends StatelessWidget {
       return _ApiToolMessage(
         icon: Icons.view_headline_outlined,
         color: AppCyberTheme.textMuted,
-        message: 'This response did not return any header.',
+        message: 'Response này không trả về header nào.',
       );
     }
 
@@ -916,7 +916,7 @@ class _ApiToolHeaderTable extends StatelessWidget {
                 ),
                 IconButton(
                   key: Key('api-tool-copy-response-header-${entry.key}'),
-                  tooltip: 'Copy header',
+                  tooltip: 'Sao chép header',
                   visualDensity: VisualDensity.compact,
                   onPressed: () => unawaited(
                     Clipboard.setData(

@@ -86,12 +86,9 @@ class _FlowPanelState extends State<_FlowPanel>
           TabBar(
             controller: _tabs,
             tabs: const [
-              Tab(icon: Icon(Icons.shop_two_outlined), text: 'Store Versions'),
-              Tab(icon: Icon(Icons.schema_outlined), text: 'Fastlane Flow'),
-              Tab(
-                icon: Icon(Icons.alt_route_outlined),
-                text: 'Fastlane Command',
-              ),
+              Tab(icon: Icon(Icons.shop_two_outlined), text: 'Bản trên store'),
+              Tab(icon: Icon(Icons.schema_outlined), text: 'Luồng Fastlane'),
+              Tab(icon: Icon(Icons.alt_route_outlined), text: 'Lệnh Fastlane'),
             ],
           ),
           const SizedBox(height: 10),
@@ -201,7 +198,7 @@ Future<_PullRemoteBranchInput?> _showPullRemoteBranchDialog(
             actionsPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
             title: const _PanelTitle(
               icon: Icons.call_received_outlined,
-              title: 'Pull Branch',
+              title: 'Pull branch',
             ),
             content: SizedBox(
               width: 360,
@@ -212,7 +209,7 @@ Future<_PullRemoteBranchInput?> _showPullRemoteBranchDialog(
                   TextField(
                     controller: remoteController,
                     decoration: const InputDecoration(
-                      labelText: 'Remote name',
+                      labelText: 'Tên remote',
                       hintText: 'origin',
                       prefixIcon: Icon(Icons.hub_outlined),
                     ),
@@ -221,7 +218,7 @@ Future<_PullRemoteBranchInput?> _showPullRemoteBranchDialog(
                   TextField(
                     controller: branchController,
                     decoration: const InputDecoration(
-                      labelText: 'Branch name',
+                      labelText: 'Tên branch',
                       hintText: 'develop',
                       prefixIcon: Icon(Icons.alt_route_outlined),
                     ),
@@ -251,7 +248,7 @@ Future<_PullRemoteBranchInput?> _showPullRemoteBranchDialog(
                   final branch = branchController.text.trim();
                   if (remote.isEmpty || branch.isEmpty) {
                     setState(() {
-                      validationError = 'Remote and branch are required.';
+                      validationError = 'Phải nhập remote và branch.';
                     });
                     return;
                   }
@@ -281,8 +278,8 @@ Future<bool?> _showAndroidCicdCloneDialog(
 ) {
   final flavorLabel = preview.hasFlavors
       ? 'Flavor ${preview.selectedFlavor ?? '-'}'
-      : 'No flavor';
-  final modeLabel = preview.isFallback ? 'Fallback mode' : 'Adaptive mode';
+      : 'Không flavor';
+  final modeLabel = preview.isFallback ? 'Chế độ fallback' : 'Chế độ adaptive';
 
   return showDialog<bool>(
     context: context,
@@ -317,7 +314,7 @@ Future<bool?> _showAndroidCicdCloneDialog(
                 children: [
                   _MetaChip(
                     icon: Icons.badge_outlined,
-                    label: preview.applicationId ?? 'No app ID',
+                    label: preview.applicationId ?? 'Chưa có app ID',
                     highlighted: preview.applicationId != null,
                   ),
                   _MetaChip(
@@ -334,16 +331,17 @@ Future<bool?> _showAndroidCicdCloneDialog(
                   ),
                   _MetaChip(
                     icon: Icons.add_circle_outline,
-                    label: '${preview.count(AndroidCicdFileAction.add)} add',
+                    label: 'thêm ${preview.count(AndroidCicdFileAction.add)}',
                   ),
                   _MetaChip(
                     icon: Icons.edit_outlined,
                     label:
-                        '${preview.count(AndroidCicdFileAction.overwrite)} overwrite',
+                        'ghi đè ${preview.count(AndroidCicdFileAction.overwrite)}',
                   ),
                   _MetaChip(
                     icon: Icons.remove_circle_outline,
-                    label: '${preview.count(AndroidCicdFileAction.skip)} skip',
+                    label:
+                        'bỏ qua ${preview.count(AndroidCicdFileAction.skip)}',
                   ),
                 ],
               ),
@@ -353,7 +351,7 @@ Future<bool?> _showAndroidCicdCloneDialog(
               ],
               const SizedBox(height: 12),
               Text(
-                'Files',
+                'Danh sách file',
                 style: AppCyberTheme.dataTextStyle(
                   size: 11.8,
                   color: AppCyberTheme.textPrimary,
@@ -449,7 +447,7 @@ class _AndroidKeystoreGenerationDialogState
       actionsPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
       title: const _PanelTitle(
         icon: Icons.vpn_key_outlined,
-        title: 'Generate Android JKS',
+        title: 'Tạo Android JKS',
       ),
       content: SizedBox(
         width: 420,
@@ -472,7 +470,7 @@ class _AndroidKeystoreGenerationDialogState
                 enableSuggestions: false,
                 autocorrect: false,
                 decoration: const InputDecoration(
-                  labelText: 'JKS password',
+                  labelText: 'Mật khẩu JKS',
                   prefixIcon: Icon(Icons.password_outlined),
                 ),
               ),
@@ -483,7 +481,7 @@ class _AndroidKeystoreGenerationDialogState
                   setState(() => _forceRecreate = value ?? false);
                 },
                 contentPadding: EdgeInsets.zero,
-                title: const Text('Force recreate existing JKS'),
+                title: const Text('Tạo lại JKS dù đã có'),
                 controlAffinity: ListTileControlAffinity.leading,
               ),
               if (_validationError != null) ...[
@@ -509,7 +507,7 @@ class _AndroidKeystoreGenerationDialogState
         FilledButton.icon(
           onPressed: _submit,
           icon: const Icon(Icons.vpn_key_outlined),
-          label: const Text('Generate'),
+          label: const Text('Tạo'),
         ),
       ],
     );
@@ -520,13 +518,13 @@ class _AndroidKeystoreGenerationDialogState
     final storePassword = _storePasswordController.text.trim();
     if (alias.isEmpty) {
       setState(() {
-        _validationError = 'Key alias is required.';
+        _validationError = 'Phải nhập key alias.';
       });
       return;
     }
     if (storePassword.isNotEmpty && storePassword.length < 6) {
       setState(() {
-        _validationError = 'JKS password must be at least 6 characters.';
+        _validationError = 'Mật khẩu JKS phải từ 6 ký tự.';
       });
       return;
     }
@@ -564,7 +562,7 @@ class _FlowPanelHeader extends GetView<HomeController> {
             else
               const _PanelTitle(
                 icon: Icons.account_tree_outlined,
-                title: 'Automation',
+                title: 'Tự động hoá',
               ),
             const SizedBox(width: 10),
             Expanded(child: _CommandPaletteBar(compact: compact)),
@@ -669,7 +667,7 @@ class _AutomationMenuButton extends GetView<HomeController> {
 
       return PopupMenuButton<_AutomationMenuAction>(
         key: const Key('automation-menu'),
-        tooltip: 'More actions',
+        tooltip: 'Thêm thao tác',
         onSelected: onSelected,
         position: PopupMenuPosition.under,
         offset: const Offset(0, 8),
@@ -690,7 +688,7 @@ class _AutomationMenuButton extends GetView<HomeController> {
             child: _ExtendedMenuItem(
               icon: Icons.api_outlined,
               title: 'API Tool',
-              subtitle: 'Send and save HTTP requests.',
+              subtitle: 'Gửi và lưu request HTTP.',
             ),
           ),
           const PopupMenuItem(
@@ -698,7 +696,7 @@ class _AutomationMenuButton extends GetView<HomeController> {
             child: _ExtendedMenuItem(
               icon: Icons.query_stats_outlined,
               title: 'API Monitor',
-              subtitle: 'Open the monitoring dashboard.',
+              subtitle: 'Mở dashboard giám sát.',
             ),
           ),
           const PopupMenuItem(
@@ -706,7 +704,7 @@ class _AutomationMenuButton extends GetView<HomeController> {
             child: _ExtendedMenuItem(
               icon: Icons.account_balance_wallet_outlined,
               title: 'FlowFin',
-              subtitle: 'Wallets, budgets and transactions.',
+              subtitle: 'Ví, ngân sách và giao dịch.',
             ),
           ),
           const PopupMenuDivider(),
@@ -719,9 +717,9 @@ class _AutomationMenuButton extends GetView<HomeController> {
                   ? AppThemeChoice.defaultTheme.icon
                   : AppThemeChoice.cyber.icon,
               title: theme == AppThemeChoice.cyber
-                  ? 'Switch to Default theme'
-                  : 'Switch to Cyber theme',
-              subtitle: 'Currently ${theme.label}.',
+                  ? 'Đổi sang giao diện Default'
+                  : 'Đổi sang giao diện Cyber',
+              subtitle: 'Đang dùng ${theme.label}.',
             ),
           ),
           const PopupMenuDivider(),
@@ -731,7 +729,7 @@ class _AutomationMenuButton extends GetView<HomeController> {
             child: const _ExtendedMenuItem(
               icon: Icons.android_outlined,
               title: 'Clone Android CI/CD',
-              subtitle: 'Preview and scaffold Fastlane plus auto tools.',
+              subtitle: 'Xem trước rồi dựng Fastlane và bộ auto tool.',
             ),
           ),
           PopupMenuItem(
@@ -740,7 +738,7 @@ class _AutomationMenuButton extends GetView<HomeController> {
             child: const _ExtendedMenuItem(
               icon: Icons.low_priority_outlined,
               title: 'Clone Android CI/CD fallback',
-              subtitle: 'Use generic no-flavor CI/CD without Gradle patching.',
+              subtitle: 'Dùng CI/CD không flavor, không vá Gradle.',
             ),
           ),
           PopupMenuItem(
@@ -748,8 +746,8 @@ class _AutomationMenuButton extends GetView<HomeController> {
             enabled: projectActionsEnabled,
             child: const _ExtendedMenuItem(
               icon: Icons.vpn_key_outlined,
-              title: 'Generate Android JKS',
-              subtitle: 'Create local upload keystore and signing configs.',
+              title: 'Tạo Android JKS',
+              subtitle: 'Tạo upload keystore và cấu hình ký ngay tại máy.',
             ),
           ),
           PopupMenuItem(
@@ -757,8 +755,8 @@ class _AutomationMenuButton extends GetView<HomeController> {
             enabled: projectActionsEnabled,
             child: const _ExtendedMenuItem(
               icon: Icons.call_received_outlined,
-              title: 'Pull branch from remote',
-              subtitle: 'Pick a remote and branch, then run git pull.',
+              title: 'Pull branch từ remote',
+              subtitle: 'Chọn remote và branch rồi chạy git pull.',
             ),
           ),
           PopupMenuItem(
@@ -766,8 +764,8 @@ class _AutomationMenuButton extends GetView<HomeController> {
             enabled: projectActionsEnabled,
             child: const _ExtendedMenuItem(
               icon: Icons.system_update_alt_outlined,
-              title: 'Check and update Fastlane',
-              subtitle: 'Run fastlane --version then a user-scoped gem update.',
+              title: 'Kiểm tra và cập nhật Fastlane',
+              subtitle: 'Chạy fastlane --version rồi gem update cho user.',
             ),
           ),
           PopupMenuItem(
@@ -776,7 +774,7 @@ class _AutomationMenuButton extends GetView<HomeController> {
             child: const _ExtendedMenuItem(
               icon: Icons.cleaning_services_outlined,
               title: 'Flutter clean',
-              subtitle: 'Clear Flutter build artifacts in this project.',
+              subtitle: 'Xoá artifact build của Flutter trong dự án này.',
             ),
           ),
           PopupMenuItem(
@@ -785,7 +783,7 @@ class _AutomationMenuButton extends GetView<HomeController> {
             child: const _ExtendedMenuItem(
               icon: Icons.download_for_offline_outlined,
               title: 'Flutter pub get',
-              subtitle: 'Fetch Dart and Flutter dependencies.',
+              subtitle: 'Tải dependency của Dart và Flutter.',
             ),
           ),
         ],
@@ -972,11 +970,11 @@ class _CicdFlowGrid extends GetView<HomeController> {
     return Obx(() {
       final project = controller.project.value;
       if (project == null) {
-        return const Center(child: Text('Choose a project'));
+        return const Center(child: Text('Chọn một dự án'));
       }
 
       if (project.scripts.isEmpty) {
-        return const Center(child: Text('No auto tools found'));
+        return const Center(child: Text('Không tìm thấy auto tool nào'));
       }
 
       return GridView.builder(
@@ -1050,7 +1048,7 @@ class _ScriptCard extends GetView<HomeController> {
                 ),
                 const SizedBox(width: 8),
                 IconButton.filledTonal(
-                  tooltip: 'Run ${script.label}',
+                  tooltip: 'Chạy ${script.label}',
                   visualDensity: VisualDensity.compact,
                   onPressed: isRunning
                       ? null

@@ -44,7 +44,7 @@ class ApiToolPostmanEnvironmentImportService {
     final file = File(filePath);
     if (!file.existsSync()) {
       throw const ApiToolPostmanImportException(
-        'Postman environment file was not found.',
+        'Không tìm thấy file môi trường Postman.',
       );
     }
     final text = await file.readAsString();
@@ -59,12 +59,12 @@ class ApiToolPostmanEnvironmentImportService {
     final name = _firstNonEmpty([
       _string(decoded['name']),
       fallbackName,
-      'Imported Postman Environment',
+      'Môi trường nhập từ Postman',
     ]);
     final variables = _importValues(decoded['values']);
     if (variables.isEmpty) {
       throw const ApiToolPostmanImportException(
-        'No variables were found in this Postman environment.',
+        'Môi trường Postman này không có biến nào.',
       );
     }
 
@@ -82,11 +82,11 @@ class ApiToolPostmanEnvironmentImportService {
       if (decoded is Map) return decoded.cast<String, Object?>();
     } on FormatException catch (error) {
       throw ApiToolPostmanImportException(
-        'Postman environment JSON is invalid: ${error.message}',
+        'JSON môi trường Postman không hợp lệ: ${error.message}',
       );
     }
     throw const ApiToolPostmanImportException(
-      'Postman environment must be a JSON object.',
+      'Môi trường Postman phải là một object JSON.',
     );
   }
 
@@ -185,7 +185,7 @@ class ApiToolPostmanCollectionImportService {
     final file = File(filePath);
     if (!file.existsSync()) {
       throw ApiToolPostmanImportException(
-        'Postman collection file was not found.',
+        'Không tìm thấy file collection Postman.',
       );
     }
     final text = await file.readAsString();
@@ -205,7 +205,7 @@ class ApiToolPostmanCollectionImportService {
     final collectionName = _firstNonEmpty([
       _string(info['name']),
       fallbackName,
-      'Imported Postman Collection',
+      'Collection nhập từ Postman',
     ]);
     final collectionId = _newId('api_collection');
     final now = _now();
@@ -230,7 +230,7 @@ class ApiToolPostmanCollectionImportService {
 
     if (requests.isEmpty) {
       throw const ApiToolPostmanImportException(
-        'No requests were found in this Postman collection.',
+        'Collection Postman này không có request nào.',
       );
     }
 
@@ -248,11 +248,11 @@ class ApiToolPostmanCollectionImportService {
       if (decoded is Map) return decoded.cast<String, Object?>();
     } on FormatException catch (error) {
       throw ApiToolPostmanImportException(
-        'Postman collection JSON is invalid: ${error.message}',
+        'JSON collection Postman không hợp lệ: ${error.message}',
       );
     }
     throw const ApiToolPostmanImportException(
-      'Postman collection must be a JSON object.',
+      'Collection Postman phải là một object JSON.',
     );
   }
 

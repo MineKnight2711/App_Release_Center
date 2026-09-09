@@ -24,12 +24,12 @@ void main() {
       final log = <MethodCall>[];
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(SystemChannels.platform, (call) async {
-        log.add(call);
-        if (call.method == 'Clipboard.setData') {
-          return null;
-        }
-        return null;
-      });
+            log.add(call);
+            if (call.method == 'Clipboard.setData') {
+              return null;
+            }
+            return null;
+          });
 
       await service.copyDashboardUrl();
 

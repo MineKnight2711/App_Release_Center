@@ -10,18 +10,25 @@ import 'package:app_management_center/app/services/command_notification_service.
 import 'package:get/get.dart';
 import 'package:path/path.dart' as p;
 
+/// What the runner is doing, independent of the words shown for it.
+///
+/// The UI must branch on this rather than on [ReleaseRunnerService.status],
+/// which is display text and changes with the language.
+enum ReleaseRunnerState { idle, running, completed, failed }
+
 class ReleaseRunnerService extends GetxService {
   ReleaseRunnerService({CommandNotificationSender? notificationService})
     : _notificationService = notificationService;
 
   final isRunning = false.obs;
-  final status = 'Idle'.obs;
+  final runState = ReleaseRunnerState.idle.obs;
+  final status = 'Chờ'.obs;
   final activeScriptPath = ''.obs;
   final exitCode = RxnInt();
   final logLines = <String>[].obs;
   final yesNoPrompt = RxnString();
   final overallProgress = 0.0.obs;
-  final overallProgressLabel = 'Ready'.obs;
+  final overallProgressLabel = 'Sẵn sàng'.obs;
   final workflowStep = 0.obs;
   final workflowTotalSteps = 0.obs;
   final isWorkflowRunning = false.obs;
@@ -47,7 +54,7 @@ class ReleaseRunnerService extends GetxService {
     bool allowDuringWorkflow = false,
   }) async {
     if (isRunning.value || (isWorkflowRunning.value && !allowDuringWorkflow)) {
-      _append('A script is already running.');
+      _append('Đang có script chạy rồi.');
       return -1;
     }
 
@@ -98,7 +105,7 @@ class ReleaseRunnerService extends GetxService {
     bool allowDuringWorkflow = false,
   }) async {
     if (!project.androidDirectory.existsSync()) {
-      _append('Project does not contain an android folder.');
+      _append('Dự án không có thư mục android.');
       return -1;
     }
 
@@ -137,7 +144,7 @@ class ReleaseRunnerService extends GetxService {
     bool allowDuringWorkflow = false,
   }) {
     if (!project.androidDirectory.existsSync()) {
-      _append('Project does not contain an android folder.');
+      _append('Dự án không có thư mục android.');
       return Future.value(const CommandRunResult(exitCode: -1));
     }
 
@@ -251,7 +258,7 @@ class ReleaseRunnerService extends GetxService {
 
   void beginWorkflow({required int totalSteps, required String label}) {
     final normalizedTotal = totalSteps < 1 ? 1 : totalSteps;
-    _workflowTitle = label.trim().isEmpty ? 'Command workflow' : label.trim();
+    _workflowTitle = label.trim().isEmpty ? 'Chuỗi lệnh' : label.trim();
     _completedWorkflowSteps = 0;
     _workflowStepActive = false;
     workflowStep.value = 0;
@@ -271,9 +278,10 @@ class ReleaseRunnerService extends GetxService {
     final total = workflowTotalSteps.value;
     workflowStep.value = (_completedWorkflowSteps + 1).clamp(1, total);
     overallProgress.value = total == 0 ? 0 : _completedWorkflowSteps / total;
-    final stepLabel = label.trim().isEmpty ? 'Running command' : label.trim();
+    final stepLabel = label.trim().isEmpty ? 'Đang chạy lệnh' : label.trim();
     overallProgressLabel.value = '$_workflowTitle — $stepLabel';
-    status.value = 'Running $stepLabel';
+    runState.value = ReleaseRunnerState.running;
+    status.value = 'Đang chạy $stepLabel';
   }
 
   void completeWorkflowStep({required bool success}) {
@@ -283,8 +291,9 @@ class ReleaseRunnerService extends GetxService {
     _completedWorkflowSteps = (_completedWorkflowSteps + 1).clamp(0, total);
     overallProgress.value = total == 0 ? 0 : _completedWorkflowSteps / total;
     if (!success) {
-      overallProgressLabel.value = '$_workflowTitle — failed';
-      status.value = 'Failed';
+      overallProgressLabel.value = '$_workflowTitle — lỗi';
+      runState.value = ReleaseRunnerState.failed;
+      status.value = 'Lỗi';
     }
   }
 
@@ -297,11 +306,13 @@ class ReleaseRunnerService extends GetxService {
       _completedWorkflowSteps = workflowTotalSteps.value;
       workflowStep.value = workflowTotalSteps.value;
       overallProgress.value = 1;
-      overallProgressLabel.value = '$_workflowTitle — completed';
-      status.value = 'Completed';
+      overallProgressLabel.value = '$_workflowTitle — xong';
+      runState.value = ReleaseRunnerState.completed;
+      status.value = 'Xong';
     } else {
-      overallProgressLabel.value = '$_workflowTitle — failed';
-      status.value = 'Failed';
+      overallProgressLabel.value = '$_workflowTitle — lỗi';
+      runState.value = ReleaseRunnerState.failed;
+      status.value = 'Lỗi';
     }
     isWorkflowRunning.value = false;
   }
@@ -340,7 +351,8 @@ class ReleaseRunnerService extends GetxService {
     }
     var commandSucceeded = false;
     isRunning.value = true;
-    status.value = 'Running $statusLabel';
+    runState.value = ReleaseRunnerState.running;
+    status.value = 'Đang chạy $statusLabel';
     activeScriptPath.value = activePath;
     exitCode.value = null;
     _append('\$ ${plan.display}');
@@ -396,9 +408,12 @@ class ReleaseRunnerService extends GetxService {
 
       exitCode.value = code;
       commandSucceeded = code == 0;
-      status.value = code == 0 ? 'Completed' : 'Failed';
-      _append('Finished with exit code $code.');
-      notificationLogTail.addLine('Finished with exit code $code.');
+      runState.value = code == 0
+          ? ReleaseRunnerState.completed
+          : ReleaseRunnerState.failed;
+      status.value = code == 0 ? 'Xong' : 'Lỗi';
+      _append('Kết thúc với exit code $code.');
+      notificationLogTail.addLine('Kết thúc với exit code $code.');
       final finishedAt = DateTime.now();
       unawaited(
         _notifyCommandEvent(
@@ -419,10 +434,11 @@ class ReleaseRunnerService extends GetxService {
       );
     } on ProcessException catch (error) {
       exitCode.value = -1;
-      status.value = 'Failed to start';
-      _append('Failed to start $statusLabel: ${error.message}');
+      runState.value = ReleaseRunnerState.failed;
+      status.value = 'Không khởi động được';
+      _append('Không khởi động được $statusLabel: ${error.message}');
       notificationLogTail.addLine(
-        'Failed to start $statusLabel: ${error.message}',
+        'Không khởi động được $statusLabel: ${error.message}',
       );
       final finishedAt = DateTime.now();
       unawaited(
@@ -460,14 +476,14 @@ class ReleaseRunnerService extends GetxService {
     try {
       await notificationService.sendCommandEvent(event);
     } catch (error) {
-      _append('Notification failed: $error');
+      _append('Gửi thông báo lỗi: $error');
     }
   }
 
   void sendInput(String value) {
     final process = _process;
     if (process == null) {
-      _append('No active process.');
+      _append('Không có tiến trình nào đang chạy.');
       return;
     }
 
@@ -489,7 +505,7 @@ class ReleaseRunnerService extends GetxService {
     final process = _process;
     if (process == null) return;
 
-    _append('Stopping active process...');
+    _append('Đang dừng tiến trình...');
     process.kill();
   }
 

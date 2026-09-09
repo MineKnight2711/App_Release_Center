@@ -142,7 +142,7 @@ void main() {
     final runner = _FakeRunner();
     const step = CiCdInstallStep(
       id: 'install-fastlane',
-      label: 'Install Fastlane',
+      label: 'Cài Fastlane',
       group: CiCdSetupGroup.rubyFastlane,
       platform: CiCdSetupPlatform.windows,
       executable: 'gem',

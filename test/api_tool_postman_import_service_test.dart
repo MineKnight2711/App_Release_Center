@@ -19,7 +19,7 @@ void main() {
           'name': 'Auth',
           'item': [
             {
-              'name': 'Login',
+              'name': 'Đăng nhập',
               'request': {
                 'method': 'POST',
                 'header': [
@@ -93,7 +93,9 @@ void main() {
     expect(result.folders.single.name, 'Auth');
     expect(result.requests, hasLength(3));
 
-    final login = result.requests.singleWhere((entry) => entry.name == 'Login');
+    final login = result.requests.singleWhere(
+      (entry) => entry.name == 'Đăng nhập',
+    );
     expect(login.method, ApiToolMethod.post);
     expect(login.url, '{{BASE_URL}}/login');
     expect(login.folderId, result.folders.single.id);
@@ -244,7 +246,7 @@ void main() {
       'info': {'name': 'Uploads'},
       'item': [
         {
-          'name': 'Create',
+          'name': 'Tạo',
           'request': {
             'method': 'POST',
             'url': 'https://example.com/create',

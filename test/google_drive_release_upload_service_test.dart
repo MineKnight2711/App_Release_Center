@@ -125,7 +125,7 @@ void main() {
         isA<GoogleDriveReleaseUploadException>().having(
           (error) => error.message,
           'message',
-          contains('not connected'),
+          contains('Chưa kết nối'),
         ),
       ),
     );
@@ -241,7 +241,7 @@ void main() {
         isA<GoogleDriveReleaseUploadException>().having(
           (error) => error.message,
           'message',
-          contains('invalid response'),
+          contains('phản hồi không hợp lệ'),
         ),
       ),
     );
@@ -281,7 +281,7 @@ void main() {
         isA<GoogleDriveReleaseUploadException>().having(
           (error) => error.message,
           'message',
-          contains('token exchange timed out'),
+          contains('Đổi token Google Drive quá hạn'),
         ),
       ),
     );
@@ -381,7 +381,7 @@ void main() {
               .having(
                 (error) => error.message,
                 'message',
-                contains('client_secret is missing'),
+                contains('thiếu client_secret'),
               )
               .having(
                 (error) => error.message,

@@ -105,7 +105,7 @@ void main() {
             isA<AndroidKeystoreGenerationException>().having(
               (error) => error.message,
               'message',
-              contains('already exists'),
+              contains('đã tồn tại'),
             ),
           ),
         );
@@ -144,7 +144,7 @@ void main() {
           isA<AndroidKeystoreGenerationException>().having(
             (error) => error.message,
             'message',
-            contains('at least 6 characters'),
+            contains('từ 6 ký tự'),
           ),
         ),
       );

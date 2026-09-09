@@ -16,7 +16,7 @@ class _ProjectPanel extends GetView<HomeController> {
             children: [
               const _PanelTitle(
                 icon: Icons.folder_open_outlined,
-                title: 'Project',
+                title: 'Dự án',
               ),
               const SizedBox(height: 12),
               SizedBox(
@@ -24,7 +24,7 @@ class _ProjectPanel extends GetView<HomeController> {
                 child: FilledButton.icon(
                   onPressed: () => _chooseProjectAndSetup(context),
                   icon: const Icon(Icons.drive_folder_upload_outlined),
-                  label: const Text('Choose directory'),
+                  label: const Text('Chọn thư mục'),
                 ),
               ),
               const SizedBox(height: 16),
@@ -38,7 +38,7 @@ class _ProjectPanel extends GetView<HomeController> {
 
                 if (project == null) {
                   return Text(
-                    error.isEmpty ? 'No project selected' : error,
+                    error.isEmpty ? 'Chưa chọn dự án' : error,
                     style: TextStyle(
                       color: error.isEmpty
                           ? Theme.of(context).colorScheme.onSurfaceVariant
@@ -50,7 +50,7 @@ class _ProjectPanel extends GetView<HomeController> {
                 return _ProjectSummary(project: project);
               }),
               const SizedBox(height: 20),
-              const _PanelTitle(icon: Icons.history_outlined, title: 'Recent'),
+              const _PanelTitle(icon: Icons.history_outlined, title: 'Gần đây'),
               const SizedBox(height: 8),
               if (hasBoundedHeight)
                 const Expanded(child: _RecentProjectsList())
@@ -92,7 +92,7 @@ class _RecentProjectsListState extends State<_RecentProjectsList> {
   Widget build(BuildContext context) {
     return Obx(() {
       if (controller.recentPaths.isEmpty) {
-        return const Center(child: Text('No saved projects'));
+        return const Center(child: Text('Chưa lưu dự án nào'));
       }
 
       return Scrollbar(
@@ -210,7 +210,7 @@ class _RecentProjectTile extends GetView<HomeController> {
             children: [
               Icon(Icons.remove_circle_outline, size: 18),
               SizedBox(width: 10),
-              Text('Remove from recent'),
+              Text('Bỏ khỏi danh sách gần đây'),
             ],
           ),
         ),
@@ -262,7 +262,7 @@ class _ProjectSummary extends GetView<HomeController> {
               if (project.fastlaneLanes.isNotEmpty)
                 _MetaChip(
                   icon: Icons.alt_route_outlined,
-                  label: '${project.fastlaneLanes.length} fastlane lanes',
+                  label: '${project.fastlaneLanes.length} lane Fastlane',
                 ),
               if (project.pubspecVersion != null)
                 _MetaChip(
@@ -280,7 +280,7 @@ class _ProjectSummary extends GetView<HomeController> {
               key: const Key('project-setup-stores'),
               onPressed: () => _runProjectSetupWizard(context),
               icon: const Icon(Icons.add_task_outlined),
-              label: const Text('Setup stores'),
+              label: const Text('Thiết lập store'),
             ),
           ),
         ],
@@ -325,11 +325,11 @@ Future<void> _runProjectSetupWizard(BuildContext context) async {
       await _setupAppStoreForCurrentProject(context);
     }
   } catch (error) {
-    controller.runner.appendSystemLog('Project setup failed: $error');
+    controller.runner.appendSystemLog('Thiết lập dự án lỗi: $error');
     if (context.mounted) {
       await _showStoreProjectError(
         context,
-        title: 'Project setup failed',
+        title: 'Thiết lập dự án lỗi',
         error: error,
       );
     }
@@ -372,7 +372,7 @@ Future<_ProjectStoreSetupSelection?> _showProjectSetupSelectionDialog(
             ),
             title: const _PanelTitle(
               icon: Icons.add_task_outlined,
-              title: 'Setup project',
+              title: 'Thiết lập dự án',
             ),
             content: SizedBox(
               width: 480,
@@ -412,9 +412,9 @@ Future<_ProjectStoreSetupSelection?> _showProjectSetupSelectionDialog(
                     subtitle: Text(
                       hasAndroid
                           ? hasAndroidReleaseTools
-                                ? 'Existing release files detected'
-                                : 'Recommended for a new Android project'
-                          : 'Needs an android folder',
+                                ? 'Đã có sẵn file release'
+                                : 'Nên dùng cho dự án Android mới'
+                          : 'Cần có thư mục android',
                     ),
                     controlAffinity: ListTileControlAffinity.leading,
                   ),
@@ -428,7 +428,9 @@ Future<_ProjectStoreSetupSelection?> _showProjectSetupSelectionDialog(
                     secondary: const Icon(Icons.android_outlined),
                     title: const Text('CH Play'),
                     subtitle: Text(
-                      hasAndroid ? 'Android folder detected' : 'Manual setup',
+                      hasAndroid
+                          ? 'Đã thấy thư mục android'
+                          : 'Thiết lập thủ công',
                     ),
                     controlAffinity: ListTileControlAffinity.leading,
                   ),
@@ -442,7 +444,7 @@ Future<_ProjectStoreSetupSelection?> _showProjectSetupSelectionDialog(
                     secondary: const Icon(Icons.phone_iphone_outlined),
                     title: const Text('App Store'),
                     subtitle: Text(
-                      hasIos ? 'iOS folder detected' : 'Manual setup',
+                      hasIos ? 'Đã thấy thư mục ios' : 'Thiết lập thủ công',
                     ),
                     controlAffinity: ListTileControlAffinity.leading,
                   ),
@@ -452,7 +454,7 @@ Future<_ProjectStoreSetupSelection?> _showProjectSetupSelectionDialog(
             actions: [
               OutlinedButton(
                 onPressed: () => Navigator.of(dialogContext).pop(),
-                child: const Text('Skip'),
+                child: const Text('Bỏ qua'),
               ),
               FilledButton.icon(
                 key: const Key('project-setup-start'),
@@ -468,7 +470,7 @@ Future<_ProjectStoreSetupSelection?> _showProjectSetupSelectionDialog(
                       }
                     : null,
                 icon: const Icon(Icons.play_arrow_outlined),
-                label: const Text('Continue'),
+                label: const Text('Tiếp tục'),
               ),
             ],
           );

@@ -42,7 +42,7 @@ class RunnerReleaseInstallerBuildExecutor
   }) {
     return runner.runCommand(
       workingDirectory: project.path,
-      statusLabel: 'Build Windows installer',
+      statusLabel: 'Build bộ cài Windows',
       activePath: 'installer:package-windows-installer',
       executable: 'powershell.exe',
       arguments: [
@@ -87,7 +87,8 @@ class ReleaseInstallerArtifactService extends GetxService {
 
   bool isAppManagementCenterProject(ReleaseProject project) {
     try {
-      return _readPubspecMetadata(project).name == appManagementCenterPubspecName;
+      return _readPubspecMetadata(project).name ==
+          appManagementCenterPubspecName;
     } catch (_) {
       return false;
     }
@@ -103,7 +104,7 @@ class ReleaseInstallerArtifactService extends GetxService {
     final buildExitCode = await _buildExecutor.buildWindowsRelease(project);
     if (buildExitCode != 0) {
       throw ReleaseInstallerArtifactException(
-        'Windows release build failed with exit code $buildExitCode.',
+        'Build release Windows lỗi, exit code $buildExitCode.',
       );
     }
 
@@ -113,13 +114,13 @@ class ReleaseInstallerArtifactService extends GetxService {
     );
     if (packageExitCode != 0) {
       throw ReleaseInstallerArtifactException(
-        'Windows installer packaging failed with exit code $packageExitCode.',
+        'Đóng gói bộ cài Windows lỗi, exit code $packageExitCode.',
       );
     }
 
     if (!outputFile.existsSync()) {
       throw ReleaseInstallerArtifactException(
-        'Windows installer was not found at ${outputFile.path}.',
+        'Không thấy bộ cài Windows ở ${outputFile.path}.',
       );
     }
     _validateInstallerPayload(project);
@@ -136,7 +137,7 @@ class ReleaseInstallerArtifactService extends GetxService {
   _PubspecMetadata _validate(ReleaseProject project) {
     if (!_isWindows()) {
       throw const ReleaseInstallerArtifactException(
-        'Windows installer builds are only supported on Windows.',
+        'Chỉ build được bộ cài Windows trên máy Windows.',
       );
     }
 

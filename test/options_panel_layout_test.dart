@@ -72,9 +72,9 @@ void main() {
   testWidgets('keeps command input dock visible on desktop', (tester) async {
     await _pumpHome(tester, harness);
 
-    expect(find.text('Send to script'), findsOneWidget);
-    expect(find.text('Clear log'), findsOneWidget);
-    expect(find.text('Stop'), findsOneWidget);
+    expect(find.text('Gửi cho script'), findsOneWidget);
+    expect(find.text('Xoá log'), findsOneWidget);
+    expect(find.text('Dừng'), findsOneWidget);
   });
 
   testWidgets('keeps global command progress dock visible', (tester) async {
@@ -85,8 +85,8 @@ void main() {
       find.byKey(const Key('global-command-battery-track')),
       findsOneWidget,
     );
-    expect(find.text('Ready'), findsOneWidget);
-    expect(find.text('READY  |  0%'), findsOneWidget);
+    expect(find.text('Sẵn sàng'), findsOneWidget);
+    expect(find.text('SẴN SÀNG  |  0%'), findsOneWidget);
   });
 
   testWidgets('updates charging progress during a workflow', (tester) async {
@@ -105,25 +105,25 @@ void main() {
           .data,
       contains('Build release APK'),
     );
-    expect(find.text('STEP 1/3  |  0%'), findsOneWidget);
+    expect(find.text('BƯỚC 1/3  |  0%'), findsOneWidget);
 
     harness.controller.runner.completeWorkflowStep(success: true);
-    harness.controller.runner.beginWorkflowStep('Upload APK to Drive');
+    harness.controller.runner.beginWorkflowStep('Upload APK lên Drive');
     await tester.pump(const Duration(milliseconds: 400));
 
     expect(
       tester
           .widget<Text>(find.byKey(const Key('global-command-progress-label')))
           .data,
-      contains('Upload APK to Drive'),
+      contains('Upload APK lên Drive'),
     );
-    expect(find.text('STEP 2/3  |  33%'), findsOneWidget);
+    expect(find.text('BƯỚC 2/3  |  33%'), findsOneWidget);
 
     harness.controller.runner.finishWorkflow(success: true);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
 
-    expect(find.text('STEP 3/3  |  100%'), findsOneWidget);
+    expect(find.text('BƯỚC 3/3  |  100%'), findsOneWidget);
   });
 
   testWidgets('keeps the automation header to search, release and status', (
@@ -137,7 +137,7 @@ void main() {
     expect(find.text('AUTOMATION'), findsNothing);
     expect(find.byKey(const Key('open-command-palette')), findsOneWidget);
     expect(find.byKey(const Key('run-release-workflow')), findsOneWidget);
-    expect(find.text('Idle'), findsOneWidget);
+    expect(find.text('Chờ'), findsOneWidget);
     expect(find.byKey(const Key('automation-menu')), findsOneWidget);
   });
 
@@ -152,8 +152,8 @@ void main() {
     expect(find.text('API Tool'), findsOneWidget);
     expect(find.text('API Monitor'), findsOneWidget);
     expect(find.text('FlowFin'), findsOneWidget);
-    expect(find.text('Switch to Default theme'), findsOneWidget);
-    expect(find.text('Generate Android JKS'), findsOneWidget);
+    expect(find.text('Đổi sang giao diện Default'), findsOneWidget);
+    expect(find.text('Tạo Android JKS'), findsOneWidget);
   });
 
   testWidgets('opens the command palette with Ctrl+K and closes it with Esc', (
@@ -193,7 +193,7 @@ void main() {
     await _pressPaletteShortcut(tester);
     await tester.enterText(
       find.byKey(const Key('command-palette-query')),
-      'resources options',
+      'tuy chon tai nguyen',
     );
     await tester.pumpAndSettle();
 
@@ -207,6 +207,26 @@ void main() {
 
     expect(find.byKey(const Key('command-palette')), findsNothing);
     expect(shell.optionsTab.value, ShellOptionsTab.resources);
+  });
+
+  testWidgets('matches palette commands typed without diacritics', (
+    tester,
+  ) async {
+    await _pumpHome(tester, harness);
+
+    await _pressPaletteShortcut(tester);
+    // "Tài nguyên" typed the way a Vietnamese keyboard-less search actually
+    // arrives.
+    await tester.enterText(
+      find.byKey(const Key('command-palette-query')),
+      'tai nguyen',
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('command-palette-item-goto.options:resources')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('lists project-scoped Fastlane lanes as commands', (
@@ -244,12 +264,12 @@ void main() {
     await _pressPaletteShortcut(tester);
     await tester.enterText(
       find.byKey(const Key('command-palette-query')),
-      'stop the running command',
+      'dung lenh dang chay',
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Stop the running command'), findsOneWidget);
-    expect(find.text('Nothing is running'), findsOneWidget);
+    expect(find.text('Dừng lệnh đang chạy'), findsOneWidget);
+    expect(find.text('Không có lệnh nào đang chạy'), findsOneWidget);
   });
 
   testWidgets('opens on the commands used most recently', (tester) async {
@@ -259,7 +279,7 @@ void main() {
     await _pressPaletteShortcut(tester);
     await tester.enterText(
       find.byKey(const Key('command-palette-query')),
-      'fastlane command',
+      'di toi lenh fastlane',
     );
     await tester.pumpAndSettle();
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
@@ -307,7 +327,7 @@ void main() {
     );
     expect(find.byKey(const Key('project-setup-start')), findsOneWidget);
 
-    await tester.tap(find.widgetWithText(OutlinedButton, 'Skip'));
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Bỏ qua'));
     await tester.pumpAndSettle();
   });
 
@@ -352,8 +372,8 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
 
-    expect(find.text('Add CH Play'), findsNothing);
-    expect(find.text('Add App Store'), findsNothing);
+    expect(find.text('Thêm CH Play'), findsNothing);
+    expect(find.text('Thêm App Store'), findsNothing);
     expect(
       find.byKey(const Key('store-version-chplay-selected-play')),
       findsOneWidget,
@@ -425,12 +445,12 @@ void main() {
     await tester.ensureVisible(find.byKey(const Key('cicd-run-install-git')));
     await tester.tap(find.byKey(const Key('cicd-run-install-git')));
     await tester.pumpAndSettle();
-    expect(find.text('Preview command'), findsOneWidget);
+    expect(find.text('Xem trước lệnh'), findsOneWidget);
 
     await tester.tap(
       find.descendant(
         of: find.byType(AlertDialog),
-        matching: find.widgetWithText(FilledButton, 'Run'),
+        matching: find.widgetWithText(FilledButton, 'Chạy'),
       ),
     );
     await tester.pumpAndSettle();
@@ -655,7 +675,7 @@ void main() {
           environments: [
             ApiToolEnvironment(
               id: 'environment-quick',
-              name: 'Local',
+              name: 'Ở máy',
               variables: const [
                 ApiToolEnvironmentVariable(
                   id: 'variable-url',
@@ -759,7 +779,7 @@ void main() {
 
       await tester.tap(find.byKey(Key('api-tool-quick-request-menu-$quickId')));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Edit').last);
+      await tester.tap(find.text('Sửa').last);
       await tester.pumpAndSettle();
       await tester.enterText(
         find.byKey(const Key('api-tool-quick-name')),
@@ -774,15 +794,15 @@ void main() {
 
       await tester.tap(find.byKey(Key('api-tool-quick-request-menu-$quickId')));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Duplicate').last);
+      await tester.tap(find.text('Nhân bản').last);
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('api-tool-save-quick-request')));
       await tester.pump(const Duration(milliseconds: 400));
       expect(harness.controller.store.apiToolQuickRequests, hasLength(2));
 
-      await tester.tap(find.byTooltip('Manage Quick Request').last);
+      await tester.tap(find.byTooltip('Quản lý Quick Request').last);
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Delete').last);
+      await tester.tap(find.text('Xoá').last);
       await tester.pumpAndSettle();
       await tester.tap(
         find.byKey(const Key('api-tool-confirm-delete-quick-request')),
@@ -912,30 +932,45 @@ void main() {
     await tester.tap(find.byKey(const Key('api-tool-add-collection')));
     await tester.pumpAndSettle();
     await tester.enterText(
-      find.widgetWithText(TextField, 'Collection name'),
+      find.widgetWithText(TextField, 'Tên collection'),
       'CRM',
     );
-    await tester.tap(find.widgetWithText(FilledButton, 'Create'));
+    await tester.tap(
+      find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.widgetWithText(FilledButton, 'Tạo'),
+      ),
+    );
     await tester.pump(const Duration(milliseconds: 300));
 
     await _openApiToolMenu(tester, 'api-tool-new-menu');
     await tester.tap(find.byKey(const Key('api-tool-add-folder')));
     await tester.pumpAndSettle();
     await tester.enterText(
-      find.widgetWithText(TextField, 'Folder name'),
+      find.widgetWithText(TextField, 'Tên folder'),
       'Auth',
     );
-    await tester.tap(find.widgetWithText(FilledButton, 'Create'));
+    await tester.tap(
+      find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.widgetWithText(FilledButton, 'Tạo'),
+      ),
+    );
     await tester.pump(const Duration(milliseconds: 300));
 
     await _openApiToolMenu(tester, 'api-tool-new-menu');
     await tester.tap(find.byKey(const Key('api-tool-add-subfolder')));
     await tester.pumpAndSettle();
     await tester.enterText(
-      find.widgetWithText(TextField, 'Folder name'),
+      find.widgetWithText(TextField, 'Tên folder'),
       'OAuth',
     );
-    await tester.tap(find.widgetWithText(FilledButton, 'Create'));
+    await tester.tap(
+      find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.widgetWithText(FilledButton, 'Tạo'),
+      ),
+    );
     await tester.pump(const Duration(milliseconds: 300));
 
     await tester.enterText(
@@ -1151,10 +1186,10 @@ void main() {
     await tester.tap(find.byKey(const Key('api-tool-delete-collection')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Delete Collection?'), findsOneWidget);
+    expect(find.text('Xoá collection?'), findsOneWidget);
     expect(
       find.textContaining(
-        '1 folder(s), 1 saved request(s), and 1 Quick Request(s)',
+        '1 folder, 1 request đã lưu và 1 Quick Request sẽ bị xoá',
       ),
       findsOneWidget,
     );
@@ -1166,12 +1201,15 @@ void main() {
 
     expect(
       harness.controller.store.apiToolCollections.single.displayName,
-      'Default Collection',
+      'Collection mặc định',
     );
     expect(harness.controller.store.apiToolFolders, isEmpty);
     expect(harness.controller.store.apiToolRequests, isEmpty);
     expect(harness.controller.store.apiToolQuickRequests, isEmpty);
-    expect(find.textContaining('Temporary API" was deleted'), findsOneWidget);
+    expect(
+      find.textContaining('Đã xoá collection "Temporary API"'),
+      findsOneWidget,
+    );
 
     await tester.tap(find.byKey(const Key('close-api-tool')));
     await tester.pumpAndSettle();
@@ -1194,7 +1232,7 @@ void main() {
     await tester.pump();
     await tester.enterText(
       find.byKey(const Key('api-tool-environment-name')),
-      'Local',
+      'Ở máy',
     );
     await tester.enterText(
       find.byKey(const Key('api-tool-env-var-name-0')),
@@ -1246,7 +1284,7 @@ void main() {
         environments: [
           ApiToolEnvironment(
             id: 'env-1',
-            name: 'Local',
+            name: 'Ở máy',
             updatedAt: now,
             variables: const [
               ApiToolEnvironmentVariable(
@@ -1369,7 +1407,7 @@ void main() {
 
     expect(apiTool.requests, isEmpty);
     expect(
-      find.textContaining('Missing active environment variable(s): Base Url.'),
+      find.textContaining('Thiếu biến môi trường: Base Url.'),
       findsOneWidget,
     );
 
@@ -1385,7 +1423,7 @@ void main() {
         environments: [
           ApiToolEnvironment(
             id: 'env-1',
-            name: 'Local',
+            name: 'Ở máy',
             updatedAt: now,
             variables: const [
               ApiToolEnvironmentVariable(
@@ -1412,7 +1450,9 @@ void main() {
 
     expect(apiTool.requests, isEmpty);
     expect(
-      find.textContaining('Resolved URL must be a valid http or https URL.'),
+      find.textContaining(
+        'URL sau khi thay biến phải là http hoặc https hợp lệ.',
+      ),
       findsOneWidget,
     );
 
@@ -1502,7 +1542,7 @@ void main() {
     await harness.controller.store.saveApiToolCollections([
       ApiToolCollectionRoot(
         id: 'collection-1',
-        name: 'Default Collection',
+        name: 'Collection mặc định',
         updatedAt: now,
       ),
     ]);
@@ -1928,8 +1968,8 @@ void main() {
 
     expect(find.byKey(const Key('release-workflow-dialog')), findsOneWidget);
     expect(find.byKey(const Key('release-track-selector')), findsOneWidget);
-    expect(find.text('Prepare release'), findsOneWidget);
-    expect(find.text('CH Play track'), findsOneWidget);
+    expect(find.text('Chuẩn bị release'), findsOneWidget);
+    expect(find.text('Track CH Play'), findsOneWidget);
     expect(find.byKey(const Key('review-release-workflow')), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('hide-release-workflow')));
@@ -2093,9 +2133,9 @@ void main() {
     expect(find.byKey(const Key('stop-release-workflow')), findsOneWidget);
     expect(find.text('Building release AAB...'), findsWidgets);
 
-    await tester.tap(find.text('All'));
+    await tester.tap(find.text('Tất cả'));
     await tester.pump();
-    expect(find.text('All logs'), findsOneWidget);
+    expect(find.text('Toàn bộ log'), findsOneWidget);
     expect(find.textContaining('Preflight ok.'), findsOneWidget);
 
     String? copiedText;
@@ -2222,7 +2262,7 @@ void main() {
     );
     expect(find.text('Preflight'), findsWidgets);
     expect(find.text('Release'), findsWidgets);
-    expect(find.text('New Release'), findsOneWidget);
+    expect(find.text('Release mới'), findsOneWidget);
     await tester.tap(find.byKey(const Key('hide-release-workflow')));
     await tester.pumpAndSettle();
   });
@@ -2232,14 +2272,14 @@ void main() {
   ) async {
     await _pumpHome(tester, harness);
 
-    await _openAutomationMenuItem(tester, 'Generate Android JKS');
-    expect(find.widgetWithText(TextField, 'JKS password'), findsOneWidget);
+    await _openAutomationMenuItem(tester, 'Tạo Android JKS');
+    expect(find.widgetWithText(TextField, 'Mật khẩu JKS'), findsOneWidget);
 
     await tester.enterText(
-      find.widgetWithText(TextField, 'JKS password'),
+      find.widgetWithText(TextField, 'Mật khẩu JKS'),
       'manual-menu-pass',
     );
-    await tester.tap(find.widgetWithText(FilledButton, 'Generate').last);
+    await tester.tap(find.widgetWithText(FilledButton, 'Tạo').last);
     await tester.pump();
 
     expect(harness.androidKeystores.calls, hasLength(1));
@@ -2252,7 +2292,7 @@ void main() {
   testWidgets('switches right panel feature tabs', (tester) async {
     await _pumpHome(tester, harness);
 
-    expect(find.text('Release notes'), findsOneWidget);
+    expect(find.text('Release note'), findsOneWidget);
 
     await tester.ensureVisible(find.byKey(const Key('options-tab-resources')));
     await tester.tap(
@@ -2271,22 +2311,22 @@ void main() {
     await tester.tap(find.text('Telegram'));
     await tester.pumpAndSettle();
     expect(find.text('Telegram bot token'), findsOneWidget);
-    expect(find.text('Auto send release updates'), findsOneWidget);
+    expect(find.text('Tự động gửi cập nhật release'), findsOneWidget);
     expect(find.byKey(const Key('installer-telegram-options')), findsOneWidget);
     final installerButton = find.byKey(const Key('build-send-installer'));
     expect(installerButton, findsOneWidget);
     expect(tester.widget<FilledButton>(installerButton).onPressed, isNull);
 
-    await tester.tap(find.text('Push'));
+    await tester.tap(find.text('Thông báo'));
     await tester.pumpAndSettle();
-    expect(find.text('Command notifications'), findsOneWidget);
+    expect(find.text('Thông báo trạng thái lệnh'), findsOneWidget);
     expect(find.text('Serverless endpoint'), findsOneWidget);
 
-    await tester.tap(find.text('Remote'));
+    await tester.tap(find.text('Điều khiển'));
     await tester.pumpAndSettle();
-    expect(find.text('Phone command relay'), findsOneWidget);
-    expect(find.text('Pair control app'), findsOneWidget);
-    expect(find.text('Send to script'), findsOneWidget);
+    expect(find.text('Trung chuyển lệnh từ điện thoại'), findsOneWidget);
+    expect(find.text('Ghép app điều khiển'), findsOneWidget);
+    expect(find.text('Gửi cho script'), findsOneWidget);
   });
 
   testWidgets('shows resource catalog and masks passwords by default', (
@@ -2377,7 +2417,7 @@ void main() {
     expect(
       find.descendant(
         of: find.byKey(const Key('resource-select-all')),
-        matching: find.text('All'),
+        matching: find.text('Tất cả'),
       ),
       findsOneWidget,
     );
@@ -2448,7 +2488,7 @@ void main() {
       findsOneWidget,
     );
     expect(find.byKey(const Key('resource-key-alias')), findsOneWidget);
-    expect(find.textContaining('Resolved'), findsWidgets);
+    expect(find.textContaining('Đủ'), findsWidgets);
     expect(find.textContaining('store-secret'), findsNothing);
     expect(find.textContaining('key-secret'), findsNothing);
 
@@ -2514,8 +2554,8 @@ void main() {
     harness.controller.runner.yesNoPrompt.value = 'Continue release?';
     await tester.pump();
     expect(find.text('Continue release?'), findsOneWidget);
-    expect(find.text('Yes'), findsOneWidget);
-    expect(find.text('No'), findsOneWidget);
+    expect(find.text('Có'), findsOneWidget);
+    expect(find.text('Không'), findsOneWidget);
     expect(_hasStdinField(tester, harness.controller), isFalse);
   });
 
@@ -2531,14 +2571,14 @@ void main() {
     ]);
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('Credentials'));
+    await tester.tap(find.byTooltip('Thông tin đăng nhập'));
     await tester.pumpAndSettle();
     await tester.enterText(
-      find.widgetWithText(TextField, 'JKS password'),
+      find.widgetWithText(TextField, 'Mật khẩu JKS'),
       'manual-dialog-pass',
     );
     await tester.pump();
-    await tester.tap(find.widgetWithText(OutlinedButton, 'Generate'));
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Tạo'));
     await tester.pump();
     for (var attempt = 0; attempt < 50; attempt++) {
       await tester.pump(const Duration(milliseconds: 50));
@@ -2564,14 +2604,14 @@ void main() {
     );
     expect(_textFieldByLabel(tester, 'Key alias').controller?.text, 'release');
     expect(
-      _textFieldByLabel(tester, 'Store password').controller?.text,
+      _textFieldByLabel(tester, 'Mật khẩu store').controller?.text,
       'manual-dialog-pass',
     );
 
-    await tester.tap(find.text('Key password matches store password'));
+    await tester.tap(find.text('Mật khẩu key trùng mật khẩu store'));
     await tester.pump();
     expect(
-      _textFieldByLabel(tester, 'Key password').controller?.text,
+      _textFieldByLabel(tester, 'Mật khẩu key').controller?.text,
       'manual-dialog-pass',
     );
   });

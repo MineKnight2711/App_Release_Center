@@ -469,8 +469,8 @@ mixin _ApiToolDialogCore on State<_ApiToolDialog> {
       _isImportingPostmanCollection || _isImportingPostmanEnvironment;
 
   String get _timeoutValidationMessage =>
-      'Enter a timeout from $_minApiToolTimeoutSeconds to '
-      '$_maxApiToolTimeoutSeconds seconds.';
+      'Nhập timeout từ $_minApiToolTimeoutSeconds đến '
+      '$_maxApiToolTimeoutSeconds giây.';
 
   ApiToolCollectionRoot? get _activeCollection {
     for (final collection in _collections) {
@@ -527,7 +527,7 @@ mixin _ApiToolDialogCore on State<_ApiToolDialog> {
       collections = [
         ApiToolCollectionRoot(
           id: _defaultApiToolCollectionId,
-          name: 'Default Collection',
+          name: 'Collection mặc định',
           updatedAt: now,
         ),
       ];
@@ -718,8 +718,8 @@ mixin _ApiToolDialogCore on State<_ApiToolDialog> {
       return null;
     }
 
-    return 'Resolved URL must be a valid http or https URL. '
-        'Check the active environment value used in the URL.';
+    return 'URL sau khi thay biến phải là http hoặc https hợp lệ. '
+        'Kiểm tra lại giá trị biến môi trường đang dùng trong URL.';
   }
 
   Future<void> _sendRequest() async {
@@ -745,11 +745,11 @@ mixin _ApiToolDialogCore on State<_ApiToolDialog> {
     required ApiToolCollectionRoot? collection,
   }) {
     if (draftRequest.url.trim().isEmpty) {
-      setState(() => _error = 'Enter a URL before sending.');
+      setState(() => _error = 'Nhập URL trước khi gửi.');
       return null;
     }
     if (collection == null) {
-      setState(() => _error = 'The request collection no longer exists.');
+      setState(() => _error = 'Collection của request này không còn.');
       return null;
     }
     final activeVariables = collection.activeVariables;
@@ -760,7 +760,7 @@ mixin _ApiToolDialogCore on State<_ApiToolDialog> {
     if (missingVariables.isNotEmpty) {
       setState(() {
         _error =
-            'Missing active environment variable(s): '
+            'Thiếu biến môi trường: '
             '${missingVariables.join(', ')}.';
       });
       return null;
@@ -849,7 +849,7 @@ mixin _ApiToolDialogCore on State<_ApiToolDialog> {
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('Run Quick Request?'),
+          title: const Text('Chạy Quick Request?'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -865,7 +865,7 @@ mixin _ApiToolDialogCore on State<_ApiToolDialog> {
               ),
               const SizedBox(height: 6),
               Text(
-                'Environment: '
+                'Môi trường: '
                 '${prepared.collection.activeEnvironment?.displayName ?? 'None'}',
               ),
             ],
@@ -873,13 +873,13 @@ mixin _ApiToolDialogCore on State<_ApiToolDialog> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancel'),
+              child: const Text('Huỷ'),
             ),
             FilledButton.icon(
               key: const Key('api-tool-confirm-run-quick-request'),
               onPressed: () => Navigator.of(context).pop(true),
               icon: const Icon(Icons.bolt_outlined),
-              label: const Text('Run'),
+              label: const Text('Chạy'),
             ),
           ],
         ),
@@ -941,7 +941,7 @@ mixin _ApiToolDialogCore on State<_ApiToolDialog> {
         _error = error.message;
       });
     } catch (error) {
-      final message = 'API request failed: $error';
+      final message = 'Gửi request lỗi: $error';
       await _recordHistory(
         request: historyRequest,
         durationMs: stopwatch.elapsedMilliseconds,
@@ -1060,8 +1060,8 @@ mixin _ApiToolDialogCore on State<_ApiToolDialog> {
       });
       _showApiToolSnack(
         result.warnings.isEmpty
-            ? 'Imported ${result.requestCount} request(s) from Postman.'
-            : 'Imported ${result.requestCount} request(s); '
+            ? 'Đã nhập ${result.requestCount} request từ Postman.'
+            : 'Đã nhập ${result.requestCount} request; '
                   '${result.warnings.length} oversized value(s) dropped.',
       );
     } on ApiToolPostmanImportException catch (error) {
@@ -1077,7 +1077,7 @@ mixin _ApiToolDialogCore on State<_ApiToolDialog> {
     if (_isImportingPostman) return;
     final targetCollectionId = _activeCollection?.id ?? '';
     if (targetCollectionId.isEmpty) {
-      setState(() => _error = 'Select a collection before importing.');
+      setState(() => _error = 'Chọn một collection trước khi nhập.');
       return;
     }
     final file = await file_selector.openFile(
@@ -1105,7 +1105,7 @@ mixin _ApiToolDialogCore on State<_ApiToolDialog> {
       }
       if (targetCollection == null) {
         throw const ApiToolPostmanImportException(
-          'The selected collection no longer exists.',
+          'Collection đang chọn không còn.',
         );
       }
 
@@ -1119,7 +1119,7 @@ mixin _ApiToolDialogCore on State<_ApiToolDialog> {
 
       setState(() => _error = null);
       _showApiToolSnack(
-        'Imported "${environment.displayName}" into '
+        'Đã nhập "${environment.displayName}" vào '
         '${updatedCollection.displayName}.',
       );
     } on ApiToolPostmanImportException catch (error) {
@@ -1145,7 +1145,7 @@ mixin _ApiToolDialogCore on State<_ApiToolDialog> {
   String? _importNotice(ApiToolPostmanImportResult result) {
     if (result.warnings.isEmpty) return null;
     return [
-      'Imported ${result.requestCount} request(s). '
+      'Đã nhập ${result.requestCount} request. '
           '${result.warnings.length} value(s) were too large to store and were '
           'dropped — Postman had inlined them as base64, and the file entry '
           'beside each one still points at the real upload:',
@@ -1169,7 +1169,7 @@ mixin _ApiToolDialogCore on State<_ApiToolDialog> {
         : _activeRequestId!;
     final request = _draftRequest(id: id, updatedAt: DateTime.now());
     if (request.url.trim().isEmpty) {
-      setState(() => _error = 'Enter a URL before saving.');
+      setState(() => _error = 'Nhập URL trước khi lưu.');
       return;
     }
 
@@ -1282,7 +1282,7 @@ mixin _ApiToolDialogCore on State<_ApiToolDialog> {
         final now = DateTime.now();
         final copy = quickRequest.copyWith(
           id: id,
-          name: '${quickRequest.displayName} Copy',
+          name: '${quickRequest.displayName} (bản sao)',
           request: quickRequest.request.copyWith(id: id, updatedAt: now),
           updatedAt: now,
         );
@@ -1298,19 +1298,19 @@ mixin _ApiToolDialogCore on State<_ApiToolDialog> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Quick Request?'),
+        title: const Text('Xoá Quick Request?'),
         content: Text(
-          'Delete "${quickRequest.displayName}"? This cannot be undone.',
+          'Xoá "${quickRequest.displayName}"? Không hoàn tác được.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
+            child: const Text('Huỷ'),
           ),
           FilledButton(
             key: const Key('api-tool-confirm-delete-quick-request'),
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Delete'),
+            child: const Text('Xoá'),
           ),
         ],
       ),
@@ -1329,9 +1329,9 @@ mixin _ApiToolDialogCore on State<_ApiToolDialog> {
   Future<void> _createCollection(BuildContext context) async {
     final name = await _promptApiToolText(
       context,
-      title: 'New Collection',
-      label: 'Collection name',
-      fallback: 'New Collection',
+      title: 'Collection mới',
+      label: 'Tên collection',
+      fallback: 'Collection mới',
     );
     if (name == null || !mounted) return;
 
@@ -1370,22 +1370,22 @@ mixin _ApiToolDialogCore on State<_ApiToolDialog> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Collection?'),
+        title: const Text('Xoá collection?'),
         content: Text(
-          'Delete "${collection.displayName}" and all linked data?\n\n'
-          '$folderCount folder(s), $requestCount saved request(s), and '
-          '$quickRequestCount Quick Request(s) will be deleted. '
-          'This cannot be undone.',
+          'Xoá "${collection.displayName}" và toàn bộ dữ liệu liên quan?\n\n'
+          '$folderCount folder, $requestCount request đã lưu và '
+          '$quickRequestCount Quick Request sẽ bị xoá. '
+          'Không hoàn tác được.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
+            child: const Text('Huỷ'),
           ),
           FilledButton(
             key: const Key('api-tool-confirm-delete-collection'),
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Delete'),
+            child: const Text('Xoá'),
           ),
         ],
       ),
@@ -1402,7 +1402,7 @@ mixin _ApiToolDialogCore on State<_ApiToolDialog> {
         () => _repository.saveApiToolCollections([
           ApiToolCollectionRoot(
             id: _defaultApiToolCollectionId,
-            name: 'Default Collection',
+            name: 'Collection mặc định',
             updatedAt: DateTime.now(),
           ),
         ]),
@@ -1423,7 +1423,7 @@ mixin _ApiToolDialogCore on State<_ApiToolDialog> {
       _error = null;
     });
     _clearRequest();
-    _showApiToolSnack('Collection "${collection.displayName}" was deleted.');
+    _showApiToolSnack('Đã xoá collection "${collection.displayName}".');
   }
 
   Future<void> _createFolder(
@@ -1434,9 +1434,9 @@ mixin _ApiToolDialogCore on State<_ApiToolDialog> {
     if (activeCollection == null) return;
     final name = await _promptApiToolText(
       context,
-      title: parentFolderId.isEmpty ? 'New Folder' : 'New Subfolder',
-      label: 'Folder name',
-      fallback: parentFolderId.isEmpty ? 'New Folder' : 'New Subfolder',
+      title: parentFolderId.isEmpty ? 'Folder mới' : 'Folder con mới',
+      label: 'Tên folder',
+      fallback: parentFolderId.isEmpty ? 'Folder mới' : 'Folder con mới',
     );
     if (name == null || !mounted) return;
 
@@ -1748,7 +1748,7 @@ mixin _ApiToolDialogCore on State<_ApiToolDialog> {
     final text = response != null
         ? [
             'Status: ${response.statusCode} ${response.reasonPhrase}',
-            'Duration: ${_durationLabelMs(response.durationMs)}',
+            'Thời gian: ${_durationLabelMs(response.durationMs)}',
             '',
             _formatHeaders(response.headers),
             '',
@@ -2003,7 +2003,7 @@ mixin _ApiToolDialogCore on State<_ApiToolDialog> {
     final source = _bodyController.text;
     final formatted = prettyPrintJsonText(source);
     if (formatted == source) {
-      _showApiToolSnack('Body is not valid JSON, nothing to format.');
+      _showApiToolSnack('Body không phải JSON hợp lệ, không định dạng được.');
       return;
     }
     _bodyController.text = formatted;

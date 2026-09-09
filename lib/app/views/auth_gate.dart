@@ -62,7 +62,7 @@ class _AuthLoadingView extends StatelessWidget {
               ),
               const SizedBox(height: 14),
               Text(
-                'Opening App Management Center',
+                'Đang mở App Management Center',
                 style: Theme.of(context).textTheme.titleMedium,
               ),
             ],

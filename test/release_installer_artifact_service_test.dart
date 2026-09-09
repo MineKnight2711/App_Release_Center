@@ -20,7 +20,10 @@ void main() {
     final artifact = await service.build(project: _project(root));
 
     expect(executor.calls, ['build', 'package:0.1.0']);
-    expect(p.basename(artifact.file.path), 'AppManagementCenter_Setup_v0.1.0.exe');
+    expect(
+      p.basename(artifact.file.path),
+      'AppManagementCenter_Setup_v0.1.0.exe',
+    );
     expect(artifact.appDisplayName, appManagementCenterDisplayName);
     expect(artifact.fullVersion, '0.1.0+1');
     expect(artifact.versionName, '0.1.0');
@@ -42,7 +45,7 @@ void main() {
         isA<ReleaseInstallerArtifactException>().having(
           (error) => error.message,
           'message',
-          contains('only supported on Windows'),
+          contains('trên máy Windows'),
         ),
       ),
     );
@@ -158,7 +161,7 @@ void main() {
         isA<ReleaseInstallerArtifactException>().having(
           (error) => error.message,
           'message',
-          contains('was not found'),
+          contains('Không thấy bộ cài Windows'),
         ),
       ),
     );

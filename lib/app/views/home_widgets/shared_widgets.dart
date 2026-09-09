@@ -39,7 +39,8 @@ class _GlobalCommandProgressState extends State<GlobalCommandProgress>
       final isRunning =
           runner.isWorkflowRunning.value || runner.isRunning.value;
       final isCompleted = !isRunning && progress >= 1;
-      final isFailed = !isRunning && runner.status.value == 'Failed';
+      final isFailed =
+          !isRunning && runner.runState.value == ReleaseRunnerState.failed;
       final accentColor = isFailed
           ? Theme.of(context).colorScheme.error
           : isCompleted
@@ -48,8 +49,8 @@ class _GlobalCommandProgressState extends State<GlobalCommandProgress>
           ? AppCyberTheme.electricBlue
           : AppCyberTheme.textMuted;
       final stepText = totalSteps > 0
-          ? 'STEP $currentStep/$totalSteps'
-          : 'READY';
+          ? 'BƯỚC $currentStep/$totalSteps'
+          : 'SẴN SÀNG';
       final percent = '${(progress * 100).round()}%';
       _syncChargeAnimation(isRunning);
 
@@ -456,13 +457,19 @@ class _PanelTitle extends StatelessWidget {
       children: [
         Icon(icon, size: 17),
         const SizedBox(width: 8),
-        Text(
-          title.toUpperCase(),
-          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-            letterSpacing: 0.8,
-            color: AppCyberTheme.isCyber
-                ? AppCyberTheme.electricBlue.withValues(alpha: 0.95)
-                : AppCyberTheme.textPrimary,
+        // Titles are translated, so their width is not fixed; let a long one
+        // ellipsize rather than overflow its panel.
+        Flexible(
+          child: Text(
+            title.toUpperCase(),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              letterSpacing: 0.8,
+              color: AppCyberTheme.isCyber
+                  ? AppCyberTheme.electricBlue.withValues(alpha: 0.95)
+                  : AppCyberTheme.textPrimary,
+            ),
           ),
         ),
       ],

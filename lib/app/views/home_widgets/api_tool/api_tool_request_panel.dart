@@ -52,7 +52,7 @@ mixin _ApiToolRequestSection on _ApiToolDialogCore {
                       actionKey: const Key('api-tool-save'),
                       icon: Icons.save_outlined,
                       label: 'Save',
-                      tooltip: 'Save request (${_apiToolSaveShortcutLabel()})',
+                      tooltip: 'Lưu request (${_apiToolSaveShortcutLabel()})',
                       onPressed: canSave && !_isSending
                           ? () => unawaited(_saveRequest(asNew: false))
                           : null,
@@ -60,8 +60,8 @@ mixin _ApiToolRequestSection on _ApiToolDialogCore {
                     _ApiToolInlineAction(
                       actionKey: const Key('api-tool-save-as'),
                       icon: Icons.copy_all_outlined,
-                      label: 'Save as',
-                      tooltip: 'Save as a new request',
+                      label: 'Lưu thành',
+                      tooltip: 'Lưu thành một request mới',
                       onPressed: canSave && !_isSending
                           ? () => unawaited(_saveRequest(asNew: true))
                           : null,
@@ -71,14 +71,14 @@ mixin _ApiToolRequestSection on _ApiToolDialogCore {
                       icon: Icons.terminal_outlined,
                       label: 'cURL',
                       tooltip:
-                          'Copy this request as a terminal-ready curl command',
+                          'Sao chép request này thành lệnh curl chạy được ngay',
                       onPressed: _urlController.text.trim().isEmpty
                           ? null
                           : _copyRequestAsCurl,
                     ),
                     IconButton(
                       key: const Key('api-tool-delete'),
-                      tooltip: 'Delete request',
+                      tooltip: 'Xoá request',
                       visualDensity: VisualDensity.compact,
                       onPressed: canEdit && hasActiveRequest && !_isSending
                           ? () => unawaited(_deleteActiveRequest())
@@ -87,7 +87,7 @@ mixin _ApiToolRequestSection on _ApiToolDialogCore {
                     ),
                     IconButton(
                       key: const Key('api-tool-new'),
-                      tooltip: 'New request',
+                      tooltip: 'Request mới',
                       visualDensity: VisualDensity.compact,
                       onPressed: _isSending ? null : _clearRequest,
                       icon: const Icon(Icons.add_circle_outline, size: 19),
@@ -106,7 +106,7 @@ mixin _ApiToolRequestSection on _ApiToolDialogCore {
                 color: AppCyberTheme.textPrimary,
               ),
               decoration: const InputDecoration(
-                labelText: 'Request name',
+                labelText: 'Tên request',
                 prefixIcon: Icon(Icons.label_outline),
                 isDense: true,
               ),
@@ -151,7 +151,7 @@ mixin _ApiToolRequestSection on _ApiToolDialogCore {
                   key: Key('api-tool-settings-tab'),
                   child: _ApiToolTabLabel(
                     icon: Icons.settings_outlined,
-                    label: 'Settings',
+                    label: 'Cài đặt',
                   ),
                 ),
               ],
@@ -184,7 +184,7 @@ mixin _ApiToolRequestSection on _ApiToolDialogCore {
           children: [
             Expanded(
               child: Text(
-                'Synced with the URL query string',
+                'Đồng bộ với query string trên URL',
                 style: AppCyberTheme.dataTextStyle(
                   size: 10.4,
                   color: AppCyberTheme.textMuted,
@@ -194,8 +194,8 @@ mixin _ApiToolRequestSection on _ApiToolDialogCore {
             _ApiToolInlineAction(
               actionKey: const Key('api-tool-clear-params'),
               icon: Icons.backspace_outlined,
-              label: 'Clear',
-              tooltip: 'Remove every query parameter from the URL',
+              label: 'Xoá',
+              tooltip: 'Bỏ hết query parameter khỏi URL',
               onPressed: _isSending || _activeParamCount == 0
                   ? null
                   : _clearParamRows,
@@ -222,7 +222,7 @@ mixin _ApiToolRequestSection on _ApiToolDialogCore {
                       key: const Key('api-tool-add-param'),
                       onPressed: _isSending ? null : _addParamRow,
                       icon: const Icon(Icons.add_outlined),
-                      label: const Text('Add param'),
+                      label: const Text('Thêm param'),
                     ),
                   ),
                 ],
@@ -277,13 +277,13 @@ mixin _ApiToolRequestSection on _ApiToolDialogCore {
                 size: 11.2,
                 color: AppCyberTheme.textPrimary,
               ),
-              decoration: const InputDecoration(labelText: 'Value'),
+              decoration: const InputDecoration(labelText: 'Giá trị'),
             ),
           ),
         ),
         const SizedBox(width: 6),
         IconButton(
-          tooltip: 'Remove param',
+          tooltip: 'Bỏ param',
           onPressed: _isSending || _paramRows.length == 1
               ? null
               : () => _removeParamRow(index),
@@ -337,9 +337,9 @@ mixin _ApiToolRequestSection on _ApiToolDialogCore {
             icon: Icons.keyboard_outlined,
             color: AppCyberTheme.electricBlue,
             message:
-                '${_apiToolSendShortcutLabel()} sends the request from '
+                '${_apiToolSendShortcutLabel()} gửi request từ '
                 'anywhere in this dialog. '
-                '${_apiToolSaveShortcutLabel()} saves it.',
+                '${_apiToolSaveShortcutLabel()} thì lưu lại.',
           ),
         ],
       ),
@@ -354,7 +354,7 @@ mixin _ApiToolRequestSection on _ApiToolDialogCore {
         children: [
           InputDecorator(
             decoration: const InputDecoration(
-              labelText: 'Authorization type',
+              labelText: 'Loại authorization',
               prefixIcon: Icon(Icons.shield_outlined),
             ),
             child: DropdownButtonHideUnderline(
@@ -386,7 +386,7 @@ mixin _ApiToolRequestSection on _ApiToolDialogCore {
               _ApiToolMessage(
                 icon: Icons.lock_open_outlined,
                 color: AppCyberTheme.textMuted,
-                message: 'This request does not add an authorization header.',
+                message: 'Request này không thêm header authorization.',
               ),
             ],
             ApiToolAuthorizationType.bearer => [
@@ -401,27 +401,27 @@ mixin _ApiToolRequestSection on _ApiToolDialogCore {
               _buildAuthorizationField(
                 fieldKey: const Key('api-tool-auth-username'),
                 controller: _authUsernameController,
-                label: 'Username',
+                label: 'Tài khoản',
               ),
               const SizedBox(height: 10),
               _buildAuthorizationField(
                 fieldKey: const Key('api-tool-auth-password'),
                 controller: _authPasswordController,
-                label: 'Password',
+                label: 'Mật khẩu',
               ),
             ],
             ApiToolAuthorizationType.apiKey => [
               _buildAuthorizationField(
                 fieldKey: const Key('api-tool-auth-api-key-name'),
                 controller: _authApiKeyNameController,
-                label: 'Header name',
+                label: 'Tên header',
                 hintText: 'X-API-Key',
               ),
               const SizedBox(height: 10),
               _buildAuthorizationField(
                 fieldKey: const Key('api-tool-auth-api-key-value'),
                 controller: _authApiKeyValueController,
-                label: 'Value',
+                label: 'Giá trị',
                 hintText: '{{API_KEY}}',
               ),
             ],
@@ -461,7 +461,7 @@ mixin _ApiToolRequestSection on _ApiToolDialogCore {
           children: [
             Expanded(
               child: Text(
-                '$_activeHeaderCount active header(s)',
+                '$_activeHeaderCount header đang bật',
                 style: AppCyberTheme.dataTextStyle(
                   size: 10.4,
                   color: AppCyberTheme.textMuted,
@@ -490,7 +490,7 @@ mixin _ApiToolRequestSection on _ApiToolDialogCore {
                       key: const Key('api-tool-add-header'),
                       onPressed: _isSending ? null : _addHeaderRow,
                       icon: const Icon(Icons.add_outlined),
-                      label: const Text('Add header'),
+                      label: const Text('Thêm header'),
                     ),
                   ),
                 ],
@@ -541,13 +541,13 @@ mixin _ApiToolRequestSection on _ApiToolDialogCore {
                 size: 11.2,
                 color: AppCyberTheme.textPrimary,
               ),
-              decoration: const InputDecoration(labelText: 'Value'),
+              decoration: const InputDecoration(labelText: 'Giá trị'),
             ),
           ),
         ),
         const SizedBox(width: 6),
         IconButton(
-          tooltip: 'Remove header',
+          tooltip: 'Bỏ header',
           onPressed: _isSending || _headers.length == 1
               ? null
               : () => _removeHeaderRow(index),
@@ -575,7 +575,7 @@ mixin _ApiToolRequestSection on _ApiToolDialogCore {
                   width: 158,
                   child: InputDecorator(
                     decoration: const InputDecoration(
-                      labelText: 'Body type',
+                      labelText: 'Loại body',
                       isDense: true,
                       contentPadding: EdgeInsets.symmetric(
                         horizontal: 10,
@@ -615,8 +615,8 @@ mixin _ApiToolRequestSection on _ApiToolDialogCore {
                   _ApiToolInlineAction(
                     actionKey: const Key('api-tool-beautify-json'),
                     icon: Icons.auto_fix_high_outlined,
-                    label: 'Beautify',
-                    tooltip: 'Format the raw body as indented JSON',
+                    label: 'Làm đẹp',
+                    tooltip: 'Định dạng raw body thành JSON có thụt lề',
                     onPressed: _isSending || _bodyController.text.trim().isEmpty
                         ? null
                         : _beautifyRawBody,
@@ -624,8 +624,8 @@ mixin _ApiToolRequestSection on _ApiToolDialogCore {
                   _ApiToolInlineAction(
                     actionKey: const Key('api-tool-clear-body'),
                     icon: Icons.backspace_outlined,
-                    label: 'Clear',
-                    tooltip: 'Empty the raw body',
+                    label: 'Xoá',
+                    tooltip: 'Xoá sạch raw body',
                     onPressed: _isSending || _bodyController.text.isEmpty
                         ? null
                         : () {
@@ -693,7 +693,7 @@ mixin _ApiToolRequestSection on _ApiToolDialogCore {
                 key: const Key('api-tool-add-multipart'),
                 onPressed: _isSending ? null : _addMultipartRow,
                 icon: const Icon(Icons.add_outlined),
-                label: const Text('Add field'),
+                label: const Text('Thêm field'),
               ),
             ),
           ],
@@ -757,7 +757,7 @@ mixin _ApiToolRequestSection on _ApiToolDialogCore {
                 fieldKey: Key('api-tool-multipart-value-$index'),
                 controller: row.valueController,
                 enabled: isEnabled,
-                label: isFile ? 'File path' : 'Value',
+                label: isFile ? 'Đường dẫn file' : 'Giá trị',
               ),
             ),
             if (isFile) _buildMultipartFilePicker(index, row, isEnabled),
@@ -806,7 +806,7 @@ mixin _ApiToolRequestSection on _ApiToolDialogCore {
                 fieldKey: Key('api-tool-multipart-value-$index'),
                 controller: row.valueController,
                 enabled: isEnabled,
-                label: isFile ? 'File path' : 'Value',
+                label: isFile ? 'Đường dẫn file' : 'Giá trị',
               ),
             ),
             if (isFile) _buildMultipartFilePicker(index, row, isEnabled),
@@ -836,7 +836,7 @@ mixin _ApiToolRequestSection on _ApiToolDialogCore {
   ) {
     return InputDecorator(
       decoration: const InputDecoration(
-        labelText: 'Type',
+        labelText: 'Loại',
         contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       ),
       child: DropdownButtonHideUnderline(
@@ -902,7 +902,7 @@ mixin _ApiToolRequestSection on _ApiToolDialogCore {
         ),
         decoration: const InputDecoration(
           labelText: 'Content type',
-          hintText: 'Auto detect',
+          hintText: 'Tự nhận',
         ),
       ),
     );
@@ -915,7 +915,7 @@ mixin _ApiToolRequestSection on _ApiToolDialogCore {
   ) {
     return IconButton(
       key: Key('api-tool-multipart-pick-file-$index'),
-      tooltip: 'Choose file',
+      tooltip: 'Chọn file',
       onPressed: isEnabled ? () => _pickMultipartFile(row) : null,
       icon: const Icon(Icons.folder_open_outlined),
     );
@@ -923,7 +923,7 @@ mixin _ApiToolRequestSection on _ApiToolDialogCore {
 
   Widget _buildRemoveMultipartButton(int index) {
     return IconButton(
-      tooltip: 'Remove field',
+      tooltip: 'Bỏ field',
       onPressed: _isSending || _multipartRows.length == 1
           ? null
           : () => _removeMultipartRow(index),
@@ -950,7 +950,7 @@ mixin _ApiToolRequestSection on _ApiToolDialogCore {
                 key: const Key('api-tool-add-urlencoded'),
                 onPressed: _isSending ? null : _addUrlEncodedRow,
                 icon: const Icon(Icons.add_outlined),
-                label: const Text('Add field'),
+                label: const Text('Thêm field'),
               ),
             ),
           ],
@@ -1008,12 +1008,12 @@ mixin _ApiToolRequestSection on _ApiToolDialogCore {
                   size: 11.2,
                   color: AppCyberTheme.textPrimary,
                 ),
-                decoration: const InputDecoration(labelText: 'Value'),
+                decoration: const InputDecoration(labelText: 'Giá trị'),
               ),
             ),
           ),
           IconButton(
-            tooltip: 'Remove field',
+            tooltip: 'Bỏ field',
             onPressed: _isSending || _urlEncodedRows.length == 1
                 ? null
                 : () => _removeUrlEncodedRow(index),

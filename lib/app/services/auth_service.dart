@@ -74,7 +74,9 @@ class FirebaseAuthBackend implements AuthBackend {
       );
       final user = credential.user;
       if (user == null) {
-        throw const AuthServiceException('Sign in did not return a user.');
+        throw const AuthServiceException(
+          'Đăng nhập không trả về người dùng nào.',
+        );
       }
       return _fromFirebaseUser(user)!;
     } on firebase_auth.FirebaseAuthException catch (error) {
@@ -95,7 +97,9 @@ class FirebaseAuthBackend implements AuthBackend {
       );
       final user = credential.user;
       if (user == null) {
-        throw const AuthServiceException('Registration did not return a user.');
+        throw const AuthServiceException(
+          'Đăng ký không trả về người dùng nào.',
+        );
       }
       final trimmedName = displayName.trim();
       if (trimmedName.isNotEmpty) {
@@ -224,7 +228,7 @@ class FirebaseTeamDataSource implements TeamDataSource {
   }) async {
     final trimmedName = teamName.trim();
     if (trimmedName.isEmpty) {
-      throw const AuthServiceException('Team name is required.');
+      throw const AuthServiceException('Phải nhập tên nhóm.');
     }
 
     final teamRef = _db.collection('teams').doc();
@@ -279,7 +283,7 @@ class FirebaseTeamDataSource implements TeamDataSource {
         .limit(1)
         .get();
     if (inviteQuery.docs.isEmpty) {
-      throw const AuthServiceException('Invite code is invalid or expired.');
+      throw const AuthServiceException('Mã mời không đúng hoặc đã hết hạn.');
     }
 
     final teamRef = _db.collection('teams').doc(parsed.teamId);
@@ -291,7 +295,7 @@ class FirebaseTeamDataSource implements TeamDataSource {
     await _db.runTransaction((transaction) async {
       final inviteSnapshot = await transaction.get(inviteRef);
       if (!inviteSnapshot.exists) {
-        throw const AuthServiceException('Invite code is invalid or expired.');
+        throw const AuthServiceException('Mã mời không đúng hoặc đã hết hạn.');
       }
 
       final invite = inviteSnapshot.data();
@@ -299,7 +303,7 @@ class FirebaseTeamDataSource implements TeamDataSource {
       if (_string(invite?['status']) != 'active' ||
           expiresAt == null ||
           !expiresAt.isAfter(DateTime.now())) {
-        throw const AuthServiceException('Invite code is invalid or expired.');
+        throw const AuthServiceException('Mã mời không đúng hoặc đã hết hạn.');
       }
 
       final role = TeamRoleLabel.fromValue(invite?['role']);
@@ -474,7 +478,7 @@ class AuthService extends GetxService {
     _authSubscription = _backend!.authStateChanges().listen(
       (user) => unawaited(_syncFirebaseUser(user)),
       onError: (Object error) {
-        authError.value = 'Could not read sign-in state: $error';
+        authError.value = 'Không đọc được trạng thái đăng nhập: $error';
         authStatus.value = AuthStatus.unauthenticated;
       },
     );
@@ -583,7 +587,7 @@ class AuthService extends GetxService {
   }) async {
     final current = _requireProfile();
     if (!current.canManageTeam) {
-      throw const AuthServiceException('Only Admin can create invites.');
+      throw const AuthServiceException('Chỉ Admin mới tạo được lời mời.');
     }
     return _requireTeamDataSource().createInvite(
       teamId: current.teamId,
@@ -604,10 +608,12 @@ class AuthService extends GetxService {
   }) async {
     final current = _requireProfile();
     if (!current.canManageTeam) {
-      throw const AuthServiceException('Only Admin can change roles.');
+      throw const AuthServiceException('Chỉ Admin mới đổi được vai trò.');
     }
     if (uid == current.uid) {
-      throw const AuthServiceException('You cannot change your own role.');
+      throw const AuthServiceException(
+        'Bạn không đổi được vai trò của chính mình.',
+      );
     }
     await _requireTeamDataSource().updateMemberRole(
       teamId: current.teamId,
@@ -619,10 +625,10 @@ class AuthService extends GetxService {
   Future<void> removeMember(String uid) async {
     final current = _requireProfile();
     if (!current.canManageTeam) {
-      throw const AuthServiceException('Only Admin can remove members.');
+      throw const AuthServiceException('Chỉ Admin mới xoá được thành viên.');
     }
     if (uid == current.uid) {
-      throw const AuthServiceException('You cannot remove yourself.');
+      throw const AuthServiceException('Bạn không tự xoá mình được.');
     }
     await _requireTeamDataSource().removeMember(
       teamId: current.teamId,
@@ -653,7 +659,7 @@ class AuthService extends GetxService {
     if (session != null &&
         session.uid == user.uid &&
         session.isExpired(_now())) {
-      authError.value = 'Your session expired. Please sign in again.';
+      authError.value = 'Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.';
       await signOut();
       return;
     }
@@ -685,7 +691,7 @@ class AuthService extends GetxService {
         role: null,
         sessionExpiresAt: _sessionStore.authSession?.expiresAt ?? _now(),
       );
-      authError.value = 'Could not load team access: $error';
+      authError.value = 'Không tải được quyền truy cập nhóm: $error';
       authStatus.value = AuthStatus.teamRequired;
     }
   }
@@ -732,7 +738,7 @@ class AuthService extends GetxService {
       authError.value = _firebaseFirestoreMessage(error);
       throw AuthServiceException(authError.value);
     } catch (error) {
-      authError.value = 'Authentication failed: $error';
+      authError.value = 'Xác thực lỗi: $error';
       throw AuthServiceException(authError.value);
     } finally {
       isBusy.value = false;
@@ -742,7 +748,7 @@ class AuthService extends GetxService {
   AuthBackend _requireBackend() {
     final backend = _backend;
     if (backend == null) {
-      throw const AuthServiceException('Firebase Auth is not configured.');
+      throw const AuthServiceException('Chưa cấu hình Firebase Auth.');
     }
     return backend;
   }
@@ -750,7 +756,7 @@ class AuthService extends GetxService {
   TeamDataSource _requireTeamDataSource() {
     final dataSource = _teamDataSource;
     if (dataSource == null) {
-      throw const AuthServiceException('Team database is not configured.');
+      throw const AuthServiceException('Chưa cấu hình database của nhóm.');
     }
     return dataSource;
   }
@@ -758,7 +764,7 @@ class AuthService extends GetxService {
   AuthBackendUser _requireCurrentUser() {
     final user = _requireBackend().currentUser;
     if (user == null) {
-      throw const AuthServiceException('Please sign in first.');
+      throw const AuthServiceException('Hãy đăng nhập trước.');
     }
     return user;
   }
@@ -766,27 +772,27 @@ class AuthService extends GetxService {
   CurrentUserProfile _requireProfile() {
     final current = profile.value;
     if (current == null || !current.hasTeam) {
-      throw const AuthServiceException('Team access is required.');
+      throw const AuthServiceException('Cần có quyền truy cập nhóm.');
     }
     return current;
   }
 
   void _ensureFirebaseAvailable() {
     if (!_firebaseEnabled) {
-      throw const AuthServiceException('Firebase is not configured.');
+      throw const AuthServiceException('Chưa cấu hình Firebase.');
     }
   }
 }
 
 String _firebaseAuthMessage(firebase_auth.FirebaseAuthException error) {
   return switch (error.code) {
-    'email-already-in-use' => 'This email is already registered.',
-    'invalid-email' => 'Email address is invalid.',
-    'invalid-credential' => 'Email or password is not correct.',
-    'user-not-found' => 'Email or password is not correct.',
-    'wrong-password' => 'Email or password is not correct.',
-    'weak-password' => 'Password is too weak.',
-    _ => error.message ?? 'Firebase Auth failed.',
+    'email-already-in-use' => 'Email này đã được đăng ký.',
+    'invalid-email' => 'Email không hợp lệ.',
+    'invalid-credential' => 'Email hoặc mật khẩu không đúng.',
+    'user-not-found' => 'Email hoặc mật khẩu không đúng.',
+    'wrong-password' => 'Email hoặc mật khẩu không đúng.',
+    'weak-password' => 'Mật khẩu quá yếu.',
+    _ => error.message ?? 'Firebase Auth lỗi.',
   };
 }
 
@@ -795,17 +801,17 @@ String _firebaseFirestoreMessage(FirebaseException error) {
   final message = error.message?.trim();
   if (code == 'permission-denied' || code == 'unknown') {
     final suffix = message == null || message.isEmpty ? '' : ' $message';
-    return 'Team database permission failed.$suffix';
+    return 'Không đủ quyền trên database của nhóm.$suffix';
   }
   final suffix = message == null || message.isEmpty ? '' : ': $message';
-  return 'Team database failed (${error.code})$suffix';
+  return 'Database của nhóm lỗi (${error.code})$suffix';
 }
 
 _ParsedInviteCode _parseInviteCode(String value) {
   final trimmed = value.trim();
   final separator = trimmed.indexOf(':');
   if (separator <= 0 || separator == trimmed.length - 1) {
-    throw const AuthServiceException('Invite code is invalid or expired.');
+    throw const AuthServiceException('Mã mời không đúng hoặc đã hết hạn.');
   }
   return _ParsedInviteCode(
     teamId: trimmed.substring(0, separator).trim(),

@@ -19,7 +19,7 @@ class _StoreVersionsPanel extends GetView<HomeController> {
                 if (selectedProject == null) {
                   return const _StoreVersionsEmptyState(
                     icon: Icons.folder_open_outlined,
-                    message: 'Select a project to view store versions.',
+                    message: 'Chọn một dự án để xem phiên bản trên store.',
                   );
                 }
 
@@ -91,7 +91,7 @@ class _StoreVersionsPanel extends GetView<HomeController> {
       final selectedProject = controller.project.value;
       if (selectedProject == null) {
         return Text(
-          'No project selected',
+          'Chưa chọn dự án',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: AppCyberTheme.dataTextStyle(
@@ -116,8 +116,8 @@ class _StoreVersionsPanel extends GetView<HomeController> {
           Expanded(
             child: Text(
               count == 0
-                  ? '${selectedProject.name} - not setup'
-                  : '${selectedProject.name} - $count store(s)',
+                  ? '${selectedProject.name} - chưa thiết lập'
+                  : '${selectedProject.name} - $count store',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: AppCyberTheme.dataTextStyle(
@@ -152,7 +152,7 @@ class _StoreVersionsPanel extends GetView<HomeController> {
           : const Icon(Icons.refresh_outlined);
       if (compact) {
         return IconButton(
-          tooltip: 'Refresh selected project',
+          tooltip: 'Làm mới dự án đang chọn',
           visualDensity: VisualDensity.compact,
           onPressed: disabled ? null : _refreshSelectedStoreProjects,
           icon: icon,
@@ -161,7 +161,7 @@ class _StoreVersionsPanel extends GetView<HomeController> {
       return OutlinedButton.icon(
         onPressed: disabled ? null : _refreshSelectedStoreProjects,
         icon: icon,
-        label: const Text('Refresh'),
+        label: const Text('Làm mới'),
       );
     });
   }
@@ -226,7 +226,7 @@ class _StoreVersionsSetupPrompt extends StatelessWidget {
               key: const Key('store-versions-setup-current-project'),
               onPressed: () => _runProjectSetupWizard(context),
               icon: const Icon(Icons.add_task_outlined, size: 16),
-              label: const Text('Setup'),
+              label: const Text('Thiết lập'),
             ),
           ],
         ),
@@ -246,7 +246,7 @@ class _StoreVersionsSetupPrompt extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'No store setup for ${project.name}',
+                  '${project.name} chưa thiết lập store nào',
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: AppCyberTheme.dataTextStyle(
@@ -260,7 +260,7 @@ class _StoreVersionsSetupPrompt extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Use project setup to add CH Play or App Store and run version check.',
+            'Dùng trình thiết lập dự án để thêm CH Play hoặc App Store rồi kiểm tra phiên bản.',
             style: AppCyberTheme.dataTextStyle(
               size: 10.5,
               color: AppCyberTheme.textMuted,
@@ -274,7 +274,7 @@ class _StoreVersionsSetupPrompt extends StatelessWidget {
               key: const Key('store-versions-setup-current-project'),
               onPressed: () => _runProjectSetupWizard(context),
               icon: const Icon(Icons.add_task_outlined),
-              label: const Text('Setup stores'),
+              label: const Text('Thiết lập store'),
             ),
           ),
         ],
@@ -446,7 +446,7 @@ class _StoreVersionInlinePair extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'L $localValue',
+            'M $localValue',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: AppCyberTheme.dataTextStyle(
@@ -543,7 +543,7 @@ class _ChPlayProjectCard extends GetView<HomeController> {
                         const SizedBox(height: 2),
                         Text(
                           project.applicationId.isEmpty
-                              ? 'No app ID'
+                              ? 'Chưa có app ID'
                               : project.applicationId,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -565,7 +565,7 @@ class _ChPlayProjectCard extends GetView<HomeController> {
                   Expanded(
                     child: _StoreVersionMetric(
                       icon: Icons.sell_outlined,
-                      label: 'Local',
+                      label: 'Ở máy',
                       value: currentSnapshot.localDisplay,
                       highlighted: true,
                     ),
@@ -574,7 +574,7 @@ class _ChPlayProjectCard extends GetView<HomeController> {
                   Expanded(
                     child: _StoreVersionMetric(
                       icon: Icons.storefront_outlined,
-                      label: 'Store',
+                      label: 'Trên store',
                       value: currentSnapshot.storeDisplay,
                     ),
                   ),
@@ -602,13 +602,13 @@ class _ChPlayProjectCard extends GetView<HomeController> {
                         ? Icons.lock_outlined
                         : Icons.lock_open_outlined,
                     label: project.hasSavedGooglePlayJson
-                        ? 'Secure JSON'
-                        : 'No saved JSON',
+                        ? 'JSON đã lưu an toàn'
+                        : 'Chưa lưu JSON',
                   ),
                   if (project.hasSavedSigningCredentials)
                     const _MetaChip(
                       icon: Icons.vpn_key_outlined,
-                      label: 'Signing key',
+                      label: 'Key ký',
                     ),
                 ],
               ),
@@ -728,7 +728,7 @@ class _ChPlayProjectActions extends GetView<HomeController> {
           mainAxisSize: MainAxisSize.min,
           children: [
             IconButton(
-              tooltip: 'Refresh',
+              tooltip: 'Làm mới',
               visualDensity: VisualDensity.compact,
               constraints: const BoxConstraints.tightFor(width: 30, height: 30),
               padding: EdgeInsets.zero,
@@ -744,7 +744,7 @@ class _ChPlayProjectActions extends GetView<HomeController> {
                   : const Icon(Icons.refresh_outlined, size: 18),
             ),
             IconButton(
-              tooltip: 'Credentials',
+              tooltip: 'Thông tin đăng nhập',
               visualDensity: VisualDensity.compact,
               constraints: const BoxConstraints.tightFor(width: 30, height: 30),
               padding: EdgeInsets.zero,
@@ -752,7 +752,7 @@ class _ChPlayProjectActions extends GetView<HomeController> {
               icon: const Icon(Icons.vpn_key_outlined, size: 18),
             ),
             PopupMenuButton<String>(
-              tooltip: 'More',
+              tooltip: 'Thêm',
               icon: const Icon(Icons.more_horiz, size: 18),
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints.tightFor(width: 30, height: 30),
@@ -764,11 +764,11 @@ class _ChPlayProjectActions extends GetView<HomeController> {
                 }
               },
               itemBuilder: (_) => [
-                const PopupMenuItem(value: 'edit', child: Text('Edit project')),
+                const PopupMenuItem(value: 'edit', child: Text('Sửa dự án')),
                 PopupMenuItem(
                   value: 'delete',
                   enabled: !isRunning,
-                  child: const Text('Delete project'),
+                  child: const Text('Xoá dự án'),
                 ),
               ],
             ),
@@ -779,7 +779,7 @@ class _ChPlayProjectActions extends GetView<HomeController> {
         mainAxisSize: MainAxisSize.min,
         children: [
           IconButton(
-            tooltip: 'Refresh',
+            tooltip: 'Làm mới',
             visualDensity: VisualDensity.compact,
             constraints: const BoxConstraints.tightFor(width: 32, height: 32),
             padding: EdgeInsets.zero,
@@ -795,7 +795,7 @@ class _ChPlayProjectActions extends GetView<HomeController> {
                 : const Icon(Icons.refresh_outlined),
           ),
           IconButton(
-            tooltip: 'Edit project',
+            tooltip: 'Sửa dự án',
             visualDensity: VisualDensity.compact,
             constraints: const BoxConstraints.tightFor(width: 32, height: 32),
             padding: EdgeInsets.zero,
@@ -803,7 +803,7 @@ class _ChPlayProjectActions extends GetView<HomeController> {
             icon: const Icon(Icons.edit_outlined),
           ),
           IconButton(
-            tooltip: 'Credentials',
+            tooltip: 'Thông tin đăng nhập',
             visualDensity: VisualDensity.compact,
             constraints: const BoxConstraints.tightFor(width: 32, height: 32),
             padding: EdgeInsets.zero,
@@ -811,7 +811,7 @@ class _ChPlayProjectActions extends GetView<HomeController> {
             icon: const Icon(Icons.vpn_key_outlined),
           ),
           IconButton(
-            tooltip: 'Delete project',
+            tooltip: 'Xoá dự án',
             visualDensity: VisualDensity.compact,
             constraints: const BoxConstraints.tightFor(width: 32, height: 32),
             padding: EdgeInsets.zero,
@@ -845,17 +845,17 @@ class _ChPlayProjectActions extends GetView<HomeController> {
         return AlertDialog(
           backgroundColor: AppCyberTheme.panelBackgroundStrong,
           surfaceTintColor: Colors.transparent,
-          title: const Text('Delete project'),
-          content: Text('Remove ${project.name} from CH Play management?'),
+          title: const Text('Xoá dự án'),
+          content: Text('Bỏ ${project.name} khỏi danh sách quản lý CH Play?'),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('Cancel'),
+              child: const Text('Huỷ'),
             ),
             FilledButton.icon(
               onPressed: () => Navigator.of(dialogContext).pop(true),
               icon: const Icon(Icons.delete_outline),
-              label: const Text('Delete'),
+              label: const Text('Xoá'),
             ),
           ],
         );
@@ -939,7 +939,7 @@ class _AppStoreProjectCard extends GetView<HomeController> {
                         const SizedBox(height: 2),
                         Text(
                           project.bundleId.isEmpty
-                              ? 'No bundle ID'
+                              ? 'Chưa có bundle ID'
                               : project.bundleId,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -961,7 +961,7 @@ class _AppStoreProjectCard extends GetView<HomeController> {
                   Expanded(
                     child: _StoreVersionMetric(
                       icon: Icons.sell_outlined,
-                      label: 'Local',
+                      label: 'Ở máy',
                       value: currentSnapshot.localDisplay,
                       highlighted: true,
                     ),
@@ -1001,8 +1001,8 @@ class _AppStoreProjectCard extends GetView<HomeController> {
                         ? Icons.lock_outlined
                         : Icons.lock_open_outlined,
                     label: project.hasSavedRequiredCredentials
-                        ? 'Secure API key'
-                        : 'No saved key',
+                        ? 'API key đã lưu an toàn'
+                        : 'Chưa lưu key',
                   ),
                   if (project.hasSavedTeamId)
                     const _MetaChip(
@@ -1132,7 +1132,7 @@ class _AppStoreProjectActions extends GetView<HomeController> {
           mainAxisSize: MainAxisSize.min,
           children: [
             IconButton(
-              tooltip: 'Refresh',
+              tooltip: 'Làm mới',
               visualDensity: VisualDensity.compact,
               constraints: const BoxConstraints.tightFor(width: 30, height: 30),
               padding: EdgeInsets.zero,
@@ -1148,7 +1148,7 @@ class _AppStoreProjectActions extends GetView<HomeController> {
                   : const Icon(Icons.refresh_outlined, size: 18),
             ),
             IconButton(
-              tooltip: 'Credentials',
+              tooltip: 'Thông tin đăng nhập',
               visualDensity: VisualDensity.compact,
               constraints: const BoxConstraints.tightFor(width: 30, height: 30),
               padding: EdgeInsets.zero,
@@ -1156,7 +1156,7 @@ class _AppStoreProjectActions extends GetView<HomeController> {
               icon: const Icon(Icons.vpn_key_outlined, size: 18),
             ),
             PopupMenuButton<String>(
-              tooltip: 'More',
+              tooltip: 'Thêm',
               icon: const Icon(Icons.more_horiz, size: 18),
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints.tightFor(width: 30, height: 30),
@@ -1168,11 +1168,11 @@ class _AppStoreProjectActions extends GetView<HomeController> {
                 }
               },
               itemBuilder: (_) => [
-                const PopupMenuItem(value: 'edit', child: Text('Edit project')),
+                const PopupMenuItem(value: 'edit', child: Text('Sửa dự án')),
                 PopupMenuItem(
                   value: 'delete',
                   enabled: !isRunning,
-                  child: const Text('Delete project'),
+                  child: const Text('Xoá dự án'),
                 ),
               ],
             ),
@@ -1183,7 +1183,7 @@ class _AppStoreProjectActions extends GetView<HomeController> {
         mainAxisSize: MainAxisSize.min,
         children: [
           IconButton(
-            tooltip: 'Refresh',
+            tooltip: 'Làm mới',
             visualDensity: VisualDensity.compact,
             constraints: const BoxConstraints.tightFor(width: 32, height: 32),
             padding: EdgeInsets.zero,
@@ -1199,7 +1199,7 @@ class _AppStoreProjectActions extends GetView<HomeController> {
                 : const Icon(Icons.refresh_outlined),
           ),
           IconButton(
-            tooltip: 'Edit project',
+            tooltip: 'Sửa dự án',
             visualDensity: VisualDensity.compact,
             constraints: const BoxConstraints.tightFor(width: 32, height: 32),
             padding: EdgeInsets.zero,
@@ -1207,7 +1207,7 @@ class _AppStoreProjectActions extends GetView<HomeController> {
             icon: const Icon(Icons.edit_outlined),
           ),
           IconButton(
-            tooltip: 'Credentials',
+            tooltip: 'Thông tin đăng nhập',
             visualDensity: VisualDensity.compact,
             constraints: const BoxConstraints.tightFor(width: 32, height: 32),
             padding: EdgeInsets.zero,
@@ -1215,7 +1215,7 @@ class _AppStoreProjectActions extends GetView<HomeController> {
             icon: const Icon(Icons.vpn_key_outlined),
           ),
           IconButton(
-            tooltip: 'Delete project',
+            tooltip: 'Xoá dự án',
             visualDensity: VisualDensity.compact,
             constraints: const BoxConstraints.tightFor(width: 32, height: 32),
             padding: EdgeInsets.zero,
@@ -1249,17 +1249,17 @@ class _AppStoreProjectActions extends GetView<HomeController> {
         return AlertDialog(
           backgroundColor: AppCyberTheme.panelBackgroundStrong,
           surfaceTintColor: Colors.transparent,
-          title: const Text('Delete project'),
-          content: Text('Remove ${project.name} from App Store management?'),
+          title: const Text('Xoá dự án'),
+          content: Text('Bỏ ${project.name} khỏi danh sách quản lý App Store?'),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('Cancel'),
+              child: const Text('Huỷ'),
             ),
             FilledButton.icon(
               onPressed: () => Navigator.of(dialogContext).pop(true),
               icon: const Icon(Icons.delete_outline),
-              label: const Text('Delete'),
+              label: const Text('Xoá'),
             ),
           ],
         );
@@ -1304,7 +1304,7 @@ Future<ChPlayProject?> _showChPlayProjectDialog(
             ),
             title: _PanelTitle(
               icon: Icons.shop_two_outlined,
-              title: isNew ? 'Add CH Play' : 'Edit CH Play',
+              title: isNew ? 'Thêm CH Play' : 'Sửa CH Play',
             ),
             content: SizedBox(
               width: 460,
@@ -1314,7 +1314,7 @@ Future<ChPlayProject?> _showChPlayProjectDialog(
                   TextField(
                     controller: nameController,
                     decoration: const InputDecoration(
-                      labelText: 'Display name',
+                      labelText: 'Tên hiển thị',
                       prefixIcon: Icon(Icons.label_outline),
                     ),
                   ),
@@ -1324,7 +1324,7 @@ Future<ChPlayProject?> _showChPlayProjectDialog(
                     readOnly: true,
                     maxLines: 1,
                     decoration: const InputDecoration(
-                      labelText: 'Project path',
+                      labelText: 'Đường dẫn dự án',
                       prefixIcon: Icon(Icons.folder_outlined),
                     ),
                   ),
@@ -1341,7 +1341,7 @@ Future<ChPlayProject?> _showChPlayProjectDialog(
                   DropdownButtonFormField<String>(
                     initialValue: selectedTrack,
                     decoration: const InputDecoration(
-                      labelText: 'Play track',
+                      labelText: 'Track trên Play',
                       prefixIcon: Icon(Icons.flag_outlined),
                     ),
                     items: knownTracks
@@ -1377,14 +1377,14 @@ Future<ChPlayProject?> _showChPlayProjectDialog(
             actions: [
               OutlinedButton(
                 onPressed: () => Navigator.of(dialogContext).pop(),
-                child: const Text('Cancel'),
+                child: const Text('Huỷ'),
               ),
               FilledButton.icon(
                 onPressed: () {
                   final appId = appIdController.text.trim();
                   if (appId.isEmpty) {
                     setState(() {
-                      validationError = 'Application ID is required.';
+                      validationError = 'Phải nhập Application ID.';
                     });
                     return;
                   }
@@ -1398,7 +1398,7 @@ Future<ChPlayProject?> _showChPlayProjectDialog(
                   );
                 },
                 icon: const Icon(Icons.save_outlined),
-                label: const Text('Save'),
+                label: const Text('Lưu'),
               ),
             ],
           );
@@ -1438,7 +1438,7 @@ Future<AppStoreProject?> _showAppStoreProjectDialog(
         ),
         title: _PanelTitle(
           icon: Icons.phone_iphone_outlined,
-          title: isNew ? 'Add App Store' : 'Edit App Store',
+          title: isNew ? 'Thêm App Store' : 'Sửa App Store',
         ),
         content: SizedBox(
           width: 460,
@@ -1448,7 +1448,7 @@ Future<AppStoreProject?> _showAppStoreProjectDialog(
               TextField(
                 controller: nameController,
                 decoration: const InputDecoration(
-                  labelText: 'Display name',
+                  labelText: 'Tên hiển thị',
                   prefixIcon: Icon(Icons.label_outline),
                 ),
               ),
@@ -1458,7 +1458,7 @@ Future<AppStoreProject?> _showAppStoreProjectDialog(
                 readOnly: true,
                 maxLines: 1,
                 decoration: const InputDecoration(
-                  labelText: 'Project path',
+                  labelText: 'Đường dẫn dự án',
                   prefixIcon: Icon(Icons.folder_outlined),
                 ),
               ),
@@ -1477,7 +1477,7 @@ Future<AppStoreProject?> _showAppStoreProjectDialog(
         actions: [
           OutlinedButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Cancel'),
+            child: const Text('Huỷ'),
           ),
           FilledButton.icon(
             onPressed: () {
@@ -1490,7 +1490,7 @@ Future<AppStoreProject?> _showAppStoreProjectDialog(
               );
             },
             icon: const Icon(Icons.save_outlined),
-            label: const Text('Save'),
+            label: const Text('Lưu'),
           ),
         ],
       );
@@ -1524,7 +1524,7 @@ Future<void> _showChPlayCredentialsDialog(
   );
   var googlePlayJson = credentials.googlePlayJson;
   var jsonLabel = credentials.hasGooglePlayJson
-      ? 'Saved service-account JSON'
+      ? 'JSON service-account đã lưu'
       : '';
   final jsonController = TextEditingController(text: jsonLabel);
   var keyPasswordSameAsStore =
@@ -1556,7 +1556,7 @@ Future<void> _showChPlayCredentialsDialog(
             ),
             title: const _PanelTitle(
               icon: Icons.vpn_key_outlined,
-              title: 'Credentials',
+              title: 'Thông tin đăng nhập',
             ),
             content: SizedBox(
               width: 500,
@@ -1571,14 +1571,14 @@ Future<void> _showChPlayCredentialsDialog(
                         labelText: 'Google Play JSON',
                         prefixIcon: const Icon(Icons.description_outlined),
                         suffixIcon: IconButton(
-                          tooltip: 'Import JSON',
+                          tooltip: 'Nhập JSON',
                           onPressed: () async {
                             final content = await controller
                                 .pickGooglePlayJsonContent();
                             if (content == null) return;
                             setState(() {
                               googlePlayJson = content;
-                              jsonLabel = 'Imported service-account JSON';
+                              jsonLabel = 'Đã nhập JSON service-account';
                               jsonController.text = jsonLabel;
                               validationError = null;
                             });
@@ -1595,7 +1595,7 @@ Future<void> _showChPlayCredentialsDialog(
                         labelText: 'JKS keystore',
                         prefixIcon: const Icon(Icons.inventory_2_outlined),
                         suffixIcon: IconButton(
-                          tooltip: 'Import JKS',
+                          tooltip: 'Nhập JKS',
                           onPressed: () async {
                             final path = await controller.pickJksPath();
                             if (path == null) return;
@@ -1612,7 +1612,7 @@ Future<void> _showChPlayCredentialsDialog(
                       enableSuggestions: false,
                       autocorrect: false,
                       decoration: const InputDecoration(
-                        labelText: 'JKS password',
+                        labelText: 'Mật khẩu JKS',
                         prefixIcon: Icon(Icons.password_outlined),
                       ),
                     ),
@@ -1631,7 +1631,7 @@ Future<void> _showChPlayCredentialsDialog(
                                     });
                                   },
                             contentPadding: EdgeInsets.zero,
-                            title: const Text('Force recreate JKS'),
+                            title: const Text('Tạo lại JKS dù đã có'),
                             controlAffinity: ListTileControlAffinity.leading,
                           ),
                         ),
@@ -1650,7 +1650,7 @@ Future<void> _showChPlayCredentialsDialog(
                                       manualPassword.length < 6) {
                                     setState(() {
                                       validationError =
-                                          'JKS password must be at least 6 characters.';
+                                          'Mật khẩu JKS phải từ 6 ký tự.';
                                     });
                                     return;
                                   }
@@ -1695,7 +1695,7 @@ Future<void> _showChPlayCredentialsDialog(
                                   ),
                                 )
                               : const Icon(Icons.vpn_key_outlined),
-                          label: const Text('Generate'),
+                          label: const Text('Tạo'),
                         ),
                       ],
                     ),
@@ -1712,7 +1712,7 @@ Future<void> _showChPlayCredentialsDialog(
                       controller: storePasswordController,
                       obscureText: true,
                       decoration: const InputDecoration(
-                        labelText: 'Store password',
+                        labelText: 'Mật khẩu store',
                         prefixIcon: Icon(Icons.password_outlined),
                       ),
                     ),
@@ -1725,7 +1725,7 @@ Future<void> _showChPlayCredentialsDialog(
                         });
                       },
                       contentPadding: EdgeInsets.zero,
-                      title: const Text('Key password matches store password'),
+                      title: const Text('Mật khẩu key trùng mật khẩu store'),
                       controlAffinity: ListTileControlAffinity.leading,
                     ),
                     if (!keyPasswordSameAsStore) ...[
@@ -1734,7 +1734,7 @@ Future<void> _showChPlayCredentialsDialog(
                         controller: keyPasswordController,
                         obscureText: true,
                         decoration: const InputDecoration(
-                          labelText: 'Key password',
+                          labelText: 'Mật khẩu key',
                           prefixIcon: Icon(Icons.password_outlined),
                         ),
                       ),
@@ -1746,7 +1746,7 @@ Future<void> _showChPlayCredentialsDialog(
                         setState(() => saveSecurely = value ?? true);
                       },
                       contentPadding: EdgeInsets.zero,
-                      title: const Text('Save securely for next run'),
+                      title: const Text('Lưu an toàn cho lần chạy sau'),
                       controlAffinity: ListTileControlAffinity.leading,
                     ),
                     if (validationError != null) ...[
@@ -1770,7 +1770,7 @@ Future<void> _showChPlayCredentialsDialog(
             actions: [
               OutlinedButton(
                 onPressed: () => Navigator.of(dialogContext).pop(),
-                child: const Text('Cancel'),
+                child: const Text('Huỷ'),
               ),
               FilledButton.icon(
                 onPressed: () async {
@@ -1778,7 +1778,7 @@ Future<void> _showChPlayCredentialsDialog(
                       googlePlayJson!.trim().isEmpty) {
                     setState(() {
                       validationError =
-                          'Google Play service-account JSON is required.';
+                          'Phải có JSON service-account của Google Play.';
                     });
                     return;
                   }
@@ -1802,7 +1802,7 @@ Future<void> _showChPlayCredentialsDialog(
                   }
                 },
                 icon: const Icon(Icons.save_outlined),
-                label: const Text('Save'),
+                label: const Text('Lưu'),
               ),
             ],
           );
@@ -1835,7 +1835,7 @@ Future<void> _showAppStoreCredentialsDialog(
     text: credentials.teamId ?? '',
   );
   var p8PrivateKey = credentials.p8PrivateKey;
-  var p8Label = credentials.hasP8PrivateKey ? 'Saved .p8 private key' : '';
+  var p8Label = credentials.hasP8PrivateKey ? 'Private key .p8 đã lưu' : '';
   final p8Controller = TextEditingController(text: p8Label);
   var inHouse = credentials.inHouse;
   var saveSecurely =
@@ -1861,7 +1861,7 @@ Future<void> _showAppStoreCredentialsDialog(
             ),
             title: const _PanelTitle(
               icon: Icons.vpn_key_outlined,
-              title: 'App Store Credentials',
+              title: 'Thông tin đăng nhập App Store',
             ),
             content: SizedBox(
               width: 500,
@@ -1876,14 +1876,14 @@ Future<void> _showAppStoreCredentialsDialog(
                         labelText: '.p8 private key',
                         prefixIcon: const Icon(Icons.key_outlined),
                         suffixIcon: IconButton(
-                          tooltip: 'Import .p8',
+                          tooltip: 'Nhập .p8',
                           onPressed: () async {
                             final content = await controller
                                 .pickAppStoreP8Content();
                             if (content == null) return;
                             setState(() {
                               p8PrivateKey = content;
-                              p8Label = 'Imported .p8 private key';
+                              p8Label = 'Đã nhập private key .p8';
                               p8Controller.text = p8Label;
                               validationError = null;
                             });
@@ -1913,7 +1913,7 @@ Future<void> _showAppStoreCredentialsDialog(
                       controller: teamIdController,
                       decoration: const InputDecoration(
                         labelText: 'Team ID',
-                        hintText: 'Optional',
+                        hintText: 'Không bắt buộc',
                         prefixIcon: Icon(Icons.groups_2_outlined),
                       ),
                     ),
@@ -1924,7 +1924,7 @@ Future<void> _showAppStoreCredentialsDialog(
                         setState(() => inHouse = value ?? false);
                       },
                       contentPadding: EdgeInsets.zero,
-                      title: const Text('In-house API key'),
+                      title: const Text('API key in-house'),
                       controlAffinity: ListTileControlAffinity.leading,
                     ),
                     const SizedBox(height: 8),
@@ -1934,7 +1934,7 @@ Future<void> _showAppStoreCredentialsDialog(
                         setState(() => saveSecurely = value ?? true);
                       },
                       contentPadding: EdgeInsets.zero,
-                      title: const Text('Save securely for next run'),
+                      title: const Text('Lưu an toàn cho lần chạy sau'),
                       controlAffinity: ListTileControlAffinity.leading,
                     ),
                     if (validationError != null) ...[
@@ -1958,7 +1958,7 @@ Future<void> _showAppStoreCredentialsDialog(
             actions: [
               OutlinedButton(
                 onPressed: () => Navigator.of(dialogContext).pop(),
-                child: const Text('Cancel'),
+                child: const Text('Huỷ'),
               ),
               FilledButton.icon(
                 onPressed: () async {
@@ -1971,7 +1971,7 @@ Future<void> _showAppStoreCredentialsDialog(
                   if (keyIdController.text.trim().isEmpty ||
                       issuerIdController.text.trim().isEmpty) {
                     setState(() {
-                      validationError = 'Key ID and Issuer ID are required.';
+                      validationError = 'Phải nhập Key ID và Issuer ID.';
                     });
                     return;
                   }
@@ -1992,7 +1992,7 @@ Future<void> _showAppStoreCredentialsDialog(
                   }
                 },
                 icon: const Icon(Icons.save_outlined),
-                label: const Text('Save'),
+                label: const Text('Lưu'),
               ),
             ],
           );
@@ -2021,13 +2021,13 @@ IconData _chPlayStatusIcon(ChPlayComparisonStatus status) {
 
 String _chPlayStatusLabel(ChPlayComparisonStatus status) {
   return switch (status) {
-    ChPlayComparisonStatus.notChecked => 'Not checked',
-    ChPlayComparisonStatus.missingCredentials => 'Missing JSON',
-    ChPlayComparisonStatus.missingLocalVersion => 'Bad local version',
-    ChPlayComparisonStatus.upToDate => 'Up to date',
-    ChPlayComparisonStatus.localBehind => 'Behind store',
-    ChPlayComparisonStatus.localAhead => 'Ahead store',
-    ChPlayComparisonStatus.failed => 'Failed',
+    ChPlayComparisonStatus.notChecked => 'Chưa kiểm tra',
+    ChPlayComparisonStatus.missingCredentials => 'Thiếu JSON',
+    ChPlayComparisonStatus.missingLocalVersion => 'Version ở máy sai định dạng',
+    ChPlayComparisonStatus.upToDate => 'Khớp store',
+    ChPlayComparisonStatus.localBehind => 'Cũ hơn store',
+    ChPlayComparisonStatus.localAhead => 'Mới hơn store',
+    ChPlayComparisonStatus.failed => 'Lỗi',
   };
 }
 
@@ -2046,19 +2046,20 @@ IconData _appStoreStatusIcon(AppStoreComparisonStatus status) {
 
 String _appStoreStatusLabel(AppStoreComparisonStatus status) {
   return switch (status) {
-    AppStoreComparisonStatus.notChecked => 'Not checked',
-    AppStoreComparisonStatus.missingCredentials => 'Missing key',
-    AppStoreComparisonStatus.missingBundleId => 'Missing bundle ID',
-    AppStoreComparisonStatus.missingLocalVersion => 'Bad local version',
-    AppStoreComparisonStatus.upToDate => 'Up to date',
-    AppStoreComparisonStatus.localBehind => 'Behind TestFlight',
-    AppStoreComparisonStatus.localAhead => 'Ahead TestFlight',
-    AppStoreComparisonStatus.failed => 'Failed',
+    AppStoreComparisonStatus.notChecked => 'Chưa kiểm tra',
+    AppStoreComparisonStatus.missingCredentials => 'Thiếu key',
+    AppStoreComparisonStatus.missingBundleId => 'Thiếu bundle ID',
+    AppStoreComparisonStatus.missingLocalVersion =>
+      'Version ở máy sai định dạng',
+    AppStoreComparisonStatus.upToDate => 'Khớp store',
+    AppStoreComparisonStatus.localBehind => 'Cũ hơn TestFlight',
+    AppStoreComparisonStatus.localAhead => 'Mới hơn TestFlight',
+    AppStoreComparisonStatus.failed => 'Lỗi',
   };
 }
 
 String _formatCheckedAt(DateTime? value) {
-  if (value == null) return 'Never checked';
+  if (value == null) return 'Chưa kiểm tra lần nào';
 
   String two(int number) => number.toString().padLeft(2, '0');
   return '${value.year}-${two(value.month)}-${two(value.day)} '

@@ -56,16 +56,16 @@ class _MobileControlViewState extends State<MobileControlView> {
 
       return Scaffold(
         appBar: AppBar(
-          title: const Text('Release Remote'),
+          title: const Text('Điều khiển release'),
           actions: [
             IconButton(
-              tooltip: 'Refresh',
+              tooltip: 'Làm mới',
               onPressed: _isWorking ? null : () => unawaited(_refresh()),
               icon: const Icon(Icons.refresh_outlined),
             ),
             if (mobileSettings.isLinked)
               IconButton(
-                tooltip: 'Unlink',
+                tooltip: 'Bỏ liên kết',
                 onPressed: () => unawaited(remote.clearMobileLink()),
                 icon: const Icon(Icons.link_off_outlined),
               ),
@@ -84,7 +84,7 @@ class _MobileControlViewState extends State<MobileControlView> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        _SectionTitle(icon: Icons.link_outlined, title: 'Pair Phone'),
+        _SectionTitle(icon: Icons.link_outlined, title: 'Ghép điện thoại'),
         const SizedBox(height: 12),
         TextField(
           controller: _endpointController,
@@ -100,7 +100,7 @@ class _MobileControlViewState extends State<MobileControlView> {
           controller: _pairingCodeController,
           textCapitalization: TextCapitalization.characters,
           decoration: const InputDecoration(
-            labelText: 'Pairing code',
+            labelText: 'Mã ghép',
             prefixIcon: Icon(Icons.password_outlined),
           ),
         ),
@@ -122,7 +122,7 @@ class _MobileControlViewState extends State<MobileControlView> {
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
               : const Icon(Icons.phone_android_outlined),
-          label: const Text('Link'),
+          label: const Text('Liên kết'),
         ),
         const SizedBox(height: 12),
         Obx(() => _StatusText(remote.mobileStatus.value)),
@@ -203,7 +203,7 @@ class _MobileControlViewState extends State<MobileControlView> {
         pairingCode: _pairingCodeController.text,
         pairingId: _pairingIdController.text,
         deviceName: Platform.localHostname.isEmpty
-            ? 'Android phone'
+            ? 'Điện thoại Android'
             : Platform.localHostname,
       );
       await _refresh();
@@ -321,15 +321,15 @@ class _DesktopStatusCard extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  state?.displayName ?? 'Desktop unavailable',
+                  state?.displayName ?? 'Không thấy máy tính',
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
               ),
-              _StatusBadge(label: online ? 'Online' : 'Offline'),
+              _StatusBadge(label: online ? 'Đang online' : 'Offline'),
             ],
           ),
           const SizedBox(height: 10),
-          Text(state?.status ?? 'Waiting for heartbeat'),
+          Text(state?.status ?? 'Đang chờ tín hiệu'),
           const SizedBox(height: 8),
           Text('${state?.projects.length ?? 0} projects available'),
         ],
@@ -362,7 +362,7 @@ class _ShellPanel extends StatelessWidget {
           TextField(
             controller: cwdController,
             decoration: const InputDecoration(
-              labelText: 'Working directory',
+              labelText: 'Thư mục làm việc',
               prefixIcon: Icon(Icons.folder_outlined),
             ),
           ),
@@ -372,9 +372,7 @@ class _ShellPanel extends StatelessWidget {
             minLines: 2,
             maxLines: 5,
             decoration: InputDecoration(
-              labelText: project == null
-                  ? 'Command'
-                  : 'Command for ${project!.name}',
+              labelText: project == null ? 'Lệnh' : 'Lệnh cho ${project!.name}',
               prefixIcon: const Icon(Icons.code_outlined),
             ),
           ),
@@ -384,7 +382,7 @@ class _ShellPanel extends StatelessWidget {
             child: FilledButton.icon(
               onPressed: onRun,
               icon: const Icon(Icons.play_arrow_outlined),
-              label: const Text('Run Shell'),
+              label: const Text('Chạy shell'),
             ),
           ),
         ],
@@ -423,10 +421,10 @@ class _ProjectActionsPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _SectionTitle(icon: Icons.account_tree_outlined, title: 'Actions'),
+          _SectionTitle(icon: Icons.account_tree_outlined, title: 'Thao tác'),
           const SizedBox(height: 10),
           if (projects.isEmpty)
-            const Text('No projects from desktop heartbeat.')
+            const Text('Máy tính chưa gửi về dự án nào.')
           else ...[
             DropdownButtonFormField<String>(
               initialValue: project?.path,
@@ -442,7 +440,7 @@ class _ProjectActionsPanel extends StatelessWidget {
                 if (value != null) onSelected(value);
               },
               decoration: const InputDecoration(
-                labelText: 'Project',
+                labelText: 'Dự án',
                 prefixIcon: Icon(Icons.folder_open_outlined),
               ),
             ),
@@ -509,7 +507,7 @@ class _CommandPanel extends StatelessWidget {
               const Expanded(
                 child: _SectionTitle(
                   icon: Icons.receipt_long_outlined,
-                  title: 'Run',
+                  title: 'Chạy',
                 ),
               ),
               if (command != null) _StatusBadge(label: command!.status),
@@ -525,7 +523,7 @@ class _CommandPanel extends StatelessWidget {
                   child: OutlinedButton.icon(
                     onPressed: onNo,
                     icon: const Icon(Icons.close_outlined),
-                    label: const Text('No'),
+                    label: const Text('Không'),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -533,7 +531,7 @@ class _CommandPanel extends StatelessWidget {
                   child: FilledButton.icon(
                     onPressed: onYes,
                     icon: const Icon(Icons.check_outlined),
-                    label: const Text('Yes'),
+                    label: const Text('Có'),
                   ),
                 ),
               ],
@@ -547,7 +545,7 @@ class _CommandPanel extends StatelessWidget {
                   controller: stdinController,
                   enabled: onSendInput != null,
                   decoration: const InputDecoration(
-                    labelText: 'Send input',
+                    labelText: 'Gửi cho script',
                     prefixIcon: Icon(Icons.keyboard_outlined),
                   ),
                   onSubmitted: (_) => onSendInput?.call(),
@@ -555,13 +553,13 @@ class _CommandPanel extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               IconButton.filled(
-                tooltip: 'Send',
+                tooltip: 'Gửi',
                 onPressed: onSendInput,
                 icon: const Icon(Icons.send_outlined),
               ),
               const SizedBox(width: 8),
               IconButton.filledTonal(
-                tooltip: 'Stop',
+                tooltip: 'Dừng',
                 onPressed: onStop,
                 icon: const Icon(Icons.stop_circle_outlined),
               ),
@@ -579,7 +577,7 @@ class _CommandPanel extends StatelessWidget {
             ),
             child: SingleChildScrollView(
               child: SelectableText(
-                lines.isEmpty ? 'No output' : lines.join('\n'),
+                lines.isEmpty ? 'Chưa có output' : lines.join('\n'),
                 style: AppCyberTheme.dataTextStyle(size: 11.5),
               ),
             ),

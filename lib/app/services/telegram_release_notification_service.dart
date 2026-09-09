@@ -65,23 +65,23 @@ class DartTelegramHttpClient implements TelegramHttpClient {
       );
     } on TimeoutException {
       throw const TelegramReleaseNotificationException(
-        'Telegram request timed out.',
+        'Request tới Telegram quá hạn.',
       );
     } on SocketException catch (error) {
       throw TelegramReleaseNotificationException(
-        'Network error while calling Telegram: ${error.message}',
+        'Lỗi mạng khi gọi Telegram: ${error.message}',
       );
     } on HandshakeException {
       throw const TelegramReleaseNotificationException(
-        'Secure connection to Telegram failed.',
+        'Kết nối bảo mật tới Telegram lỗi.',
       );
     } on HttpException {
       throw const TelegramReleaseNotificationException(
-        'Telegram HTTP request could not be completed.',
+        'Không hoàn tất được request HTTP tới Telegram.',
       );
     } catch (_) {
       throw const TelegramReleaseNotificationException(
-        'Unexpected error while calling Telegram.',
+        'Lỗi lạ khi gọi Telegram.',
       );
     } finally {
       client.close(force: true);
@@ -136,27 +136,27 @@ class DartTelegramHttpClient implements TelegramHttpClient {
       return _readResponse(response);
     } on TimeoutException {
       throw const TelegramReleaseNotificationException(
-        'Telegram file upload timed out.',
+        'Upload file lên Telegram quá hạn.',
       );
     } on SocketException catch (error) {
       throw TelegramReleaseNotificationException(
-        'Network error while uploading to Telegram: ${error.message}',
+        'Lỗi mạng khi upload lên Telegram: ${error.message}',
       );
     } on HandshakeException {
       throw const TelegramReleaseNotificationException(
-        'Secure connection to Telegram failed.',
+        'Kết nối bảo mật tới Telegram lỗi.',
       );
     } on FileSystemException catch (error) {
       throw TelegramReleaseNotificationException(
-        'Failed to read file for Telegram upload: ${error.message}',
+        'Không đọc được file để upload lên Telegram: ${error.message}',
       );
     } on HttpException {
       throw const TelegramReleaseNotificationException(
-        'Telegram file upload could not be completed.',
+        'Không hoàn tất được việc upload file lên Telegram.',
       );
     } catch (_) {
       throw const TelegramReleaseNotificationException(
-        'Unexpected error while uploading file to Telegram.',
+        'Lỗi lạ khi upload file lên Telegram.',
       );
     } finally {
       client.close(force: true);
@@ -222,13 +222,11 @@ class TelegramReleaseNotificationService extends GetxService {
     final trimmedNotes = releaseNotes.trim();
     if (trimmedAppName.isEmpty) {
       throw const TelegramReleaseNotificationException(
-        'App display name is required.',
+        'Phải có tên hiển thị của app.',
       );
     }
     if (trimmedNotes.isEmpty) {
-      throw const TelegramReleaseNotificationException(
-        'Release notes are required.',
-      );
+      throw const TelegramReleaseNotificationException('Phải có release note.');
     }
 
     final normalizedVersion = version?.trim();
@@ -303,7 +301,7 @@ class TelegramReleaseNotificationService extends GetxService {
     final trimmedUrl = downloadUrl.trim();
     if (trimmedAppName.isEmpty) {
       throw const TelegramReleaseNotificationException(
-        'App display name is required.',
+        'Phải có tên hiển thị của app.',
       );
     }
     if (trimmedVersion.isEmpty) {
@@ -352,7 +350,7 @@ class TelegramReleaseNotificationService extends GetxService {
     final trimmedUrl = downloadUrl.trim();
     if (trimmedAppName.isEmpty) {
       throw const TelegramReleaseNotificationException(
-        'App display name is required.',
+        'Phải có tên hiển thị của app.',
       );
     }
     if (trimmedVersion.isEmpty) {

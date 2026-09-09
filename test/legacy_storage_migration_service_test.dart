@@ -17,7 +17,10 @@ void main() {
       );
       current = Directory(p.join(root.path, 'App Management Center'));
       legacy = Directory(
-        p.join(root.path, LegacyStorageMigrationService.legacyDirectoryNames.first),
+        p.join(
+          root.path,
+          LegacyStorageMigrationService.legacyDirectoryNames.first,
+        ),
       );
     });
 
@@ -41,12 +44,15 @@ void main() {
       expect(result.outcome, LegacyStorageMigrationOutcome.migrated);
       expect(result.copiedFiles, 3);
       expect(
-        File(p.join(current.path, 'shared_preferences.json')).readAsStringSync(),
+        File(
+          p.join(current.path, 'shared_preferences.json'),
+        ).readAsStringSync(),
         '{"last_project_path":"C:/repo"}',
       );
       expect(
-        File(p.join(current.path, 'flutter_secure_storage.dat'))
-            .readAsStringSync(),
+        File(
+          p.join(current.path, 'flutter_secure_storage.dat'),
+        ).readAsStringSync(),
         'encrypted-bytes',
       );
       expect(
@@ -62,8 +68,10 @@ void main() {
 
       service.migrateInto(current);
 
-      expect(File(p.join(legacy.path, 'shared_preferences.json')).existsSync(),
-          isTrue);
+      expect(
+        File(p.join(legacy.path, 'shared_preferences.json')).existsSync(),
+        isTrue,
+      );
     });
 
     test('skips once the current directory already holds data', () {
@@ -77,7 +85,9 @@ void main() {
 
       expect(result.outcome, LegacyStorageMigrationOutcome.skipped);
       expect(
-        File(p.join(current.path, 'shared_preferences.json')).readAsStringSync(),
+        File(
+          p.join(current.path, 'shared_preferences.json'),
+        ).readAsStringSync(),
         '{"fresh":true}',
       );
     });

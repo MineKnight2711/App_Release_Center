@@ -271,7 +271,7 @@ class _AccountHud extends StatelessWidget {
       return Material(
         color: Colors.transparent,
         child: PopupMenuButton<String>(
-          tooltip: 'Account',
+          tooltip: 'Tài khoản',
           onSelected: (value) {
             if (value == 'team') {
               unawaited(showTeamManagementDialog(context));
@@ -289,7 +289,7 @@ class _AccountHud extends StatelessWidget {
               value: 'team',
               child: ListTile(
                 leading: Icon(Icons.groups_outlined),
-                title: Text('Team'),
+                title: Text('Nhóm'),
                 contentPadding: EdgeInsets.zero,
               ),
             ),
@@ -297,7 +297,7 @@ class _AccountHud extends StatelessWidget {
               value: 'logout',
               child: ListTile(
                 leading: Icon(Icons.logout_outlined),
-                title: Text('Logout'),
+                title: Text('Đăng xuất'),
                 contentPadding: EdgeInsets.zero,
               ),
             ),

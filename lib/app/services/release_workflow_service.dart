@@ -47,7 +47,7 @@ class ReleaseWorkflowService extends GetxService {
   Future<ReleaseWorkflowRun> prepare(ReleaseWorkflowConfig config) async {
     if (isRunning || runner.isBusy) {
       throw const ReleaseWorkflowException(
-        'Wait for the active command before preparing a release.',
+        'Đợi lệnh đang chạy xong rồi chuẩn bị release.',
       );
     }
 
@@ -62,22 +62,22 @@ class ReleaseWorkflowService extends GetxService {
       final normalizedTrack = config.track.trim().toLowerCase();
       if (!_supportedTracks.contains(normalizedTrack)) {
         throw ReleaseWorkflowException(
-          'Unsupported CH Play track: ${config.track}.',
+          'Track CH Play không hỗ trợ: ${config.track}.',
         );
       }
       if (!config.credentials.hasGooglePlayJson) {
         throw const ReleaseWorkflowException(
-          'Google Play service-account credentials are required.',
+          'Phải có thông tin service-account của Google Play.',
         );
       }
       if (config.playProject.applicationId.trim().isEmpty) {
         throw const ReleaseWorkflowException(
-          'The managed CH Play project needs an application ID.',
+          'Dự án CH Play đang quản lý cần có application ID.',
         );
       }
       if (!config.project.androidDirectory.existsSync()) {
         throw const ReleaseWorkflowException(
-          'The selected project does not contain an android folder.',
+          'Dự án đang chọn không có thư mục android.',
         );
       }
 
@@ -97,7 +97,7 @@ class ReleaseWorkflowService extends GetxService {
           !versionNameScript.isShellScript ||
           !commitScript.isShellScript) {
         throw const ReleaseWorkflowException(
-          'Version and commit automation must use the supported shell scripts.',
+          'Phần tự động version và commit phải dùng đúng các shell script được hỗ trợ.',
         );
       }
 
@@ -106,18 +106,18 @@ class ReleaseWorkflowService extends GetxService {
       );
       if (!fastfile.existsSync()) {
         throw const ReleaseWorkflowException(
-          'android/fastlane/Fastfile is required for release.',
+          'Phải có android/fastlane/Fastfile mới release được.',
         );
       }
 
       final gitRoot = await _runGit(
         config.project.path,
         const ['rev-parse', '--show-toplevel'],
-        failureMessage: 'The selected project is not a Git repository.',
+        failureMessage: 'Dự án đang chọn không phải Git repository.',
       );
       if (gitRoot.output.trim().isEmpty) {
         throw const ReleaseWorkflowException(
-          'The selected project is not a Git repository.',
+          'Dự án đang chọn không phải Git repository.',
         );
       }
       final branchResult = await _runGit(config.project.path, const [
@@ -128,13 +128,13 @@ class ReleaseWorkflowService extends GetxService {
       final branch = branchResult.output.trim();
       if (branch.isEmpty || branch == 'HEAD') {
         throw const ReleaseWorkflowException(
-          'Release requires a named Git branch, not detached HEAD.',
+          'Release cần một branch Git có tên, không chạy ở detached HEAD.',
         );
       }
       await _runGit(
         config.project.path,
         const ['remote', 'get-url', 'origin'],
-        failureMessage: 'Git remote origin is required before release.',
+        failureMessage: 'Phải có remote origin trước khi release.',
       );
 
       final localVersion = await chPlayInspector.readLocalVersion(
@@ -142,7 +142,7 @@ class ReleaseWorkflowService extends GetxService {
       );
       if (localVersion == null) {
         throw const ReleaseWorkflowException(
-          'pubspec.yaml version must use <versionName>+<versionCode>.',
+          'Version trong pubspec.yaml phải theo dạng <versionName>+<versionCode>.',
         );
       }
 
@@ -157,7 +157,7 @@ class ReleaseWorkflowService extends GetxService {
       if (storeCode == null) {
         throw ReleaseWorkflowException(
           snapshot.message.isEmpty
-              ? 'Could not read the current CH Play version code.'
+              ? 'Không đọc được version code hiện tại trên CH Play.'
               : snapshot.message,
         );
       }
@@ -189,17 +189,17 @@ class ReleaseWorkflowService extends GetxService {
           startedAt: createdAt,
           finishedAt: DateTime.now(),
           logLines: [
-            'Git branch: $branch',
+            'Branch Git: $branch',
             'Track: $normalizedTrack',
-            'Current version: ${localVersion.raw}',
-            'Next version: $nextName+$nextCode',
+            'Version hiện tại: ${localVersion.raw}',
+            'Version kế tiếp: $nextName+$nextCode',
             if (changedFiles.isEmpty)
-              'Working tree is clean.'
+              'Working tree sạch.'
             else
-              '${changedFiles.length} existing change(s) will be committed.',
+              '${changedFiles.length} thay đổi đang có sẽ được commit.',
             supportsSplit
-                ? 'Fastlane supports separate build and upload.'
-                : 'Legacy Fastlane contract: build and deploy will run together.',
+                ? 'Fastlane hỗ trợ tách riêng build và upload.'
+                : 'Fastlane kiểu cũ: build và deploy sẽ chạy gộp.',
           ],
         ),
         const ReleaseWorkflowStepRun(
@@ -212,7 +212,7 @@ class ReleaseWorkflowService extends GetxService {
         ),
         const ReleaseWorkflowStepRun(
           kind: ReleaseWorkflowStepKind.releaseNotes,
-          label: 'Release notes',
+          label: 'Release note',
         ),
         const ReleaseWorkflowStepRun(
           kind: ReleaseWorkflowStepKind.commit,
@@ -230,7 +230,7 @@ class ReleaseWorkflowService extends GetxService {
         ] else
           const ReleaseWorkflowStepRun(
             kind: ReleaseWorkflowStepKind.legacyBuildDeploy,
-            label: 'Build & Deploy (legacy)',
+            label: 'Build & Deploy (kiểu cũ)',
           ),
         const ReleaseWorkflowStepRun(
           kind: ReleaseWorkflowStepKind.release,
@@ -292,15 +292,15 @@ class ReleaseWorkflowService extends GetxService {
     final run = currentRun.value;
     final config = _config;
     if (run == null || config == null) {
-      throw const ReleaseWorkflowException('Prepare the release first.');
+      throw const ReleaseWorkflowException('Chuẩn bị release trước đã.');
     }
     if (run.steps.first.status != ReleaseStepStatus.succeeded) {
       throw const ReleaseWorkflowException(
-        'Preflight must pass before release.',
+        'Preflight phải qua thì mới release được.',
       );
     }
     if (isRunning || runner.isBusy) {
-      throw const ReleaseWorkflowException('A command is already running.');
+      throw const ReleaseWorkflowException('Đang có lệnh chạy rồi.');
     }
 
     _postProcessor = postProcessor;
@@ -332,10 +332,10 @@ class ReleaseWorkflowService extends GetxService {
   Future<ReleaseWorkflowRun> retryFailedStep() async {
     final run = currentRun.value;
     if (run == null || run.retryableStep == null) {
-      throw const ReleaseWorkflowException('There is no retryable step.');
+      throw const ReleaseWorkflowException('Không có bước nào để chạy lại.');
     }
     if (isRunning || runner.isBusy) {
-      throw const ReleaseWorkflowException('A command is already running.');
+      throw const ReleaseWorkflowException('Đang có lệnh chạy rồi.');
     }
 
     final retryIndex = run.steps.indexOf(run.retryableStep!);
@@ -375,7 +375,7 @@ class ReleaseWorkflowService extends GetxService {
               status: ReleaseStepStatus.canceled,
               startedAt: DateTime.now(),
               finishedAt: DateTime.now(),
-              error: 'Release was canceled.',
+              error: 'Đã huỷ release.',
             ),
           );
           succeeded = false;
@@ -442,7 +442,7 @@ class ReleaseWorkflowService extends GetxService {
             finishedAt: DateTime.now(),
             exitCode: result.exitCode,
             logLines: result.logLines,
-            error: 'Release was canceled.',
+            error: 'Đã huỷ release.',
             artifactPath: result.artifactPath,
           ),
         );
@@ -503,7 +503,7 @@ class ReleaseWorkflowService extends GetxService {
         clearLog: false,
         allowDuringWorkflow: true,
       );
-      _requireSuccess(result, 'Version code update');
+      _requireSuccess(result, 'Cập nhật version code');
       return _StepResult(
         exitCode: result.exitCode,
         logLines: _outputLines(result.output),
@@ -522,7 +522,7 @@ class ReleaseWorkflowService extends GetxService {
       clearLog: false,
       allowDuringWorkflow: true,
     );
-    _requireSuccess(result, 'Version name update');
+    _requireSuccess(result, 'Cập nhật version name');
     return _StepResult(
       exitCode: result.exitCode,
       logLines: _outputLines(result.output),
@@ -531,7 +531,7 @@ class ReleaseWorkflowService extends GetxService {
 
   Future<_StepResult> _generateReleaseNotes() async {
     final config = _config!;
-    runner.beginWorkflowStep('Generate release notes');
+    runner.beginWorkflowStep('Tạo release note');
     var succeeded = false;
     try {
       final refreshedProject = await catalog.inspect(config.project.path);
@@ -546,14 +546,14 @@ class ReleaseWorkflowService extends GetxService {
           );
           notes = generated.notes;
           source =
-              'Generated by Gemini from ${generated.gitRangeLabel} (${generated.commitCount} commits).';
+              'Gemini tạo từ ${generated.gitRangeLabel} (${generated.commitCount} commit).';
         } catch (error) {
           notes = await _fallbackReleaseNotes(config.project.path);
-          source = 'Gemini failed; used Git history fallback: $error';
+          source = 'Gemini lỗi; đã dùng lịch sử Git thay thế: $error';
         }
       } else {
         notes = await _fallbackReleaseNotes(config.project.path);
-        source = 'Gemini key unavailable; used Git history fallback.';
+        source = 'Không có Gemini key; đã dùng lịch sử Git thay thế.';
       }
       notes = _limitPlayReleaseNotes(notes);
       final code = int.parse(currentRun.value!.proposedVersion.split('+').last);
@@ -561,7 +561,7 @@ class ReleaseWorkflowService extends GetxService {
       currentRun.value = currentRun.value!.copyWith(releaseNotes: notes);
       runner.appendSystemLog(source);
       runner.appendSystemLog(
-        'Prepared CH Play changelog for version code $code.',
+        'Đã chuẩn bị changelog CH Play cho version code $code.',
       );
       succeeded = true;
       return _StepResult(logLines: [source, notes]);
@@ -602,13 +602,13 @@ class ReleaseWorkflowService extends GetxService {
         '--yes',
         message,
         run.currentBranch,
-        'Automated Android release to ${run.track}.',
+        'Release Android tự động lên ${run.track}.',
       ],
       environment: _baseEnvironment,
       clearLog: false,
       allowDuringWorkflow: true,
     );
-    _requireSuccess(result, 'Commit and push');
+    _requireSuccess(result, 'Commit và push');
     return _StepResult(
       exitCode: result.exitCode,
       logLines: _outputLines(result.output),
@@ -631,16 +631,16 @@ class ReleaseWorkflowService extends GetxService {
       clearLog: false,
       allowDuringWorkflow: true,
     );
-    _requireSuccess(result, 'AAB build');
+    _requireSuccess(result, 'Build AAB');
     final artifact =
         _artifactFromOutput(result.output) ??
         _findNewestAab(config.project.path)?.path;
     if (artifact == null) {
       throw const ReleaseWorkflowException(
-        'AAB build completed but no artifact was found.',
+        'Build AAB xong nhưng không tìm thấy artifact.',
       );
     }
-    runner.appendSystemLog('AAB ready: $artifact');
+    runner.appendSystemLog('AAB đã sẵn sàng: $artifact');
     return _StepResult(
       exitCode: result.exitCode,
       logLines: _outputLines(result.output),
@@ -674,7 +674,7 @@ class ReleaseWorkflowService extends GetxService {
         clearLog: false,
         allowDuringWorkflow: true,
       );
-      _requireSuccess(result, 'CH Play deploy');
+      _requireSuccess(result, 'Deploy CH Play');
       return _StepResult(
         exitCode: result.exitCode,
         logLines: _outputLines(result.output),
@@ -704,12 +704,12 @@ class ReleaseWorkflowService extends GetxService {
         clearLog: false,
         allowDuringWorkflow: true,
       );
-      _requireSuccess(result, 'Legacy build and deploy');
+      _requireSuccess(result, 'Build và deploy kiểu cũ');
       final artifact = _findNewestAab(config.project.path)?.path;
       return _StepResult(
         exitCode: result.exitCode,
         logLines: [
-          'Compatibility mode: the legacy deploy command built and uploaded the AAB.',
+          'Chế độ tương thích: lệnh deploy kiểu cũ đã build và upload AAB cùng lúc.',
           ..._outputLines(result.output),
         ],
         artifactPath: artifact,
@@ -720,7 +720,7 @@ class ReleaseWorkflowService extends GetxService {
   Future<_StepResult> _verifyAndPostProcess() async {
     final config = _config!;
     final run = currentRun.value!;
-    runner.beginWorkflowStep('Verify CH Play release');
+    runner.beginWorkflowStep('Kiểm tra lại bản trên CH Play');
     final expectedCode = int.parse(run.proposedVersion.split('+').last);
     final trackedProject = config.playProject.copyWith(track: run.track);
     final deadline = DateTime.now().add(verificationTimeout);
@@ -738,14 +738,14 @@ class ReleaseWorkflowService extends GetxService {
       if ((snapshot.storeVersionCode ?? -1) >= expectedCode) {
         verified = true;
         runner.appendSystemLog(
-          'CH Play verified version code ${snapshot.storeVersionCode} on ${run.track}.',
+          'CH Play xác nhận version code ${snapshot.storeVersionCode} trên ${run.track}.',
         );
         break;
       }
       if (DateTime.now().isAfter(deadline) ||
           verificationTimeout == Duration.zero) {
         verificationWarning =
-            'Upload succeeded, but CH Play did not expose version code $expectedCode within ${verificationTimeout.inMinutes} minute(s).';
+            'Upload thành công nhưng sau ${verificationTimeout.inMinutes} phút CH Play vẫn chưa hiện version code $expectedCode.';
         runner.appendSystemLog(verificationWarning);
         break;
       }
@@ -774,7 +774,7 @@ class ReleaseWorkflowService extends GetxService {
     } else if (_postProcessingCompleted) {
       postWarning = _postProcessingWarning;
       runner.appendSystemLog(
-        'Post-processing already completed; verification retry will not resend artifacts.',
+        'Các bước hậu kỳ đã chạy xong; lần kiểm tra lại này sẽ không gửi lại artifact.',
       );
     }
     runner.completeWorkflowStep(success: true);
@@ -783,8 +783,8 @@ class ReleaseWorkflowService extends GetxService {
     return _StepResult(
       logLines: [
         verified
-            ? 'CH Play release verified on ${run.track}.'
-            : verificationWarning ?? 'Release verification was canceled.',
+            ? 'Đã xác nhận bản release trên ${run.track} của CH Play.'
+            : verificationWarning ?? 'Đã huỷ bước kiểm tra lại release.',
         ?postWarning,
       ],
       artifactPath: artifactPath,
@@ -830,16 +830,14 @@ class ReleaseWorkflowService extends GetxService {
     for (final script in project.scripts) {
       if (script.kind == kind) return script;
     }
-    throw ReleaseWorkflowException(
-      'Missing required ${kind.name} automation script.',
-    );
+    throw ReleaseWorkflowException('Thiếu script tự động hoá ${kind.name}.');
   }
 
   ReleaseFastlaneLane _requiredLane(ReleaseProject project, String name) {
     for (final lane in project.fastlaneLanes) {
       if (lane.name == name) return lane;
     }
-    throw ReleaseWorkflowException('Missing Fastlane lane: $name.');
+    throw ReleaseWorkflowException('Thiếu lane Fastlane: $name.');
   }
 
   Future<bool> _supportsSplitBuildDeploy(File fastfile) async {
@@ -852,7 +850,7 @@ class ReleaseWorkflowService extends GetxService {
     final match = RegExp(r'^(.*_)?([0-9]+(?:\.[0-9]+)*)$').firstMatch(current);
     if (match == null) {
       throw ReleaseWorkflowException(
-        'Cannot automatically bump version name "$current".',
+        'Không tự tăng được version name "$current".',
       );
     }
     final prefix = match.group(1) ?? '';
@@ -876,13 +874,13 @@ class ReleaseWorkflowService extends GetxService {
       final output = '${result.stdout}${result.stderr}'.trim();
       if (result.exitCode != 0) {
         throw ReleaseWorkflowException(
-          failureMessage ?? 'Git command failed: $output',
+          failureMessage ?? 'Lệnh Git lỗi: $output',
         );
       }
       return _GitResult(exitCode: result.exitCode, output: output);
     } on ProcessException catch (error) {
       throw ReleaseWorkflowException(
-        failureMessage ?? 'Failed to run Git: ${error.message}',
+        failureMessage ?? 'Chạy Git lỗi: ${error.message}',
       );
     }
   }
@@ -981,7 +979,7 @@ class ReleaseWorkflowService extends GetxService {
   void _requireSuccess(CommandRunResult result, String label) {
     if (result.exitCode != 0) {
       throw ReleaseWorkflowException(
-        '$label failed with exit code ${result.exitCode}.',
+        '$label lỗi, exit code ${result.exitCode}.',
       );
     }
   }

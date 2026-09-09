@@ -47,7 +47,7 @@ class AppStoreVersionCheckService extends GetxService {
       return AppStoreVersionSnapshot(
         localVersion: localVersion,
         status: AppStoreComparisonStatus.missingBundleId,
-        message: 'Bundle ID is required.',
+        message: 'Phải có Bundle ID.',
         lastCheckedAt: checkedAt,
       );
     }
@@ -56,7 +56,7 @@ class AppStoreVersionCheckService extends GetxService {
       return AppStoreVersionSnapshot(
         localVersion: localVersion,
         status: AppStoreComparisonStatus.missingCredentials,
-        message: 'Import a .p8 key and enter Key ID and Issuer ID.',
+        message: 'Hãy nhập key .p8 rồi điền Key ID và Issuer ID.',
         lastCheckedAt: checkedAt,
       );
     }
@@ -66,7 +66,7 @@ class AppStoreVersionCheckService extends GetxService {
       return AppStoreVersionSnapshot(
         localVersion: localVersion,
         status: AppStoreComparisonStatus.failed,
-        message: 'Project does not contain an ios folder.',
+        message: 'Dự án không có thư mục ios.',
         lastCheckedAt: checkedAt,
       );
     }
@@ -121,7 +121,7 @@ class AppStoreVersionCheckService extends GetxService {
         return AppStoreVersionSnapshot(
           localVersion: localVersion,
           status: AppStoreComparisonStatus.failed,
-          message: 'Fastlane failed with exit code ${result.exitCode}.',
+          message: 'Fastlane lỗi, exit code ${result.exitCode}.',
           lastCheckedAt: checkedAt,
         );
       }
@@ -131,7 +131,7 @@ class AppStoreVersionCheckService extends GetxService {
         return AppStoreVersionSnapshot(
           localVersion: localVersion,
           status: AppStoreComparisonStatus.failed,
-          message: 'Fastlane output did not include APPSTORE_BUILD_ONLY.',
+          message: 'Output của Fastlane không có APPSTORE_BUILD_ONLY.',
           lastCheckedAt: checkedAt,
         );
       }

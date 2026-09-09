@@ -120,7 +120,7 @@ void main() {
   test('propagates sanitized timeout errors from the HTTP client', () async {
     final harness = await _TelegramHarness.create(chatId: '-1001');
     harness.client.error = const TelegramReleaseNotificationException(
-      'Telegram request timed out.',
+      'Request tới Telegram quá hạn.',
     );
 
     await expectLater(
@@ -129,7 +129,7 @@ void main() {
         isA<TelegramReleaseNotificationException>().having(
           (error) => error.message,
           'message',
-          contains('timed out'),
+          contains('quá hạn'),
         ),
       ),
     );

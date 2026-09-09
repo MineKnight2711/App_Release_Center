@@ -40,15 +40,101 @@ class _PaletteMatch {
   final int score;
 }
 
-/// Scores [query] against [text] as a case-insensitive subsequence.
+/// Vietnamese letters mapped to the ASCII key people actually type.
+///
+/// Typing without diacritics is the norm, so the palette has to match `tai
+/// nguyen` against "Tài nguyên"; folding both sides makes that one comparison
+/// instead of a special case.
+const _paletteDiacriticFolding = <String, String>{
+  'à': 'a',
+  'á': 'a',
+  'ả': 'a',
+  'ã': 'a',
+  'ạ': 'a',
+  'ă': 'a',
+  'ằ': 'a',
+  'ắ': 'a',
+  'ẳ': 'a',
+  'ẵ': 'a',
+  'ặ': 'a',
+  'â': 'a',
+  'ầ': 'a',
+  'ấ': 'a',
+  'ẩ': 'a',
+  'ẫ': 'a',
+  'ậ': 'a',
+  'è': 'e',
+  'é': 'e',
+  'ẻ': 'e',
+  'ẽ': 'e',
+  'ẹ': 'e',
+  'ê': 'e',
+  'ề': 'e',
+  'ế': 'e',
+  'ể': 'e',
+  'ễ': 'e',
+  'ệ': 'e',
+  'ì': 'i',
+  'í': 'i',
+  'ỉ': 'i',
+  'ĩ': 'i',
+  'ị': 'i',
+  'ò': 'o',
+  'ó': 'o',
+  'ỏ': 'o',
+  'õ': 'o',
+  'ọ': 'o',
+  'ô': 'o',
+  'ồ': 'o',
+  'ố': 'o',
+  'ổ': 'o',
+  'ỗ': 'o',
+  'ộ': 'o',
+  'ơ': 'o',
+  'ờ': 'o',
+  'ớ': 'o',
+  'ở': 'o',
+  'ỡ': 'o',
+  'ợ': 'o',
+  'ù': 'u',
+  'ú': 'u',
+  'ủ': 'u',
+  'ũ': 'u',
+  'ụ': 'u',
+  'ư': 'u',
+  'ừ': 'u',
+  'ứ': 'u',
+  'ử': 'u',
+  'ữ': 'u',
+  'ự': 'u',
+  'ỳ': 'y',
+  'ý': 'y',
+  'ỷ': 'y',
+  'ỹ': 'y',
+  'ỵ': 'y',
+  'đ': 'd',
+};
+
+/// Lowercases [value] and strips Vietnamese diacritics.
+String _foldForPaletteSearch(String value) {
+  final buffer = StringBuffer();
+  for (final rune in value.toLowerCase().runes) {
+    final character = String.fromCharCode(rune);
+    buffer.write(_paletteDiacriticFolding[character] ?? character);
+  }
+  return buffer.toString();
+}
+
+/// Scores [query] against [text] as a case- and diacritic-insensitive
+/// subsequence.
 ///
 /// Returns null when the characters of [query] do not appear in order. The
 /// score rewards matches that start a word and matches that run consecutively,
-/// so typing `frel` ranks "Fastlane: Release" above "Refresh store versions".
+/// so typing `fdep` ranks "Fastlane: Deploy" above "Đi tới Fastlane".
 int? _scorePaletteMatch(String text, String query) {
   if (query.isEmpty) return 0;
-  final haystack = text.toLowerCase();
-  final needle = query.toLowerCase();
+  final haystack = _foldForPaletteSearch(text);
+  final needle = _foldForPaletteSearch(query);
 
   var score = 0;
   var cursor = 0;
@@ -90,19 +176,19 @@ List<_PaletteCommand> _buildPaletteCommands({
   final isBusy = controller.runner.isBusy;
   final hasProject = project != null;
 
-  const noProject = 'Choose a project first';
-  const busy = 'A command is already running';
+  const noProject = 'Chọn dự án trước đã';
+  const busy = 'Đang có lệnh chạy';
 
   String projectGate() => !hasProject ? noProject : (isBusy ? busy : '');
 
   final commands = <_PaletteCommand>[
     _PaletteCommand(
       id: 'project.choose',
-      group: 'Project',
+      group: 'Dự án',
       icon: Icons.drive_folder_upload_outlined,
-      title: 'Open project directory…',
-      subtitle: 'Pick a folder, then run the setup wizard',
-      keywords: const ['folder', 'directory', 'chon', 'du an'],
+      title: 'Mở thư mục dự án…',
+      subtitle: 'Chọn thư mục rồi chạy trình thiết lập',
+      keywords: const ['folder', 'thu muc', 'chon', 'du an'],
       run: (context) async {
         final loaded = await controller.pickProjectDirectory();
         if (!loaded || !context.mounted) return;
@@ -118,15 +204,15 @@ List<_PaletteCommand> _buildPaletteCommands({
     commands.add(
       _PaletteCommand(
         id: 'project.open:$path',
-        group: 'Project',
+        group: 'Dự án',
         icon: isCurrent
             ? Icons.radio_button_checked_outlined
             : Icons.folder_outlined,
         title: p.basename(path),
-        subtitle: isCurrent ? 'Already open · $path' : path,
+        subtitle: isCurrent ? 'Đang mở · $path' : path,
         keywords: [path],
         enabled: !isCurrent && !isBusy,
-        disabledReason: isCurrent ? 'Already open' : busy,
+        disabledReason: isCurrent ? 'Đang mở' : busy,
         run: (context) => controller.loadProject(path),
       ),
     );
@@ -138,9 +224,9 @@ List<_PaletteCommand> _buildPaletteCommands({
       group: 'Release',
       icon: Icons.rocket_launch_outlined,
       title: controller.releaseWorkflow.currentRun.value != null
-          ? 'Monitor release'
-          : 'Run release',
-      subtitle: 'Open the release workflow monitor',
+          ? 'Theo dõi release'
+          : 'Chạy release',
+      subtitle: 'Mở bảng theo dõi luồng release',
       keywords: const ['deploy', 'phat hanh', 'workflow'],
       enabled:
           controller.releaseWorkflow.currentRun.value != null ||
@@ -152,20 +238,20 @@ List<_PaletteCommand> _buildPaletteCommands({
       id: 'release.notes',
       group: 'Release',
       icon: Icons.auto_awesome_outlined,
-      title: 'Generate release notes',
-      subtitle: 'Draft notes from the commits since the last release',
+      title: 'Tạo release note',
+      subtitle: 'Soạn note từ các commit kể từ bản release trước',
       keywords: const ['ai', 'gemini', 'changelog', 'ghi chu'],
       enabled: hasProject && !controller.isGeneratingReleaseNotes.value,
-      disabledReason: hasProject ? 'Already generating' : noProject,
+      disabledReason: hasProject ? 'Đang tạo rồi' : noProject,
       run: (_) => controller.generateReleaseNotes(),
     ),
     _PaletteCommand(
       id: 'release.refreshStores',
       group: 'Release',
       icon: Icons.refresh_outlined,
-      title: 'Refresh store versions',
-      subtitle: 'Re-read the live CH Play and App Store versions',
-      keywords: const ['play', 'appstore', 'version'],
+      title: 'Làm mới bản trên store',
+      subtitle: 'Đọc lại phiên bản đang có trên CH Play và App Store',
+      keywords: const ['play', 'appstore', 'phien ban'],
       run: (_) => controller.refreshAllStoreProjects(),
     ),
   ]);
@@ -190,7 +276,7 @@ List<_PaletteCommand> _buildPaletteCommands({
     commands.add(
       _PaletteCommand(
         id: 'script.run:${script.fileName}',
-        group: 'Scripts',
+        group: 'Script',
         icon: Icons.terminal_outlined,
         title: 'Script: ${script.label}',
         subtitle: '${script.fileName} — ${script.description}',
@@ -205,65 +291,65 @@ List<_PaletteCommand> _buildPaletteCommands({
   commands.addAll([
     _PaletteCommand(
       id: 'tool.apiTool',
-      group: 'Tools',
+      group: 'Công cụ',
       icon: Icons.api_outlined,
       title: 'API Tool',
-      subtitle: 'Send and save HTTP requests',
+      subtitle: 'Gửi và lưu request HTTP',
       keywords: const ['http', 'request', 'postman'],
       run: (context) => showApiToolDialog(context),
     ),
     _PaletteCommand(
       id: 'tool.apiMonitor',
-      group: 'Tools',
+      group: 'Công cụ',
       icon: Icons.query_stats_outlined,
       title: 'API Monitor',
-      subtitle: 'Open the monitoring dashboard',
+      subtitle: 'Mở dashboard giám sát',
       keywords: const ['dashboard', 'log', 'giam sat'],
       run: (context) => showApiMonitorDialog(context),
     ),
     _PaletteCommand(
       id: 'tool.apiMonitor.window',
-      group: 'Tools',
+      group: 'Công cụ',
       icon: Icons.open_in_new_outlined,
-      title: 'API Monitor in a separate window',
-      subtitle: 'Keep the dashboard visible next to the app',
-      keywords: const ['dashboard', 'window'],
+      title: 'API Monitor ở cửa sổ riêng',
+      subtitle: 'Để dashboard nằm cạnh app',
+      keywords: const ['dashboard', 'cua so'],
       run: (_) => Get.find<ApiMonitorService>().openStandaloneWindow(),
     ),
     _PaletteCommand(
       id: 'tool.apiMonitor.browser',
-      group: 'Tools',
+      group: 'Công cụ',
       icon: Icons.public_outlined,
-      title: 'API Monitor in the browser',
-      subtitle: 'Open the dashboard URL outside the app',
-      keywords: const ['dashboard', 'browser'],
+      title: 'API Monitor trên trình duyệt',
+      subtitle: 'Mở URL dashboard ngoài app',
+      keywords: const ['dashboard', 'trinh duyet'],
       run: (_) => Get.find<ApiMonitorService>().openInBrowser(),
     ),
     _PaletteCommand(
       id: 'tool.apiMonitor.copyUrl',
-      group: 'Tools',
+      group: 'Công cụ',
       icon: Icons.copy_outlined,
-      title: 'Copy API Monitor dashboard URL',
+      title: 'Sao chép URL dashboard API Monitor',
       keywords: const ['clipboard', 'url'],
       run: (_) => Get.find<ApiMonitorService>().copyDashboardUrl(),
     ),
     _PaletteCommand(
       id: 'tool.flowfin',
-      group: 'Tools',
+      group: 'Công cụ',
       icon: Icons.account_balance_wallet_outlined,
       title: 'FlowFin',
-      subtitle: 'Wallets, budgets and transactions',
+      subtitle: 'Ví, ngân sách và giao dịch',
       keywords: const ['tien', 'chi tieu', 'ngan sach', 'vi'],
       run: (context) => showFlowFinDialog(context),
     ),
     if (Get.isRegistered<AuthService>())
       _PaletteCommand(
         id: 'tool.team',
-        group: 'Tools',
+        group: 'Công cụ',
         icon: Icons.groups_outlined,
-        title: 'Team',
-        subtitle: 'Manage who shares this workspace',
-        keywords: const ['member', 'invite', 'nhom'],
+        title: 'Nhóm',
+        subtitle: 'Quản lý ai dùng chung workspace này',
+        keywords: const ['thanh vien', 'moi', 'nhom'],
         run: (context) => showTeamManagementDialog(context),
       ),
   ]);
@@ -271,10 +357,10 @@ List<_PaletteCommand> _buildPaletteCommands({
   commands.addAll([
     _PaletteCommand(
       id: 'maintenance.flutterClean',
-      group: 'Maintenance',
+      group: 'Bảo trì',
       icon: Icons.cleaning_services_outlined,
       title: 'Flutter clean',
-      subtitle: 'Clear build artifacts in this project',
+      subtitle: 'Xoá artifact build trong dự án này',
       enabled: hasProject && !isBusy,
       disabledReason: projectGate(),
       run: (context) =>
@@ -282,10 +368,10 @@ List<_PaletteCommand> _buildPaletteCommands({
     ),
     _PaletteCommand(
       id: 'maintenance.flutterPubGet',
-      group: 'Maintenance',
+      group: 'Bảo trì',
       icon: Icons.download_for_offline_outlined,
       title: 'Flutter pub get',
-      subtitle: 'Fetch Dart and Flutter dependencies',
+      subtitle: 'Tải dependency của Dart và Flutter',
       enabled: hasProject && !isBusy,
       disabledReason: projectGate(),
       run: (context) =>
@@ -293,11 +379,11 @@ List<_PaletteCommand> _buildPaletteCommands({
     ),
     _PaletteCommand(
       id: 'maintenance.pullBranch',
-      group: 'Maintenance',
+      group: 'Bảo trì',
       icon: Icons.call_received_outlined,
-      title: 'Pull branch from remote',
-      subtitle: 'git pull for a remote and branch',
-      keywords: const ['git', 'nhanh'],
+      title: 'Pull branch từ remote',
+      subtitle: 'Chạy git pull cho một remote và branch',
+      keywords: const ['git', 'branch'],
       enabled: hasProject && !isBusy,
       disabledReason: projectGate(),
       run: (context) =>
@@ -305,10 +391,10 @@ List<_PaletteCommand> _buildPaletteCommands({
     ),
     _PaletteCommand(
       id: 'maintenance.cloneCicd',
-      group: 'Maintenance',
+      group: 'Bảo trì',
       icon: Icons.android_outlined,
       title: 'Clone Android CI/CD',
-      subtitle: 'Preview and scaffold Fastlane plus auto tools',
+      subtitle: 'Xem trước rồi dựng Fastlane và bộ auto tool',
       enabled: hasProject && !isBusy,
       disabledReason: projectGate(),
       run: (context) =>
@@ -316,11 +402,11 @@ List<_PaletteCommand> _buildPaletteCommands({
     ),
     _PaletteCommand(
       id: 'maintenance.generateJks',
-      group: 'Maintenance',
+      group: 'Bảo trì',
       icon: Icons.vpn_key_outlined,
-      title: 'Generate Android JKS',
-      subtitle: 'Create the upload keystore and signing configs',
-      keywords: const ['keystore', 'sign'],
+      title: 'Tạo Android JKS',
+      subtitle: 'Tạo upload keystore và cấu hình ký',
+      keywords: const ['keystore', 'ky', 'sign'],
       enabled: hasProject && !isBusy,
       disabledReason: projectGate(),
       run: (context) =>
@@ -328,10 +414,10 @@ List<_PaletteCommand> _buildPaletteCommands({
     ),
     _PaletteCommand(
       id: 'maintenance.updateFastlane',
-      group: 'Maintenance',
+      group: 'Bảo trì',
       icon: Icons.system_update_alt_outlined,
-      title: 'Check and update Fastlane',
-      subtitle: 'fastlane --version, then a user-scoped gem update',
+      title: 'Kiểm tra và cập nhật Fastlane',
+      subtitle: 'Chạy fastlane --version rồi gem update cho user',
       enabled: hasProject && !isBusy,
       disabledReason: projectGate(),
       run: (context) =>
@@ -339,13 +425,13 @@ List<_PaletteCommand> _buildPaletteCommands({
     ),
     _PaletteCommand(
       id: 'maintenance.checkDependencies',
-      group: 'Maintenance',
+      group: 'Bảo trì',
       icon: Icons.health_and_safety_outlined,
-      title: 'Check CI/CD dependencies',
-      subtitle: 'Run the toolchain doctor',
+      title: 'Kiểm tra dependency CI/CD',
+      subtitle: 'Chạy trình chẩn đoán toolchain',
       keywords: const ['doctor', 'git', 'jdk'],
       enabled: !controller.isCheckingCiCdDependencies.value,
-      disabledReason: 'Already checking',
+      disabledReason: 'Đang kiểm tra rồi',
       run: (_) => controller.checkCiCdDependencies(),
     ),
   ]);
@@ -354,10 +440,10 @@ List<_PaletteCommand> _buildPaletteCommands({
     commands.add(
       _PaletteCommand(
         id: 'goto.flow:${tab.name}',
-        group: 'Go to',
+        group: 'Đi tới',
         icon: tab.paletteIcon,
-        title: 'Go to ${tab.paletteLabel}',
-        subtitle: 'Automation panel',
+        title: 'Đi tới ${tab.paletteLabel}',
+        subtitle: 'Bảng Tự động hoá',
         run: (_) async => shell.showFlowTab(tab),
       ),
     );
@@ -367,10 +453,10 @@ List<_PaletteCommand> _buildPaletteCommands({
     commands.add(
       _PaletteCommand(
         id: 'goto.options:${tab.name}',
-        group: 'Go to',
+        group: 'Đi tới',
         icon: tab.icon,
-        title: 'Go to ${tab.label} options',
-        subtitle: 'Options panel',
+        title: 'Đi tới tuỳ chọn ${tab.label}',
+        subtitle: 'Bảng Tuỳ chọn',
         run: (_) async => shell.showOptionsTab(tab),
       ),
     );
@@ -379,18 +465,18 @@ List<_PaletteCommand> _buildPaletteCommands({
   commands.addAll([
     _PaletteCommand(
       id: 'run.stop',
-      group: 'Run control',
+      group: 'Điều khiển',
       icon: Icons.stop_circle_outlined,
-      title: 'Stop the running command',
+      title: 'Dừng lệnh đang chạy',
       enabled: controller.runner.isRunning.value,
-      disabledReason: 'Nothing is running',
+      disabledReason: 'Không có lệnh nào đang chạy',
       run: (_) => controller.stopRun(),
     ),
     _PaletteCommand(
       id: 'run.clearLog',
-      group: 'Run control',
+      group: 'Điều khiển',
       icon: Icons.clear_all_outlined,
-      title: 'Clear log',
+      title: 'Xoá log',
       run: (_) async => controller.clearLog(),
     ),
   ]);
@@ -409,9 +495,9 @@ extension _ShellFlowTabPaletteMeta on ShellFlowTab {
 
   String get paletteLabel {
     return switch (this) {
-      ShellFlowTab.storeVersions => 'Store Versions',
-      ShellFlowTab.fastlaneFlow => 'Fastlane Flow',
-      ShellFlowTab.fastlaneCommand => 'Fastlane Command',
+      ShellFlowTab.storeVersions => 'Bản trên store',
+      ShellFlowTab.fastlaneFlow => 'Luồng Fastlane',
+      ShellFlowTab.fastlaneCommand => 'Lệnh Fastlane',
     };
   }
 }
@@ -603,7 +689,7 @@ class _CommandPaletteState extends State<_CommandPalette> {
                           ),
                           decoration: const InputDecoration(
                             prefixIcon: Icon(Icons.search_outlined),
-                            hintText: 'Type a command, project or lane…',
+                            hintText: 'Gõ tên lệnh, dự án hoặc lane…',
                             border: InputBorder.none,
                           ),
                         ),
@@ -618,7 +704,7 @@ class _CommandPaletteState extends State<_CommandPalette> {
                             padding: const EdgeInsets.symmetric(vertical: 26),
                             child: Center(
                               child: Text(
-                                'No command matches "${_query.trim()}"',
+                                'Không có lệnh nào khớp "${_query.trim()}"',
                                 style: AppCyberTheme.dataTextStyle(
                                   size: 11.5,
                                   color: AppCyberTheme.textMuted,
@@ -768,11 +854,11 @@ class _PaletteFooter extends StatelessWidget {
     );
     return Row(
       children: [
-        Text('↑↓ move', style: style),
+        Text('↑↓ di chuyển', style: style),
         const SizedBox(width: 14),
-        Text('Enter run', style: style),
+        Text('Enter chạy', style: style),
         const SizedBox(width: 14),
-        Text('Esc close', style: style),
+        Text('Esc đóng', style: style),
       ],
     );
   }
@@ -793,7 +879,7 @@ class _CommandPaletteBar extends StatelessWidget {
     );
 
     return Tooltip(
-      message: 'Search commands (Ctrl+K)',
+      message: 'Tìm lệnh (Ctrl+K)',
       child: Material(
         color: Colors.transparent,
         child: InkWell(
@@ -830,7 +916,7 @@ class _CommandPaletteBar extends StatelessWidget {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'Search commands, projects, lanes\u2026',
+                          'Tìm lệnh, dự án, lane\u2026',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: AppCyberTheme.dataTextStyle(

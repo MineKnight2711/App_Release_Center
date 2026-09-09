@@ -116,7 +116,7 @@ void main() {
       );
 
       expect(release.status, ReleaseStepStatus.warning);
-      expect(release.error, contains('Upload succeeded'));
+      expect(release.error, contains('Upload thành công'));
       expect(completed.isCompleted, isTrue);
       expect(harness.service.canRetry, isTrue);
       expect(harness.runner.deployRuns, 1);
@@ -496,7 +496,7 @@ class _FakeChPlayVersionChecker extends ChPlayVersionCheckService {
       localVersion: local,
       storeVersionCode: storeCode,
       status: ChPlayVersionCheckService.compare(local!.code, storeCode),
-      message: 'Checked ${project.track}.',
+      message: 'Đã kiểm tra ${project.track}.',
     );
   }
 }

@@ -292,7 +292,7 @@ class ApiToolRepositoryService extends GetxService {
   TeamApiToolDataSource? _teamDataSource;
   StreamSubscription<CurrentUserProfile?>? _profileSubscription;
 
-  final workspaceLabel = 'Local workspace'.obs;
+  final workspaceLabel = 'Workspace ở máy'.obs;
   final repositoryStatus = ''.obs;
   final isLoading = false.obs;
   final canWriteApiTools = true.obs;
@@ -342,14 +342,14 @@ class ApiToolRepositoryService extends GetxService {
     final teamProfile = _currentTeamProfile;
     if (teamProfile == null || _teamDataSource == null) {
       _loadLocalCache();
-      workspaceLabel.value = 'Local workspace';
+      workspaceLabel.value = 'Workspace ở máy';
       repositoryStatus.value = '';
       canWriteApiTools.value = true;
       return;
     }
 
     isLoading.value = true;
-    workspaceLabel.value = 'Team: ${teamProfile.teamName}';
+    workspaceLabel.value = 'Nhóm: ${teamProfile.teamName}';
     canWriteApiTools.value = teamProfile.canEditApiTools;
     try {
       final snapshot = await _teamDataSource!.load(teamProfile.teamId);
@@ -362,7 +362,7 @@ class ApiToolRepositoryService extends GetxService {
       _loadLocalCache();
       canWriteApiTools.value = false;
       repositoryStatus.value =
-          'Team HTTP Tools are unavailable. Local data is shown read-only.';
+          'Không truy cập được HTTP Tools của nhóm. Dữ liệu ở máy chỉ xem được.';
     } finally {
       isLoading.value = false;
     }
@@ -432,7 +432,7 @@ class ApiToolRepositoryService extends GetxService {
     _ensureWritable();
     final normalizedId = collectionId.trim();
     if (normalizedId.isEmpty) {
-      throw const ApiToolRepositoryException('Select a collection to delete.');
+      throw const ApiToolRepositoryException('Chọn collection cần xoá.');
     }
 
     final collections = _collections
@@ -509,7 +509,9 @@ class ApiToolRepositoryService extends GetxService {
   Future<void> importLocalApiToolsToTeam() async {
     final teamProfile = _currentTeamProfile;
     if (teamProfile == null || _teamDataSource == null) {
-      throw const ApiToolRepositoryException('Sign in to a team first.');
+      throw const ApiToolRepositoryException(
+        'Đăng nhập vào một nhóm trước đã.',
+      );
     }
     _ensureWritable();
 
@@ -535,7 +537,7 @@ class ApiToolRepositoryService extends GetxService {
     _folders = folders;
     _requests = requests;
     _quickRequests = quickRequests;
-    repositoryStatus.value = 'Local HTTP Tools were imported to the team.';
+    repositoryStatus.value = 'Đã đưa HTTP Tools ở máy lên nhóm.';
   }
 
   void _loadLocalCache() {
@@ -549,7 +551,7 @@ class ApiToolRepositoryService extends GetxService {
     if (!canWriteApiTools.value) {
       throw ApiToolRepositoryException(
         repositoryStatus.value.isEmpty
-            ? 'You do not have permission to edit HTTP Tools.'
+            ? 'Bạn không có quyền sửa HTTP Tools.'
             : repositoryStatus.value,
       );
     }

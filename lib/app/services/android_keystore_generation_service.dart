@@ -27,13 +27,13 @@ class AndroidKeystoreGenerationService extends GetxService {
   }) async {
     final root = Directory(p.normalize(projectPath));
     if (!root.existsSync()) {
-      throw FileSystemException('Project directory does not exist.', root.path);
+      throw FileSystemException('Thư mục dự án không tồn tại.', root.path);
     }
 
     final androidDirectory = Directory(p.join(root.path, 'android'));
     if (!androidDirectory.existsSync()) {
       throw FileSystemException(
-        'Project does not contain an android folder.',
+        'Dự án không có thư mục android.',
         androidDirectory.path,
       );
     }
@@ -59,7 +59,7 @@ class AndroidKeystoreGenerationService extends GetxService {
     if (keystoreFile.existsSync()) {
       if (!forceRecreate) {
         throw AndroidKeystoreGenerationException(
-          '${_normalizeRelativePath(p.relative(keystoreFile.path, from: root.path))} already exists. Enable force recreate to replace it.',
+          '${_normalizeRelativePath(p.relative(keystoreFile.path, from: root.path))} đã tồn tại. Bật tạo lại để ghi đè.',
         );
       }
       await keystoreFile.delete();
@@ -97,7 +97,7 @@ class AndroidKeystoreGenerationService extends GetxService {
 
     if (result.exitCode != 0) {
       throw AndroidKeystoreGenerationException(
-        'keytool failed with exit code ${result.exitCode}.${_failureOutput(result, password)}',
+        'keytool lỗi, exit code ${result.exitCode}.${_failureOutput(result, password)}',
       );
     }
 
@@ -210,7 +210,7 @@ class AndroidKeystoreGenerationService extends GetxService {
     if (manual.isNotEmpty) {
       if (manual.length < 6) {
         throw const AndroidKeystoreGenerationException(
-          'Manual keystore password must be at least 6 characters.',
+          'Mật khẩu keystore nhập tay phải từ 6 ký tự.',
         );
       }
       return manual;
@@ -219,7 +219,7 @@ class AndroidKeystoreGenerationService extends GetxService {
     final generated = _passwordGenerator().trim();
     if (generated.isEmpty) {
       throw const AndroidKeystoreGenerationException(
-        'Failed to generate a keystore password.',
+        'Không tạo được mật khẩu keystore.',
       );
     }
     return generated;

@@ -50,7 +50,7 @@ void main() {
     );
     expect(
       harness.controller.telegramReleaseStatus.value,
-      'Release notes sent to Telegram.',
+      'Đã gửi release note qua Telegram.',
     );
   });
 
@@ -78,13 +78,10 @@ void main() {
     await harness.controller.generateReleaseNotes();
 
     expect(harness.controller.releaseNotesController.text, 'Nội dung mới.');
-    expect(
-      harness.controller.releaseNoteAiStatus.value,
-      startsWith('Generated from'),
-    );
+    expect(harness.controller.releaseNoteAiStatus.value, startsWith('Tạo từ'));
     expect(
       harness.controller.telegramReleaseStatus.value,
-      contains('Telegram send failed'),
+      contains('gửi Telegram lỗi'),
     );
   });
 
@@ -118,7 +115,7 @@ void main() {
       expect(harness.telegramClient.requests, hasLength(1));
       expect(
         harness.controller.telegramReleaseStatus.value,
-        contains('Generate release notes'),
+        contains('Tạo release note'),
       );
     },
   );
@@ -164,7 +161,7 @@ void main() {
       );
       expect(harness.controller.runner.workflowTotalSteps.value, 3);
       expect(harness.controller.runner.overallProgress.value, 1);
-      expect(harness.controller.runner.status.value, 'Completed');
+      expect(harness.controller.runner.status.value, 'Xong');
     },
   );
 
@@ -208,7 +205,7 @@ void main() {
       contains('https://drive.google.com/file/d/drive-file-id/view'),
     );
     expect(harness.controller.runner.workflowTotalSteps.value, 3);
-    expect(harness.controller.runner.status.value, 'Completed');
+    expect(harness.controller.runner.status.value, 'Xong');
   });
 
   test('manual Drive APK action builds when no release APK exists', () async {
@@ -234,10 +231,10 @@ void main() {
     expect(harness.telegramClient.requests, isEmpty);
     expect(harness.telegramClient.uploads, isEmpty);
     expect(harness.controller.runner.workflowTotalSteps.value, 2);
-    expect(harness.controller.runner.status.value, 'Completed');
+    expect(harness.controller.runner.status.value, 'Xong');
     expect(
       harness.controller.googleDriveReleaseStatus.value,
-      contains('Release APK uploaded to Google Drive'),
+      contains('Đã upload APK release lên Google Drive'),
     );
   });
 
@@ -278,7 +275,7 @@ void main() {
       expect(message, contains('Release notes:'));
       expect(message, contains('Fixed checkout crash.'));
       expect(harness.controller.runner.workflowTotalSteps.value, 3);
-      expect(harness.controller.runner.status.value, 'Completed');
+      expect(harness.controller.runner.status.value, 'Xong');
     },
   );
 
@@ -311,11 +308,11 @@ void main() {
       ]);
       expect(harness.googleDriveApiClient.sharedFileIds, ['drive-file-id']);
       expect(harness.controller.runner.workflowTotalSteps.value, 1);
-      expect(harness.controller.runner.status.value, 'Completed');
+      expect(harness.controller.runner.status.value, 'Xong');
       expect(
         harness.controller.runner.logLines,
         contains(
-          'Existing release APK found: '
+          'Đã có sẵn APK release: '
           '${p.join(output.path, 'FizaHUB_v2.0.1_21_07_2026.apk')}',
         ),
       );
@@ -336,7 +333,7 @@ void main() {
       expect(harness.telegramClient.uploads, isEmpty);
       expect(
         harness.controller.installerDeliveryStatus.value,
-        contains('Telegram bot token is required'),
+        contains('Phải có Telegram bot token'),
       );
     },
   );
@@ -364,10 +361,10 @@ void main() {
       windowsInstallerContentType,
     );
     expect(harness.controller.runner.workflowTotalSteps.value, 3);
-    expect(harness.controller.runner.status.value, 'Completed');
+    expect(harness.controller.runner.status.value, 'Xong');
     expect(
       harness.controller.installerDeliveryStatus.value,
-      'Windows installer sent to Telegram.',
+      'Đã gửi bộ cài Windows qua Telegram.',
     );
   });
 
@@ -401,7 +398,7 @@ void main() {
         message,
         contains('https://drive.google.com/file/d/drive-file-id/view'),
       );
-      expect(harness.controller.runner.status.value, 'Completed');
+      expect(harness.controller.runner.status.value, 'Xong');
     },
   );
 
@@ -429,9 +426,9 @@ void main() {
       expect(harness.googleDriveApiClient.uploads, isEmpty);
       expect(
         harness.controller.installerDeliveryStatus.value,
-        contains('Installer kept at'),
+        contains('Bộ cài giữ ở'),
       );
-      expect(harness.controller.runner.status.value, 'Failed');
+      expect(harness.controller.runner.status.value, 'Lỗi');
     },
   );
 
@@ -451,7 +448,7 @@ void main() {
       harness.controller.runner.overallProgress.value,
       closeTo(1 / 3, 0.001),
     );
-    expect(harness.controller.runner.status.value, 'Failed');
+    expect(harness.controller.runner.status.value, 'Lỗi');
   });
 
   test(
@@ -467,10 +464,10 @@ void main() {
       expect(harness.apkExecutor.callCount, 1);
       expect(harness.telegramClient.uploads, isEmpty);
       expect(harness.controller.runner.workflowTotalSteps.value, 2);
-      expect(harness.controller.runner.status.value, 'Completed');
+      expect(harness.controller.runner.status.value, 'Xong');
       expect(
         harness.controller.runner.logLines,
-        contains('Telegram auto send is disabled; APK was kept locally.'),
+        contains('Tự động gửi Telegram đang tắt; APK giữ lại ở máy.'),
       );
     },
   );
@@ -498,9 +495,9 @@ void main() {
     expect(harness.telegramClient.uploads, hasLength(1));
     expect(
       harness.controller.telegramReleaseStatus.value,
-      contains('Telegram APK upload failed'),
+      contains('lỗi khi gửi APK qua Telegram'),
     );
-    expect(harness.controller.runner.status.value, 'Failed');
+    expect(harness.controller.runner.status.value, 'Lỗi');
   });
 
   test('keeps the built APK when Drive fallback delivery fails', () async {
@@ -525,9 +522,9 @@ void main() {
     expect(harness.telegramClient.requests, isEmpty);
     expect(
       harness.controller.telegramReleaseStatus.value,
-      contains('Google Drive APK delivery failed'),
+      contains('lỗi khi gửi APK qua Google Drive'),
     );
-    expect(harness.controller.runner.status.value, 'Failed');
+    expect(harness.controller.runner.status.value, 'Lỗi');
   });
 }
 

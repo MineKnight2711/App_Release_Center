@@ -144,7 +144,7 @@ class _ApiToolQuickRequestDialogState
                     key: const Key('api-tool-quick-name'),
                     controller: _nameController,
                     decoration: const InputDecoration(
-                      labelText: 'Quick Request name',
+                      labelText: 'Tên Quick Request',
                     ),
                   ),
                 ),
@@ -169,9 +169,9 @@ class _ApiToolQuickRequestDialogState
             SwitchListTile(
               key: const Key('api-tool-quick-confirmation'),
               contentPadding: EdgeInsets.zero,
-              title: const Text('Require confirmation before running'),
+              title: const Text('Hỏi xác nhận trước khi chạy'),
               subtitle: const Text(
-                'Recommended for reset or destructive calls.',
+                'Nên bật cho các lệnh reset hoặc xoá dữ liệu.',
               ),
               value: _requiresConfirmation,
               onChanged: (value) =>
@@ -224,13 +224,13 @@ class _ApiToolQuickRequestDialogState
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: const Text('Huỷ'),
         ),
         FilledButton.icon(
           key: const Key('api-tool-save-quick-request'),
           onPressed: _save,
           icon: const Icon(Icons.save_outlined),
-          label: const Text('Save Quick Request'),
+          label: const Text('Lưu Quick Request'),
         ),
       ],
     );
@@ -283,7 +283,7 @@ class _ApiToolQuickRequestDialogState
         DropdownButtonFormField<ApiToolAuthorizationType>(
           key: const Key('api-tool-quick-auth-type'),
           initialValue: _authorizationType,
-          decoration: const InputDecoration(labelText: 'Authorization type'),
+          decoration: const InputDecoration(labelText: 'Loại authorization'),
           items: ApiToolAuthorizationType.values
               .map(
                 (entry) =>
@@ -297,7 +297,7 @@ class _ApiToolQuickRequestDialogState
         const SizedBox(height: 10),
         ...switch (_authorizationType) {
           ApiToolAuthorizationType.none => [
-            const Text('No authorization header will be added.'),
+            const Text('Sẽ không thêm header authorization nào.'),
           ],
           ApiToolAuthorizationType.bearer => [
             _quickTextField(_authTokenController, 'Token', 'quick-auth-token'),
@@ -305,26 +305,26 @@ class _ApiToolQuickRequestDialogState
           ApiToolAuthorizationType.basic => [
             _quickTextField(
               _authUsernameController,
-              'Username',
+              'Tài khoản',
               'quick-auth-username',
             ),
             const SizedBox(height: 10),
             _quickTextField(
               _authPasswordController,
-              'Password',
+              'Mật khẩu',
               'quick-auth-password',
             ),
           ],
           ApiToolAuthorizationType.apiKey => [
             _quickTextField(
               _authApiKeyNameController,
-              'Header name',
+              'Tên header',
               'quick-auth-api-key-name',
             ),
             const SizedBox(height: 10),
             _quickTextField(
               _authApiKeyValueController,
-              'Value',
+              'Giá trị',
               'quick-auth-api-key-value',
             ),
           ],
@@ -373,11 +373,11 @@ class _ApiToolQuickRequestDialogState
                 child: TextField(
                   key: Key('api-tool-$prefix-value-$index'),
                   controller: rows[index].valueController,
-                  decoration: const InputDecoration(labelText: 'Value'),
+                  decoration: const InputDecoration(labelText: 'Giá trị'),
                 ),
               ),
               IconButton(
-                tooltip: 'Remove field',
+                tooltip: 'Bỏ field',
                 onPressed: rows.length == 1
                     ? null
                     : () {
@@ -397,7 +397,7 @@ class _ApiToolQuickRequestDialogState
           child: OutlinedButton.icon(
             onPressed: onAdd,
             icon: const Icon(Icons.add_outlined),
-            label: const Text('Add field'),
+            label: const Text('Thêm field'),
           ),
         ),
       ],
@@ -411,7 +411,7 @@ class _ApiToolQuickRequestDialogState
         DropdownButtonFormField<ApiToolBodyMode>(
           key: const Key('api-tool-quick-body-mode'),
           initialValue: _bodyMode,
-          decoration: const InputDecoration(labelText: 'Body type'),
+          decoration: const InputDecoration(labelText: 'Loại body'),
           items: ApiToolBodyMode.values
               .map(
                 (entry) =>
@@ -477,7 +477,7 @@ class _ApiToolQuickRequestDialogState
                       child: DropdownButtonFormField<ApiToolMultipartKind>(
                         key: Key('api-tool-quick-part-kind-$index'),
                         initialValue: _multipartRows[index].kind,
-                        decoration: const InputDecoration(labelText: 'Type'),
+                        decoration: const InputDecoration(labelText: 'Loại'),
                         items: ApiToolMultipartKind.values
                             .map(
                               (entry) => DropdownMenuItem(
@@ -502,7 +502,7 @@ class _ApiToolQuickRequestDialogState
                       ),
                     ),
                     IconButton(
-                      tooltip: 'Remove field',
+                      tooltip: 'Bỏ field',
                       onPressed: _multipartRows.length == 1
                           ? null
                           : () {
@@ -526,8 +526,8 @@ class _ApiToolQuickRequestDialogState
                           labelText:
                               _multipartRows[index].kind ==
                                   ApiToolMultipartKind.file
-                              ? 'File path'
-                              : 'Value',
+                              ? 'Đường dẫn file'
+                              : 'Giá trị',
                         ),
                       ),
                     ),
@@ -545,7 +545,7 @@ class _ApiToolQuickRequestDialogState
                       ),
                       IconButton(
                         key: Key('api-tool-quick-part-pick-$index'),
-                        tooltip: 'Choose file',
+                        tooltip: 'Chọn file',
                         onPressed: () => _pickQuickFile(index),
                         icon: const Icon(Icons.folder_open_outlined),
                       ),
@@ -566,7 +566,7 @@ class _ApiToolQuickRequestDialogState
               ),
             ),
             icon: const Icon(Icons.add_outlined),
-            label: const Text('Add field'),
+            label: const Text('Thêm field'),
           ),
         ),
       ],
@@ -583,11 +583,11 @@ class _ApiToolQuickRequestDialogState
     final name = _nameController.text.trim();
     final url = _urlController.text.trim();
     if (name.isEmpty) {
-      setState(() => _validationError = 'Enter a Quick Request name.');
+      setState(() => _validationError = 'Nhập tên Quick Request.');
       return;
     }
     if (_collectionId.isEmpty) {
-      setState(() => _validationError = 'Select a collection.');
+      setState(() => _validationError = 'Chọn một collection.');
       return;
     }
     final uri = Uri.tryParse(url);
@@ -596,7 +596,7 @@ class _ApiToolQuickRequestDialogState
             (!uri.hasScheme ||
                 uri.host.isEmpty ||
                 !const {'http', 'https'}.contains(uri.scheme.toLowerCase())))) {
-      setState(() => _validationError = 'Enter a valid HTTP or HTTPS URL.');
+      setState(() => _validationError = 'Nhập URL HTTP hoặc HTTPS hợp lệ.');
       return;
     }
 
@@ -696,7 +696,7 @@ class _ApiToolQuickRequestTile extends StatelessWidget {
                     ),
                     if (request.requiresConfirmation)
                       const Tooltip(
-                        message: 'Confirmation required',
+                        message: 'Cần xác nhận',
                         child: Icon(Icons.verified_user_outlined, size: 15),
                       ),
                   ],
@@ -716,14 +716,14 @@ class _ApiToolQuickRequestTile extends StatelessWidget {
           ),
           IconButton(
             key: Key('api-tool-run-quick-request-${request.id}'),
-            tooltip: 'Run Quick Request',
+            tooltip: 'Chạy Quick Request',
             onPressed: running ? null : onRun,
             icon: const Icon(Icons.play_arrow_rounded),
           ),
           PopupMenuButton<_ApiToolQuickRequestAction>(
             key: Key('api-tool-quick-request-menu-${request.id}'),
             enabled: canEdit && !running,
-            tooltip: 'Manage Quick Request',
+            tooltip: 'Quản lý Quick Request',
             onSelected: onAction,
             itemBuilder: (_) => const [
               PopupMenuItem(
@@ -731,7 +731,7 @@ class _ApiToolQuickRequestTile extends StatelessWidget {
                 child: ListTile(
                   dense: true,
                   leading: Icon(Icons.edit_outlined),
-                  title: Text('Edit'),
+                  title: Text('Sửa'),
                 ),
               ),
               PopupMenuItem(
@@ -739,7 +739,7 @@ class _ApiToolQuickRequestTile extends StatelessWidget {
                 child: ListTile(
                   dense: true,
                   leading: Icon(Icons.copy_all_outlined),
-                  title: Text('Duplicate'),
+                  title: Text('Nhân bản'),
                 ),
               ),
               PopupMenuItem(
@@ -747,7 +747,7 @@ class _ApiToolQuickRequestTile extends StatelessWidget {
                 child: ListTile(
                   dense: true,
                   leading: Icon(Icons.delete_outline),
-                  title: Text('Delete'),
+                  title: Text('Xoá'),
                 ),
               ),
             ],

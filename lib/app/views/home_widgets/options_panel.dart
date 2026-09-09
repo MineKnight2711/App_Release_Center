@@ -55,7 +55,7 @@ class _OptionsPanelState extends State<_OptionsPanel>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _PanelTitle(icon: Icons.tune_outlined, title: 'Options'),
+          const _PanelTitle(icon: Icons.tune_outlined, title: 'Tuỳ chọn'),
           const SizedBox(height: 10),
           _OptionsTabSelector(controller: _tabs),
           const SizedBox(height: 10),
@@ -104,11 +104,11 @@ extension _OptionsTabMeta on ShellOptionsTab {
   String get label {
     return switch (this) {
       ShellOptionsTab.release => 'Release',
-      ShellOptionsTab.setup => 'Setup',
-      ShellOptionsTab.resources => 'Resources',
+      ShellOptionsTab.setup => 'Thiết lập',
+      ShellOptionsTab.resources => 'Tài nguyên',
       ShellOptionsTab.telegram => 'Telegram',
-      ShellOptionsTab.push => 'Push',
-      ShellOptionsTab.remote => 'Remote',
+      ShellOptionsTab.push => 'Thông báo',
+      ShellOptionsTab.remote => 'Điều khiển',
     };
   }
 }
@@ -334,7 +334,7 @@ class _ReleaseOptions extends GetView<HomeController> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Select a project with release tooling to show deployment options.',
+                      'Chọn dự án có sẵn bộ công cụ release để hiện tuỳ chọn deploy.',
                       style: AppCyberTheme.dataTextStyle(
                         size: 10.8,
                         color: AppCyberTheme.textMuted,
@@ -395,7 +395,7 @@ class _CiCdSetupOptions extends GetView<HomeController> {
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
                           : const Icon(Icons.manage_search_outlined),
-                      label: Text(isChecking ? 'Checking' : 'Run Doctor'),
+                      label: Text(isChecking ? 'Đang kiểm tra' : 'Chạy Doctor'),
                     ),
                   ],
                 ),
@@ -406,7 +406,7 @@ class _CiCdSetupOptions extends GetView<HomeController> {
                   children: [
                     _MetaChip(
                       icon: Icons.desktop_windows_outlined,
-                      label: snapshot?.platform.label ?? 'Not checked',
+                      label: snapshot?.platform.label ?? 'Chưa kiểm tra',
                       highlighted: snapshot != null,
                     ),
                     if (snapshot != null)
@@ -431,7 +431,7 @@ class _CiCdSetupOptions extends GetView<HomeController> {
                 if (snapshot == null)
                   const _CiCdEmptyState(
                     icon: Icons.search_outlined,
-                    message: 'Run Doctor to scan CI/CD dependencies.',
+                    message: 'Chạy Doctor để quét dependency CI/CD.',
                   )
                 else
                   _CiCdDoctorList(snapshot: snapshot),
@@ -446,7 +446,7 @@ class _CiCdSetupOptions extends GetView<HomeController> {
               children: [
                 const _PanelTitle(
                   icon: Icons.playlist_add_check_outlined,
-                  title: 'Install queue',
+                  title: 'Hàng đợi cài đặt',
                 ),
                 const SizedBox(height: 10),
                 _CiCdSetupOptionSelector(snapshot: snapshot),
@@ -455,7 +455,7 @@ class _CiCdSetupOptions extends GetView<HomeController> {
                   children: [
                     Expanded(
                       child: Text(
-                        'Queue',
+                        'Hàng đợi',
                         style: AppCyberTheme.dataTextStyle(
                           size: 11.4,
                           color: AppCyberTheme.textPrimary,
@@ -474,12 +474,12 @@ class _CiCdSetupOptions extends GetView<HomeController> {
                 if (snapshot == null)
                   const _CiCdEmptyState(
                     icon: Icons.fact_check_outlined,
-                    message: 'Queue appears after a Doctor scan.',
+                    message: 'Hàng đợi hiện ra sau khi Doctor quét xong.',
                   )
                 else if (steps.isEmpty)
                   const _CiCdEmptyState(
                     icon: Icons.verified_outlined,
-                    message: 'No install steps for the selected tools.',
+                    message: 'Không có bước cài nào cho các công cụ đã chọn.',
                   )
                 else
                   ...steps.map((step) => _CiCdInstallStepTile(step: step)),
@@ -862,7 +862,7 @@ class _CiCdInstallStepTile extends GetView<HomeController> {
                           ? null
                           : () => controller.openCiCdInstallFallback(step),
                       icon: const Icon(Icons.open_in_new_outlined),
-                      label: const Text('Open guide'),
+                      label: const Text('Mở hướng dẫn'),
                     )
                   : FilledButton.tonalIcon(
                       key: Key('cicd-run-${step.id}'),
@@ -870,7 +870,7 @@ class _CiCdInstallStepTile extends GetView<HomeController> {
                           ? null
                           : () => _confirmCiCdInstallStep(context, step),
                       icon: const Icon(Icons.play_arrow_outlined),
-                      label: const Text('Run'),
+                      label: const Text('Chạy'),
                     ),
             ),
           ],
@@ -898,12 +898,12 @@ class _CiCdSetupLogs extends GetView<HomeController> {
           key: const Key('cicd-setup-log-preview'),
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const _PanelTitle(icon: Icons.subject_outlined, title: 'Logs'),
+            const _PanelTitle(icon: Icons.subject_outlined, title: 'Log'),
             const SizedBox(height: 8),
             if (visibleLogs.isEmpty)
               const _CiCdEmptyState(
                 icon: Icons.notes_outlined,
-                message: 'Logs will appear here while setup steps run.',
+                message: 'Log sẽ hiện ở đây khi các bước thiết lập chạy.',
               )
             else
               ...visibleLogs.map(
@@ -1028,17 +1028,17 @@ Future<void> _confirmCiCdInstallStep(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Preview command'),
+            const Text('Xem trước lệnh'),
             const SizedBox(height: 8),
             _CiCdCommandPreview(command: step.commandPreview),
             if (step.workingDirectory.trim().isNotEmpty) ...[
               const SizedBox(height: 8),
-              Text('Working directory: ${step.workingDirectory}'),
+              Text('Thư mục làm việc: ${step.workingDirectory}'),
             ],
             if (step.requiresConfirmation) ...[
               const SizedBox(height: 10),
               const Text(
-                'This may install tools, update packages, or open an interactive prompt.',
+                'Việc này có thể cài công cụ, cập nhật package, hoặc mở prompt hỏi đáp.',
               ),
             ],
           ],
@@ -1046,12 +1046,12 @@ Future<void> _confirmCiCdInstallStep(
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancel'),
+            child: const Text('Huỷ'),
           ),
           FilledButton.icon(
             onPressed: () => Navigator.of(dialogContext).pop(true),
             icon: const Icon(Icons.play_arrow_outlined),
-            label: const Text('Run'),
+            label: const Text('Chạy'),
           ),
         ],
       );
@@ -1143,7 +1143,7 @@ class _PlayUploadOptions extends GetView<HomeController> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('CH Play upload', style: Theme.of(context).textTheme.labelLarge),
+          Text('Upload CH Play', style: Theme.of(context).textTheme.labelLarge),
           const SizedBox(height: 8),
           SizedBox(
             width: double.infinity,
@@ -1153,7 +1153,7 @@ class _PlayUploadOptions extends GetView<HomeController> {
                 ButtonSegment(
                   value: PlayUploadChoice.ask,
                   icon: Icon(Icons.help_outline),
-                  label: Text('Ask'),
+                  label: Text('Hỏi'),
                 ),
                 ButtonSegment(
                   value: PlayUploadChoice.upload,
@@ -1163,7 +1163,7 @@ class _PlayUploadOptions extends GetView<HomeController> {
                 ButtonSegment(
                   value: PlayUploadChoice.skip,
                   icon: Icon(Icons.block_outlined),
-                  label: Text('Skip'),
+                  label: Text('Bỏ qua'),
                 ),
               ],
               selected: {controller.playUploadChoice.value},
@@ -1185,7 +1185,7 @@ class _PlayUploadOptions extends GetView<HomeController> {
                 color: AppCyberTheme.textPrimary,
               ),
               decoration: const InputDecoration(
-                labelText: 'Release notes',
+                labelText: 'Release note',
                 alignLabelWithHint: true,
               ),
             ),
@@ -1216,9 +1216,9 @@ class _PlayImageOptions extends GetView<HomeController> {
                   }
                 : null,
             contentPadding: EdgeInsets.zero,
-            title: const Text('Upload Play images and app icon'),
+            title: const Text('Upload ảnh Play và icon app'),
             subtitle: const Text(
-              'Includes icon, feature graphic, and screenshots.',
+              'Gồm icon, feature graphic và ảnh chụp màn hình.',
             ),
             controlAffinity: ListTileControlAffinity.leading,
           ),
@@ -1234,7 +1234,7 @@ class _PlayImageOptions extends GetView<HomeController> {
                     }
                   : null,
               contentPadding: EdgeInsets.zero,
-              title: const Text('Validate Play images first'),
+              title: const Text('Kiểm tra ảnh Play trước'),
               controlAffinity: ListTileControlAffinity.leading,
             ),
             SizedBox(
@@ -1244,7 +1244,7 @@ class _PlayImageOptions extends GetView<HomeController> {
                     ? null
                     : controller.validateImages,
                 icon: const Icon(Icons.image_search_outlined),
-                label: const Text('Validate images'),
+                label: const Text('Kiểm tra ảnh'),
               ),
             ),
           ],
@@ -1266,7 +1266,7 @@ class _CustomScriptArguments extends GetView<HomeController> {
         color: AppCyberTheme.textPrimary,
       ),
       decoration: const InputDecoration(
-        labelText: 'Custom script arguments',
+        labelText: 'Tham số script tuỳ chỉnh',
         prefixIcon: Icon(Icons.code_outlined),
       ),
     );
@@ -1289,7 +1289,7 @@ class _CommandInputDock extends GetView<HomeController> {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            const _PanelTitle(icon: Icons.keyboard_outlined, title: 'Input'),
+            const _PanelTitle(icon: Icons.keyboard_outlined, title: 'Nhập'),
             const SizedBox(height: 10),
             if (prompt != null)
               _YesNoPromptActions(prompt: prompt)
@@ -1306,13 +1306,13 @@ class _CommandInputDock extends GetView<HomeController> {
                         color: AppCyberTheme.textPrimary,
                       ),
                       decoration: const InputDecoration(
-                        labelText: 'Send to script',
+                        labelText: 'Gửi cho script',
                       ),
                     ),
                   ),
                   const SizedBox(width: 8),
                   IconButton.filled(
-                    tooltip: 'Send input',
+                    tooltip: 'Gửi',
                     onPressed: isRunning ? controller.sendInput : null,
                     icon: const Icon(Icons.send),
                   ),
@@ -1325,7 +1325,7 @@ class _CommandInputDock extends GetView<HomeController> {
                   child: OutlinedButton.icon(
                     onPressed: controller.clearLog,
                     icon: const Icon(Icons.clear_all_outlined),
-                    label: const Text('Clear log'),
+                    label: const Text('Xoá log'),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -1333,7 +1333,7 @@ class _CommandInputDock extends GetView<HomeController> {
                   child: FilledButton.tonalIcon(
                     onPressed: isRunning ? controller.stopRun : null,
                     icon: const Icon(Icons.stop_circle_outlined),
-                    label: const Text('Stop'),
+                    label: const Text('Dừng'),
                   ),
                 ),
               ],
@@ -1374,7 +1374,7 @@ class _AiReleaseNotesOptions extends GetView<HomeController> {
           children: [
             const _PanelTitle(
               icon: Icons.auto_awesome_outlined,
-              title: 'AI Release Notes',
+              title: 'Release note AI',
             ),
             const SizedBox(height: 10),
             TextField(
@@ -1401,7 +1401,7 @@ class _AiReleaseNotesOptions extends GetView<HomeController> {
                 color: AppCyberTheme.textPrimary,
               ),
               decoration: const InputDecoration(
-                labelText: 'Custom prompt',
+                labelText: 'Prompt tuỳ chỉnh',
                 alignLabelWithHint: true,
                 prefixIcon: Icon(Icons.edit_note_outlined),
               ),
@@ -1414,7 +1414,7 @@ class _AiReleaseNotesOptions extends GetView<HomeController> {
                 OutlinedButton.icon(
                   onPressed: canSave ? controller.saveGeminiApiKey : null,
                   icon: const Icon(Icons.save_outlined),
-                  label: const Text('Save API key'),
+                  label: const Text('Lưu API key'),
                 ),
                 FilledButton.icon(
                   onPressed: canGenerate
@@ -1427,7 +1427,7 @@ class _AiReleaseNotesOptions extends GetView<HomeController> {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(Icons.auto_awesome_outlined),
-                  label: const Text('Generate'),
+                  label: const Text('Tạo'),
                 ),
               ],
             ),
@@ -1494,7 +1494,7 @@ class _GoogleDriveFallbackOptions extends GetView<HomeController> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Google Drive APK delivery',
+                    'Gửi APK qua Google Drive',
                     style: AppCyberTheme.dataTextStyle(
                       size: 11.8,
                       color: AppCyberTheme.textPrimary,
@@ -1507,8 +1507,8 @@ class _GoogleDriveFallbackOptions extends GetView<HomeController> {
                       ? Icons.check_circle_outline
                       : Icons.link_off_outlined,
                   label: controller.hasGoogleDriveCredentials.value
-                      ? 'Connected'
-                      : 'Not connected',
+                      ? 'Đã kết nối'
+                      : 'Chưa kết nối',
                   highlighted: controller.hasGoogleDriveCredentials.value,
                 ),
               ],
@@ -1540,9 +1540,9 @@ class _GoogleDriveFallbackOptions extends GetView<HomeController> {
                 color: AppCyberTheme.textPrimary,
               ),
               decoration: const InputDecoration(
-                labelText: 'Google OAuth Client Secret (optional)',
+                labelText: 'Google OAuth Client Secret (không bắt buộc)',
                 helperText:
-                    'Only needed when Google rejects the token exchange with client_secret is missing.',
+                    'Chỉ cần khi Google từ chối đổi token với lỗi client_secret is missing.',
                 prefixIcon: Icon(Icons.password_outlined),
               ),
             ),
@@ -1552,9 +1552,9 @@ class _GoogleDriveFallbackOptions extends GetView<HomeController> {
                   ? controller.setGoogleDriveFallbackEnabled
                   : null,
               contentPadding: EdgeInsets.zero,
-              title: const Text('Use Drive for APKs over 50 MB'),
+              title: const Text('Dùng Drive cho APK trên 50 MB'),
               subtitle: const Text(
-                'Upload oversized APKs to Drive and send the link to Telegram.',
+                'APK quá lớn thì upload lên Drive rồi gửi link qua Telegram.',
               ),
             ),
             SwitchListTile.adaptive(
@@ -1563,9 +1563,9 @@ class _GoogleDriveFallbackOptions extends GetView<HomeController> {
                   ? controller.setGoogleDriveApkLinkTelegramEnabled
                   : null,
               contentPadding: EdgeInsets.zero,
-              title: const Text('Send Drive link to Telegram'),
+              title: const Text('Gửi link Drive qua Telegram'),
               subtitle: const Text(
-                'Build/Upload APK and post-deploy delivery will upload to Drive, then send the link.',
+                'Build/Upload APK và bước gửi sau deploy sẽ upload lên Drive rồi gửi link.',
               ),
             ),
             CheckboxListTile(
@@ -1575,16 +1575,16 @@ class _GoogleDriveFallbackOptions extends GetView<HomeController> {
                         .setGoogleDriveLinkReleaseNotesIncluded(value ?? false)
                   : null,
               contentPadding: EdgeInsets.zero,
-              title: const Text('Include release notes'),
+              title: const Text('Kèm release note'),
               subtitle: const Text(
-                'Adds the current Release notes text to the Telegram link message.',
+                'Thêm nội dung Release note hiện tại vào tin nhắn link trên Telegram.',
               ),
               controlAffinity: ListTileControlAffinity.leading,
             ),
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: Text(
-                'Manual Drive upload uses the latest release APK if it exists; otherwise it builds a new release APK first.',
+                'Upload Drive thủ công dùng APK release mới nhất nếu có; không thì build APK release mới trước.',
                 style: AppCyberTheme.dataTextStyle(
                   size: 10.2,
                   color: AppCyberTheme.textMuted,
@@ -1601,7 +1601,7 @@ class _GoogleDriveFallbackOptions extends GetView<HomeController> {
                       ? controller.saveGoogleDriveConfiguration
                       : null,
                   icon: const Icon(Icons.save_outlined),
-                  label: const Text('Save Drive'),
+                  label: const Text('Lưu Drive'),
                 ),
                 FilledButton.tonalIcon(
                   onPressed:
@@ -1615,7 +1615,7 @@ class _GoogleDriveFallbackOptions extends GetView<HomeController> {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(Icons.link_outlined),
-                  label: const Text('Connect Drive'),
+                  label: const Text('Kết nối Drive'),
                 ),
                 OutlinedButton.icon(
                   onPressed: hasDriveConfiguration && !isBusy
@@ -1628,7 +1628,7 @@ class _GoogleDriveFallbackOptions extends GetView<HomeController> {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(Icons.wifi_tethering_outlined),
-                  label: const Text('Test Drive'),
+                  label: const Text('Thử Drive'),
                 ),
                 OutlinedButton.icon(
                   onPressed:
@@ -1636,7 +1636,7 @@ class _GoogleDriveFallbackOptions extends GetView<HomeController> {
                       ? controller.disconnectGoogleDrive
                       : null,
                   icon: const Icon(Icons.link_off_outlined),
-                  label: const Text('Disconnect'),
+                  label: const Text('Ngắt kết nối'),
                 ),
                 FilledButton.icon(
                   onPressed: canUploadApkToDrive
@@ -1683,7 +1683,7 @@ class _ResourceOptions extends GetView<HomeController> {
         children: [
           const _PanelTitle(
             icon: Icons.inventory_2_outlined,
-            title: 'Resources',
+            title: 'Tài nguyên',
           ),
           const SizedBox(height: 10),
           SingleChildScrollView(
@@ -1695,12 +1695,12 @@ class _ResourceOptions extends GetView<HomeController> {
                 ButtonSegment(
                   value: ResourcePanelMode.catalog,
                   icon: Icon(Icons.view_list_outlined, size: 16),
-                  label: Text('Catalog'),
+                  label: Text('Danh mục'),
                 ),
                 ButtonSegment(
                   value: ResourcePanelMode.collector,
                   icon: Icon(Icons.archive_outlined, size: 16),
-                  label: Text('Collector'),
+                  label: Text('Thu gom'),
                 ),
               ],
               selected: {controller.resourcePanelMode.value},
@@ -1747,7 +1747,7 @@ class _ResourceCollectorOptions extends GetView<HomeController> {
                 _ResourcePathField(
                   key: const Key('resource-source-path'),
                   controller: controller.resourceSourcePathController,
-                  label: 'Source folder',
+                  label: 'Thư mục nguồn',
                   icon: Icons.folder_open_outlined,
                   onPick: isBusy
                       ? null
@@ -1808,7 +1808,7 @@ class _ResourceCollectorOptions extends GetView<HomeController> {
                                 ),
                               )
                             : const Icon(Icons.manage_search_outlined),
-                        label: const Text('Scan'),
+                        label: const Text('Quét'),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -1824,13 +1824,13 @@ class _ResourceCollectorOptions extends GetView<HomeController> {
                                 true,
                               ),
                         icon: const Icon(Icons.check_box_outlined),
-                        label: const Text('All'),
+                        label: const Text('Tất cả'),
                       ),
                     ),
                     const SizedBox(width: 8),
                     IconButton.outlined(
                       key: const Key('resource-clear-selection'),
-                      tooltip: 'Clear resource selection',
+                      tooltip: 'Bỏ chọn tất cả',
                       onPressed:
                           findings.isEmpty || isBusy || selectedCount == 0
                           ? null
@@ -1854,7 +1854,7 @@ class _ResourceCollectorOptions extends GetView<HomeController> {
                 _ResourcePathField(
                   key: const Key('resource-target-path'),
                   controller: controller.resourceTargetPathController,
-                  label: 'Export folder',
+                  label: 'Thư mục xuất',
                   icon: Icons.drive_folder_upload_outlined,
                   onPick: isBusy
                       ? null
@@ -1912,7 +1912,7 @@ class _ResourceCollectorOptions extends GetView<HomeController> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'No resource files scanned',
+                      'Chưa quét được file tài nguyên nào',
                       style: AppCyberTheme.dataTextStyle(
                         size: 10.8,
                         color: AppCyberTheme.textMuted,
@@ -1980,7 +1980,7 @@ class _ResourceCatalogOptions extends GetView<HomeController> {
                     color: AppCyberTheme.textPrimary,
                   ),
                   decoration: const InputDecoration(
-                    labelText: 'Search catalog',
+                    labelText: 'Tìm trong danh mục',
                     prefixIcon: Icon(Icons.search_outlined),
                   ),
                 ),
@@ -1990,13 +1990,13 @@ class _ResourceCatalogOptions extends GetView<HomeController> {
                   initialValue: controller.selectedResourceCatalogKind.value,
                   isExpanded: true,
                   decoration: const InputDecoration(
-                    labelText: 'Type',
+                    labelText: 'Loại',
                     prefixIcon: Icon(Icons.category_outlined),
                   ),
                   items: [
                     const DropdownMenuItem<ResourceCatalogKind?>(
                       value: null,
-                      child: Text('All types'),
+                      child: Text('Mọi loại'),
                     ),
                     for (final kind in ResourceCatalogKind.values)
                       DropdownMenuItem<ResourceCatalogKind?>(
@@ -2018,7 +2018,7 @@ class _ResourceCatalogOptions extends GetView<HomeController> {
                             ? () => _editResource(context)
                             : null,
                         icon: const Icon(Icons.add_link_outlined),
-                        label: const Text('Resource'),
+                        label: const Text('Tài nguyên'),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -2029,7 +2029,7 @@ class _ResourceCatalogOptions extends GetView<HomeController> {
                             ? () => _editPassword(context)
                             : null,
                         icon: const Icon(Icons.password_outlined),
-                        label: const Text('Password'),
+                        label: const Text('Mật khẩu'),
                       ),
                     ),
                   ],
@@ -2051,7 +2051,7 @@ class _ResourceCatalogOptions extends GetView<HomeController> {
                                 ),
                               )
                             : const Icon(Icons.upload_file_outlined),
-                        label: const Text('Import'),
+                        label: const Text('Nhập'),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -2069,7 +2069,7 @@ class _ResourceCatalogOptions extends GetView<HomeController> {
                                 ),
                               )
                             : const Icon(Icons.download_outlined),
-                        label: const Text('Export'),
+                        label: const Text('Xuất'),
                       ),
                     ),
                   ],
@@ -2092,7 +2092,7 @@ class _ResourceCatalogOptions extends GetView<HomeController> {
           if (!hasProject)
             _ResourceEmptyState(
               icon: Icons.folder_open_outlined,
-              label: 'Select a project to manage catalog',
+              label: 'Chọn một dự án để quản lý danh mục',
             )
           else ...[
             _ResourceCatalogSectionHeader(
@@ -2104,7 +2104,7 @@ class _ResourceCatalogOptions extends GetView<HomeController> {
             if (resources.isEmpty)
               const _ResourceEmptyState(
                 icon: Icons.link_off_outlined,
-                label: 'No catalog resources',
+                label: 'Danh mục chưa có tài nguyên nào',
               )
             else
               for (final item in resources)
@@ -2118,14 +2118,14 @@ class _ResourceCatalogOptions extends GetView<HomeController> {
             const SizedBox(height: 2),
             _ResourceCatalogSectionHeader(
               icon: Icons.password_outlined,
-              label: 'Passwords',
+              label: 'Mật khẩu',
               count: passwords.length,
             ),
             const SizedBox(height: 8),
             if (passwords.isEmpty)
               const _ResourceEmptyState(
                 icon: Icons.no_encryption_outlined,
-                label: 'No password entries',
+                label: 'Chưa có mật khẩu nào',
               )
             else
               for (final entry in passwords)
@@ -2316,26 +2316,26 @@ class _ResourceCatalogItemTile extends GetView<HomeController> {
           Column(
             children: [
               IconButton(
-                tooltip: 'Open resource',
+                tooltip: 'Mở tài nguyên',
                 onPressed: location.trim().isEmpty
                     ? null
                     : () => controller.openResourceCatalogItem(item),
                 icon: const Icon(Icons.open_in_new_outlined),
               ),
               IconButton(
-                tooltip: 'Copy resource',
+                tooltip: 'Sao chép tài nguyên',
                 onPressed: location.trim().isEmpty
                     ? null
                     : () => controller.copyResourceCatalogValue(location),
                 icon: const Icon(Icons.copy_outlined),
               ),
               IconButton(
-                tooltip: 'Edit resource',
+                tooltip: 'Sửa tài nguyên',
                 onPressed: onEdit,
                 icon: const Icon(Icons.edit_outlined),
               ),
               IconButton(
-                tooltip: 'Delete resource',
+                tooltip: 'Xoá tài nguyên',
                 onPressed: () => controller.deleteResourceCatalogItem(item),
                 icon: const Icon(Icons.delete_outline),
               ),
@@ -2391,13 +2391,13 @@ class _ResourcePasswordEntryTile extends GetView<HomeController> {
                     defaultVerticalAlignment: TableCellVerticalAlignment.middle,
                     children: [
                       _passwordTableRow('URL', entry.loginUrl),
-                      _passwordTableRow('User', entry.username),
+                      _passwordTableRow('Tài khoản', entry.username),
                       _passwordTableRow(
-                        'Password',
+                        'Mật khẩu',
                         revealed ? password : '********',
                       ),
-                      _passwordTableRow('Env', entry.environment),
-                      _passwordTableRow('Owner', entry.owner),
+                      _passwordTableRow('Môi trường', entry.environment),
+                      _passwordTableRow('Người phụ trách', entry.owner),
                       _passwordTableRow('2FA', entry.twoFactorLocation),
                     ],
                   ),
@@ -2420,19 +2420,19 @@ class _ResourcePasswordEntryTile extends GetView<HomeController> {
             Column(
               children: [
                 IconButton(
-                  tooltip: 'Open login',
+                  tooltip: 'Mở trang đăng nhập',
                   onPressed: entry.hasLoginUrl
                       ? () => controller.openResourcePasswordLogin(entry)
                       : null,
                   icon: const Icon(Icons.open_in_new_outlined),
                 ),
                 IconButton(
-                  tooltip: 'Copy password',
+                  tooltip: 'Sao chép mật khẩu',
                   onPressed: () => controller.copyResourcePassword(entry),
                   icon: const Icon(Icons.copy_outlined),
                 ),
                 IconButton(
-                  tooltip: revealed ? 'Hide password' : 'Reveal password',
+                  tooltip: revealed ? 'Ẩn mật khẩu' : 'Hiện mật khẩu',
                   onPressed: () => revealed
                       ? controller.hideResourcePassword(entry.id)
                       : controller.revealResourcePassword(entry),
@@ -2443,12 +2443,12 @@ class _ResourcePasswordEntryTile extends GetView<HomeController> {
                   ),
                 ),
                 IconButton(
-                  tooltip: 'Edit password',
+                  tooltip: 'Sửa mật khẩu',
                   onPressed: onEdit,
                   icon: const Icon(Icons.edit_outlined),
                 ),
                 IconButton(
-                  tooltip: 'Delete password',
+                  tooltip: 'Xoá mật khẩu',
                   onPressed: () =>
                       controller.deleteResourcePasswordEntry(entry),
                   icon: const Icon(Icons.delete_outline),
@@ -2545,7 +2545,7 @@ class _ResourceCatalogItemDialogState
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(widget.item == null ? 'Resource' : 'Edit resource'),
+      title: Text(widget.item == null ? 'Tài nguyên mới' : 'Sửa tài nguyên'),
       content: SingleChildScrollView(
         child: SizedBox(
           width: 420,
@@ -2556,7 +2556,7 @@ class _ResourceCatalogItemDialogState
                 initialValue: _kind,
                 isExpanded: true,
                 decoration: const InputDecoration(
-                  labelText: 'Type',
+                  labelText: 'Loại',
                   prefixIcon: Icon(Icons.category_outlined),
                 ),
                 items: [
@@ -2571,27 +2571,31 @@ class _ResourceCatalogItemDialogState
                 },
               ),
               const SizedBox(height: 8),
-              _dialogField(_titleController, 'Title', Icons.title_outlined),
+              _dialogField(_titleController, 'Tiêu đề', Icons.title_outlined),
               const SizedBox(height: 8),
               _dialogField(_urlController, 'URL', Icons.link_outlined),
               const SizedBox(height: 8),
               _dialogField(
                 _pathController,
-                'Local path',
+                'Đường dẫn máy',
                 Icons.folder_outlined,
               ),
               const SizedBox(height: 8),
               _dialogField(
                 _environmentController,
-                'Environment',
+                'Môi trường',
                 Icons.public_outlined,
               ),
               const SizedBox(height: 8),
-              _dialogField(_ownerController, 'Owner', Icons.person_outline),
+              _dialogField(
+                _ownerController,
+                'Người phụ trách',
+                Icons.person_outline,
+              ),
               const SizedBox(height: 8),
-              _dialogField(_notesController, 'Notes', Icons.notes_outlined),
+              _dialogField(_notesController, 'Ghi chú', Icons.notes_outlined),
               const SizedBox(height: 8),
-              _dialogField(_tagsController, 'Tags', Icons.tag_outlined),
+              _dialogField(_tagsController, 'Tag', Icons.tag_outlined),
             ],
           ),
         ),
@@ -2599,9 +2603,9 @@ class _ResourceCatalogItemDialogState
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: const Text('Huỷ'),
         ),
-        FilledButton(onPressed: _save, child: const Text('Save')),
+        FilledButton(onPressed: _save, child: const Text('Lưu')),
       ],
     );
   }
@@ -2693,20 +2697,24 @@ class _ResourcePasswordEntryDialogState
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(widget.entry == null ? 'Password' : 'Edit password'),
+      title: Text(widget.entry == null ? 'Mật khẩu mới' : 'Sửa mật khẩu'),
       content: SingleChildScrollView(
         child: SizedBox(
           width: 420,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _dialogField(_siteController, 'Site', Icons.language_outlined),
+              _dialogField(_siteController, 'Trang', Icons.language_outlined),
               const SizedBox(height: 8),
-              _dialogField(_urlController, 'Login URL', Icons.link_outlined),
+              _dialogField(
+                _urlController,
+                'URL đăng nhập',
+                Icons.link_outlined,
+              ),
               const SizedBox(height: 8),
               _dialogField(
                 _usernameController,
-                'Username/email',
+                'Tài khoản/email',
                 Icons.person_outline,
               ),
               const SizedBox(height: 8),
@@ -2716,28 +2724,32 @@ class _ResourcePasswordEntryDialogState
                 enableSuggestions: false,
                 autocorrect: false,
                 decoration: const InputDecoration(
-                  labelText: 'Password',
+                  labelText: 'Mật khẩu',
                   prefixIcon: Icon(Icons.password_outlined),
                 ),
               ),
               const SizedBox(height: 8),
               _dialogField(
                 _environmentController,
-                'Environment',
+                'Môi trường',
                 Icons.public_outlined,
               ),
               const SizedBox(height: 8),
-              _dialogField(_ownerController, 'Owner', Icons.person_outline),
+              _dialogField(
+                _ownerController,
+                'Người phụ trách',
+                Icons.person_outline,
+              ),
               const SizedBox(height: 8),
               _dialogField(
                 _twoFactorController,
-                '2FA location',
+                'Nơi lấy mã 2FA',
                 Icons.verified_user_outlined,
               ),
               const SizedBox(height: 8),
-              _dialogField(_notesController, 'Notes', Icons.notes_outlined),
+              _dialogField(_notesController, 'Ghi chú', Icons.notes_outlined),
               const SizedBox(height: 8),
-              _dialogField(_tagsController, 'Tags', Icons.tag_outlined),
+              _dialogField(_tagsController, 'Tag', Icons.tag_outlined),
             ],
           ),
         ),
@@ -2745,9 +2757,9 @@ class _ResourcePasswordEntryDialogState
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: const Text('Huỷ'),
         ),
-        FilledButton(onPressed: _save, child: const Text('Save')),
+        FilledButton(onPressed: _save, child: const Text('Lưu')),
       ],
     );
   }
@@ -2830,9 +2842,9 @@ class _ResourceSigningCredentialOptions extends GetView<HomeController> {
                 ? null
                 : controller.setResourceIncludeSigningCredentials,
             contentPadding: EdgeInsets.zero,
-            title: const Text('Include signing credentials'),
+            title: const Text('Kèm thông tin ký'),
             subtitle: const Text(
-              'Adds signing_credentials.txt to the plain ZIP.',
+              'Thêm signing_credentials.txt vào file ZIP thường.',
             ),
           ),
           if (signingFindings.isNotEmpty) ...[
@@ -2841,7 +2853,7 @@ class _ResourceSigningCredentialOptions extends GetView<HomeController> {
               initialValue: activeId.isEmpty ? null : activeId,
               isExpanded: true,
               decoration: const InputDecoration(
-                labelText: 'Signing file',
+                labelText: 'File ký',
                 prefixIcon: Icon(Icons.vpn_key_outlined),
               ),
               items: [
@@ -2892,7 +2904,7 @@ class _ResourceSigningCredentialOptions extends GetView<HomeController> {
                 color: AppCyberTheme.textPrimary,
               ),
               decoration: const InputDecoration(
-                labelText: 'Store password',
+                labelText: 'Mật khẩu store',
                 prefixIcon: Icon(Icons.password_outlined),
               ),
             ),
@@ -2909,7 +2921,7 @@ class _ResourceSigningCredentialOptions extends GetView<HomeController> {
                 color: AppCyberTheme.textPrimary,
               ),
               decoration: const InputDecoration(
-                labelText: 'Key password',
+                labelText: 'Mật khẩu key',
                 prefixIcon: Icon(Icons.password_outlined),
               ),
             ),
@@ -2953,7 +2965,7 @@ class _ResourcePathField extends StatelessWidget {
         ),
         const SizedBox(width: 8),
         IconButton.filled(
-          tooltip: 'Choose $label',
+          tooltip: 'Chọn $label',
           onPressed: onPick,
           icon: const Icon(Icons.folder_open_outlined),
         ),
@@ -3028,7 +3040,7 @@ class _ResourceFindingTile extends StatelessWidget {
                     if (finding.isBinary)
                       const _MetaChip(
                         icon: Icons.lock_outline,
-                        label: 'Binary',
+                        label: 'Nhị phân',
                       ),
                     if (signingStatus != null)
                       _MetaChip(
@@ -3125,7 +3137,7 @@ class _TelegramReleaseOptions extends GetView<HomeController> {
                 const Icon(Icons.forum_outlined, size: 18),
                 const SizedBox(width: 8),
                 Text(
-                  hasTelegramConfiguration ? 'Configured' : 'Not configured',
+                  hasTelegramConfiguration ? 'Đã cấu hình' : 'Chưa cấu hình',
                   style: AppCyberTheme.dataTextStyle(
                     size: 11,
                     color: hasTelegramConfiguration
@@ -3172,9 +3184,9 @@ class _TelegramReleaseOptions extends GetView<HomeController> {
               value: controller.telegramReleaseSettings.value.autoSendEnabled,
               onChanged: isBusy ? null : controller.setTelegramAutoSendEnabled,
               contentPadding: EdgeInsets.zero,
-              title: const Text('Auto send release updates'),
+              title: const Text('Tự động gửi cập nhật release'),
               subtitle: const Text(
-                'Send generated notes and post-deploy APKs automatically.',
+                'Tự gửi note vừa tạo và APK sau khi deploy.',
               ),
             ),
             Wrap(
@@ -3186,14 +3198,14 @@ class _TelegramReleaseOptions extends GetView<HomeController> {
                       ? controller.saveTelegramConfiguration
                       : null,
                   icon: const Icon(Icons.save_outlined),
-                  label: const Text('Save'),
+                  label: const Text('Lưu'),
                 ),
                 OutlinedButton.icon(
                   onPressed: hasTelegramConfiguration && !isBusy
                       ? controller.testTelegramConfiguration
                       : null,
                   icon: const Icon(Icons.wifi_tethering_outlined),
-                  label: const Text('Test'),
+                  label: const Text('Thử'),
                 ),
                 FilledButton.tonalIcon(
                   onPressed: canSendNow
@@ -3206,7 +3218,7 @@ class _TelegramReleaseOptions extends GetView<HomeController> {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(Icons.send_outlined),
-                  label: const Text('Send now'),
+                  label: const Text('Gửi ngay'),
                 ),
               ],
             ),
@@ -3273,7 +3285,7 @@ class _InstallerTelegramOptions extends GetView<HomeController> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Windows installer',
+                      'Bộ cài Windows',
                       style: AppCyberTheme.dataTextStyle(
                         size: 11.8,
                         color: AppCyberTheme.textPrimary,
@@ -3285,7 +3297,9 @@ class _InstallerTelegramOptions extends GetView<HomeController> {
                     icon: hasDriveConfiguration
                         ? Icons.cloud_done_outlined
                         : Icons.cloud_off_outlined,
-                    label: hasDriveConfiguration ? 'Drive ready' : 'Drive off',
+                    label: hasDriveConfiguration
+                        ? 'Drive sẵn sàng'
+                        : 'Drive tắt',
                     highlighted: hasDriveConfiguration,
                   ),
                 ],
@@ -3299,14 +3313,14 @@ class _InstallerTelegramOptions extends GetView<HomeController> {
                     icon: isWindowsSupported
                         ? Icons.check_circle_outline
                         : Icons.block_outlined,
-                    label: isWindowsSupported ? 'Windows' : 'Windows only',
+                    label: isWindowsSupported ? 'Windows' : 'Chỉ trên Windows',
                     highlighted: isWindowsSupported,
                   ),
                   _MetaChip(
                     icon: hasInstallerProject
                         ? Icons.inventory_2_outlined
                         : Icons.folder_off_outlined,
-                    label: hasInstallerProject ? 'ARC repo' : 'Select ARC repo',
+                    label: hasInstallerProject ? 'ARC repo' : 'Chọn repo ARC',
                     highlighted: hasInstallerProject,
                   ),
                   _MetaChip(
@@ -3314,8 +3328,8 @@ class _InstallerTelegramOptions extends GetView<HomeController> {
                         ? Icons.forum_outlined
                         : Icons.sms_failed_outlined,
                     label: hasTelegramConfiguration
-                        ? 'Telegram ready'
-                        : 'Telegram missing',
+                        ? 'Telegram sẵn sàng'
+                        : 'Thiếu Telegram',
                     highlighted: hasTelegramConfiguration,
                   ),
                 ],
@@ -3333,7 +3347,7 @@ class _InstallerTelegramOptions extends GetView<HomeController> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.send_to_mobile_outlined),
-                label: const Text('Build/Send Installer'),
+                label: const Text('Build/Gửi bộ cài'),
               ),
               if (controller.installerDeliveryStatus.value.isNotEmpty) ...[
                 const SizedBox(height: 8),
@@ -3369,14 +3383,14 @@ class _RemoteControlOptions extends GetView<HomeController> {
         children: [
           const _PanelTitle(
             icon: Icons.settings_remote_outlined,
-            title: 'Remote Control',
+            title: 'Điều khiển từ xa',
           ),
           const SizedBox(height: 8),
           SwitchListTile(
             value: settings.enabled,
             onChanged: remote.setEnabled,
             contentPadding: EdgeInsets.zero,
-            title: const Text('Phone command relay'),
+            title: const Text('Trung chuyển lệnh từ điện thoại'),
             subtitle: Text(remote.agentStatus.value),
           ),
           Wrap(
@@ -3386,12 +3400,12 @@ class _RemoteControlOptions extends GetView<HomeController> {
               FilledButton.icon(
                 onPressed: () => _showControlPairingDialog(context),
                 icon: const Icon(Icons.qr_code_2_outlined),
-                label: const Text('Pair control app'),
+                label: const Text('Ghép app điều khiển'),
               ),
               OutlinedButton.icon(
                 onPressed: () => _showAllowedRootsDialog(context),
                 icon: const Icon(Icons.folder_special_outlined),
-                label: const Text('Allowed roots'),
+                label: const Text('Thư mục cho phép'),
               ),
             ],
           ),
@@ -3413,8 +3427,8 @@ class _RemoteControlOptions extends GetView<HomeController> {
                 Expanded(
                   child: Text(
                     settings.allowedRoots.isEmpty
-                        ? 'Shell is limited to recent project folders.'
-                        : 'Shell roots: ${settings.allowedRoots.length}',
+                        ? 'Shell chỉ chạy trong các thư mục dự án gần đây.'
+                        : 'Thư mục shell: ${settings.allowedRoots.length}',
                     style: AppCyberTheme.dataTextStyle(
                       size: 10.8,
                       color: AppCyberTheme.textMuted,
@@ -3488,7 +3502,7 @@ class _AllowedRootsDialogState extends State<_AllowedRootsDialog> {
       ),
       title: const _PanelTitle(
         icon: Icons.folder_special_outlined,
-        title: 'Allowed Roots',
+        title: 'Thư mục cho phép',
       ),
       content: SizedBox(
         width: 460,
@@ -3501,7 +3515,7 @@ class _AllowedRootsDialogState extends State<_AllowedRootsDialog> {
             color: AppCyberTheme.textPrimary,
           ),
           decoration: const InputDecoration(
-            labelText: 'One folder per line',
+            labelText: 'Mỗi dòng một thư mục',
             alignLabelWithHint: true,
           ),
         ),
@@ -3509,7 +3523,7 @@ class _AllowedRootsDialogState extends State<_AllowedRootsDialog> {
       actions: [
         OutlinedButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: const Text('Huỷ'),
         ),
         FilledButton.icon(
           onPressed: () async {
@@ -3519,7 +3533,7 @@ class _AllowedRootsDialogState extends State<_AllowedRootsDialog> {
             if (context.mounted) Navigator.of(context).pop();
           },
           icon: const Icon(Icons.save_outlined),
-          label: const Text('Save'),
+          label: const Text('Lưu'),
         ),
       ],
     );
@@ -3541,15 +3555,17 @@ class _NotificationOptions extends GetView<HomeController> {
         children: [
           const _PanelTitle(
             icon: Icons.notifications_active_outlined,
-            title: 'Notifications',
+            title: 'Thông báo',
           ),
           const SizedBox(height: 8),
           SwitchListTile(
             value: settings.enabled,
             onChanged: controller.setNotificationsEnabled,
             contentPadding: EdgeInsets.zero,
-            title: const Text('Command notifications'),
-            subtitle: const Text('Send command status to selected phones.'),
+            title: const Text('Thông báo trạng thái lệnh'),
+            subtitle: const Text(
+              'Gửi trạng thái lệnh tới các điện thoại đã chọn.',
+            ),
           ),
           TextField(
             controller: controller.notificationEndpointController,
@@ -3584,12 +3600,12 @@ class _NotificationOptions extends GetView<HomeController> {
               OutlinedButton.icon(
                 onPressed: controller.saveNotificationConfiguration,
                 icon: const Icon(Icons.save_outlined),
-                label: const Text('Save'),
+                label: const Text('Lưu'),
               ),
               FilledButton.icon(
                 onPressed: () => _showPhonePairingDialog(context),
                 icon: const Icon(Icons.qr_code_2_outlined),
-                label: const Text('Link phone'),
+                label: const Text('Liên kết điện thoại'),
               ),
               OutlinedButton.icon(
                 onPressed: controller.isLoadingNotificationDevices.value
@@ -3602,14 +3618,14 @@ class _NotificationOptions extends GetView<HomeController> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.refresh_outlined),
-                label: const Text('Refresh devices'),
+                label: const Text('Làm mới thiết bị'),
               ),
               OutlinedButton.icon(
                 onPressed: settings.hasSelectedDevices
                     ? controller.sendTestNotification
                     : null,
                 icon: const Icon(Icons.send_to_mobile_outlined),
-                label: const Text('Test'),
+                label: const Text('Thử'),
               ),
             ],
           ),
@@ -3627,7 +3643,7 @@ class _NotificationOptions extends GetView<HomeController> {
           const SizedBox(height: 12),
           if (devices.isEmpty)
             Text(
-              'No linked phones',
+              'Chưa liên kết điện thoại nào',
               style: AppCyberTheme.dataTextStyle(
                 size: 11,
                 color: AppCyberTheme.textMuted,
@@ -3692,7 +3708,7 @@ class _NotificationOptions extends GetView<HomeController> {
                           ),
                         ),
                         IconButton(
-                          tooltip: 'Unlink phone',
+                          tooltip: 'Bỏ liên kết',
                           visualDensity: VisualDensity.compact,
                           onPressed: () =>
                               controller.unlinkNotificationDevice(device),
@@ -3763,15 +3779,15 @@ class _PhonePairingDialogState extends State<_PhonePairingDialog> {
   @override
   Widget build(BuildContext context) {
     final statusLabel = switch (_status) {
-      NotificationPairingStatus.pending => 'Waiting for phone',
+      NotificationPairingStatus.pending => 'Đang chờ điện thoại',
       NotificationPairingStatus.linked => 'Linked ${_device?.label ?? ''}',
-      NotificationPairingStatus.expired => 'Pairing expired',
+      NotificationPairingStatus.expired => 'Mã ghép đã hết hạn',
     };
     final countdownLabel = _status == NotificationPairingStatus.linked
-        ? 'Linked'
+        ? 'Đã liên kết'
         : _status == NotificationPairingStatus.expired
-        ? 'Expired'
-        : 'Expires in ${_formatRemaining(_remaining)}';
+        ? 'Hết hạn'
+        : 'Hết hạn sau ${_formatRemaining(_remaining)}';
     final countdownColor = _status == NotificationPairingStatus.linked
         ? AppCyberTheme.neonGreen
         : _status == NotificationPairingStatus.expired
@@ -3796,7 +3812,7 @@ class _PhonePairingDialogState extends State<_PhonePairingDialog> {
       actionsPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
       title: const _PanelTitle(
         icon: Icons.qr_code_2_outlined,
-        title: 'Link Phone',
+        title: 'Liên kết điện thoại',
       ),
       content: SizedBox(
         width: 420,
@@ -3863,12 +3879,12 @@ class _PhonePairingDialogState extends State<_PhonePairingDialog> {
             Clipboard.setData(ClipboardData(text: widget.session.pairingUrl));
           },
           icon: const Icon(Icons.content_copy_outlined),
-          label: const Text('Copy link'),
+          label: const Text('Sao chép link'),
         ),
         FilledButton.icon(
           onPressed: () => Navigator.of(context).pop(),
           icon: const Icon(Icons.close_outlined),
-          label: const Text('Close'),
+          label: const Text('Đóng'),
         ),
       ],
     );
@@ -4100,7 +4116,7 @@ class _YesNoPromptActions extends GetView<HomeController> {
                 child: OutlinedButton.icon(
                   onPressed: () => controller.sendYesNoInput(false),
                   icon: const Icon(Icons.close_outlined),
-                  label: const Text('No'),
+                  label: const Text('Không'),
                 ),
               ),
               const SizedBox(width: 8),
@@ -4108,7 +4124,7 @@ class _YesNoPromptActions extends GetView<HomeController> {
                 child: FilledButton.icon(
                   onPressed: () => controller.sendYesNoInput(true),
                   icon: const Icon(Icons.check_circle_outline),
-                  label: const Text('Yes'),
+                  label: const Text('Có'),
                 ),
               ),
             ],
