@@ -4,7 +4,9 @@
 <dict>
 	<key>com.apple.security.network.client</key>
 	<true/>
+	<!-- AMC runs git, Flutter, Fastlane and project scripts in folders the user
+	     picks, which the App Sandbox blocks; it is not an App Store app. -->
 	<key>com.apple.security.app-sandbox</key>
-	<true/>
+	<false/>
 </dict>
 </plist>

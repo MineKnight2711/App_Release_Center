@@ -40,6 +40,10 @@ dev_dependencies:
   flutter_lints: ^6.0.0
 
 dependency_overrides:
+  # 0.4.2+ stops querying the data protection keychain on delete when it is off,
+  # which ad-hoc signed, unsandboxed macOS builds cannot use (-34018). Remove
+  # once flutter_secure_storage is upgraded to 11.x, which requires it.
+  flutter_secure_storage_darwin: 0.4.3
   flutter_plugin_android_lifecycle: 2.0.20
 
 flutter:
