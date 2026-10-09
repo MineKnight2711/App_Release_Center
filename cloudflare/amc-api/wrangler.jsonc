@@ -1,0 +1,26 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "amc-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-01",
+  "observability": { "enabled": true },
+  "d1_databases": [
+    {
+      // Shared with the amc-relay Worker; this Worker owns only the tables in ./migrations.
+      "binding": "DB",
+      "database_name": "amc-relay",
+      "database_id": "bddc397e-d8d1-4383-bebf-b2eab4b49a1a",
+      "migrations_dir": "migrations",
+      "migrations_table": "amc_api_migrations"
+    }
+  ],
+  "ratelimits": [
+    {
+      "name": "LOGIN_LIMITER",
+      "namespace_id": "4101",
+      "simple": { "limit": 10, "period": 60 }
+    }
+  ]
+  // Secret (not committed): PASSWORD_PEPPER — set with `npx wrangler secret put PASSWORD_PEPPER`,
+  // and in .dev.vars for `wrangler dev`.
+}

@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:app_management_center/app/config/backend_config.dart';
 import 'package:app_management_center/app/controllers/app_shell_controller.dart';
 import 'package:app_management_center/app/controllers/flowfin_controller.dart';
 import 'package:app_management_center/app/controllers/home_controller.dart';
+import 'package:app_management_center/app/data/amc_api_client.dart';
 import 'package:app_management_center/app/data/release_center_connect.dart';
 import 'package:app_management_center/app/modules/bundle_check/services/app_bundle_project_source.dart';
 import 'package:app_management_center/app/modules/bundle_check/services/bundle_check_service.dart';
@@ -22,6 +24,7 @@ import 'package:app_management_center/app/services/app_store_version_check_servi
 import 'package:app_management_center/app/services/app_lock_service.dart';
 import 'package:app_management_center/app/services/remote_unlock_session_service.dart';
 import 'package:app_management_center/app/services/auth_service.dart';
+import 'package:app_management_center/app/services/auth_token_store_service.dart';
 import 'package:app_management_center/app/services/ch_play_credential_store_service.dart';
 import 'package:app_management_center/app/services/ch_play_project_inspector_service.dart';
 import 'package:app_management_center/app/services/ch_play_version_check_service.dart';
@@ -59,7 +62,7 @@ import 'package:get/get.dart';
 import 'package:path/path.dart' as p;
 
 class AppBinding extends Bindings {
-  static Future<void> initServices({bool firebaseEnabled = false}) async {
+  static Future<void> initServices({BackendConfig? backendConfig}) async {
     await Get.putAsync<ProjectStoreService>(
       () => ProjectStoreService().init(),
       permanent: true,
@@ -68,24 +71,43 @@ class AppBinding extends Bindings {
       () => ThemeService().init(),
       permanent: true,
     );
-    await Get.putAsync<AuthService>(
-      () => AuthService(
-        sessionStore: Get.find<ProjectStoreService>(),
-      ).init(firebaseEnabled: firebaseEnabled),
+    final tokenStore = Get.put<AuthTokenStoreService>(
+      AuthTokenStoreService(),
       permanent: true,
     );
+    final api = backendConfig == null
+        ? null
+        : Get.put<AmcApiClient>(
+            AmcApiClient(
+              baseUrl: backendConfig.apiBaseUrl,
+              readToken: tokenStore.readToken,
+            ),
+            permanent: true,
+          );
+    final auth = await Get.putAsync<AuthService>(
+      () => AuthService(
+        sessionStore: Get.find<ProjectStoreService>(),
+        backend: api == null
+            ? null
+            : AmcAuthBackend(api: api, tokenStore: tokenStore),
+        teamDataSource: api == null ? null : AmcTeamDataSource(api),
+      ).init(backendConfigured: api != null),
+      permanent: true,
+    );
+    api?.onUnauthorized = () => unawaited(auth.handleSessionRejected());
     Get.put<ScriptCatalogService>(ScriptCatalogService(), permanent: true);
     Get.put<ApiToolService>(ApiToolService(), permanent: true);
     Get.put<ApiMonitorService>(ApiMonitorService(), permanent: true);
     await Get.putAsync<ApiToolRepositoryService>(
       () => ApiToolRepositoryService(
         localStore: Get.find<ProjectStoreService>(),
-        auth: Get.find<AuthService>(),
-      ).init(firebaseEnabled: firebaseEnabled),
+        auth: auth,
+        teamDataSource: api == null ? null : AmcTeamApiToolDataSource(api),
+      ).init(),
       permanent: true,
     );
     // FlowFin talks to its own Worker; it deliberately does not go through
-    // this app's Firebase project or its notification relay.
+    // this app's amc-api Worker or its notification relay.
     Get.put<FlowFinCredentialStoreService>(
       FlowFinCredentialStoreService(),
       permanent: true,
@@ -217,8 +239,8 @@ class AppBinding extends Bindings {
       ).init(),
       permanent: true,
     );
-    // Phone only. The desktop sits behind the Windows sign-in and the Firebase
-    // auth gate already, so a second biometric prompt there would guard nothing
+    // Phone only. The desktop sits behind the Windows sign-in and the team
+    // sign-in gate already, so a second biometric prompt there would guard nothing
     // that is not guarded; the phone has no gate of its own at all.
     if (Platform.isAndroid || Platform.isIOS) {
       await Get.putAsync<AppLockService>(
@@ -363,6 +385,7 @@ class AppBinding extends Bindings {
     QaDeskRuntime.host = AmcQaDeskHost(
       runner: Get.find<ReleaseRunnerService>(),
       home: () => Get.find<HomeController>(),
+      api: Get.isRegistered<AmcApiClient>() ? Get.find<AmcApiClient>() : null,
     );
   }
 }

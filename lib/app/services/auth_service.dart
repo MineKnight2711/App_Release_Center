@@ -1,16 +1,17 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:math';
+import 'dart:isolate';
 
+import 'package:app_management_center/app/data/amc_api_client.dart';
 import 'package:app_management_center/app/models/auth_models.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:app_management_center/app/services/auth_token_store_service.dart';
 import 'package:cryptography/cryptography.dart';
-import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:get/get.dart';
-import 'package:uuid/uuid.dart';
 
 const authSessionDuration = Duration(days: 30);
 const defaultInviteDuration = Duration(days: 7);
+const minimumPasswordLength = 8;
+const passwordKeyIterations = 100000;
 
 class AuthServiceException implements Exception {
   const AuthServiceException(this.message);
@@ -35,7 +36,9 @@ class AuthBackendUser {
 
 abstract class AuthBackend {
   AuthBackendUser? get currentUser;
-  Stream<AuthBackendUser?> authStateChanges();
+
+  /// Loads the persisted sign-in, if any, into [currentUser].
+  Future<void> restore();
   Future<AuthBackendUser> signIn({
     required String email,
     required String password,
@@ -48,18 +51,61 @@ abstract class AuthBackend {
   Future<void> signOut();
 }
 
-class FirebaseAuthBackend implements AuthBackend {
-  FirebaseAuthBackend({firebase_auth.FirebaseAuth? auth})
-    : _auth = auth ?? firebase_auth.FirebaseAuth.instance;
+/// Stretches the password on the client so the raw password never leaves the
+/// machine and the Worker only runs a cheap HMAC (Free plan CPU limit).
+Future<String> derivePasswordKey({
+  required String email,
+  required String password,
+  int iterations = passwordKeyIterations,
+}) {
+  final salt = 'amc-auth-v1:${email.trim().toLowerCase()}';
+  return Isolate.run(() async {
+    final key = await Pbkdf2(
+      macAlgorithm: Hmac.sha256(),
+      iterations: iterations,
+      bits: 256,
+    ).deriveKeyFromPassword(password: password, nonce: utf8.encode(salt));
+    return base64UrlEncode(await key.extractBytes()).replaceAll('=', '');
+  });
+}
 
-  final firebase_auth.FirebaseAuth _auth;
+class AmcAuthBackend implements AuthBackend {
+  AmcAuthBackend({
+    required AmcApiClient api,
+    required AuthTokenStoreService tokenStore,
+    Future<String> Function({required String email, required String password})?
+    deriveKey,
+  }) : _api = api,
+       _tokenStore = tokenStore,
+       _deriveKey = deriveKey ?? derivePasswordKey;
+
+  final AmcApiClient _api;
+  final AuthTokenStoreService _tokenStore;
+  final Future<String> Function({
+    required String email,
+    required String password,
+  })
+  _deriveKey;
+  AuthBackendUser? _currentUser;
 
   @override
-  AuthBackendUser? get currentUser => _fromFirebaseUser(_auth.currentUser);
+  AuthBackendUser? get currentUser => _currentUser;
 
   @override
-  Stream<AuthBackendUser?> authStateChanges() {
-    return _auth.authStateChanges().map(_fromFirebaseUser);
+  Future<void> restore() async {
+    final token = await _tokenStore.readToken();
+    if (token == null || token.isEmpty) {
+      _currentUser = null;
+      return;
+    }
+    try {
+      final body = await _api.get('/me');
+      _currentUser = _userFromJson(body['user']);
+    } on AmcApiException catch (error) {
+      if (!error.isUnauthorized) rethrow;
+      await _tokenStore.saveToken(null);
+      _currentUser = null;
+    }
   }
 
   @override
@@ -67,21 +113,15 @@ class FirebaseAuthBackend implements AuthBackend {
     required String email,
     required String password,
   }) async {
-    try {
-      final credential = await _auth.signInWithEmailAndPassword(
-        email: email.trim(),
-        password: password,
-      );
-      final user = credential.user;
-      if (user == null) {
-        throw const AuthServiceException(
-          'Đăng nhập không trả về người dùng nào.',
-        );
-      }
-      return _fromFirebaseUser(user)!;
-    } on firebase_auth.FirebaseAuthException catch (error) {
-      throw AuthServiceException(_firebaseAuthMessage(error));
-    }
+    final body = await _api.post(
+      '/auth/login',
+      authenticated: false,
+      body: {
+        'email': email.trim(),
+        'passwordKey': await _deriveKey(email: email, password: password),
+      },
+    );
+    return _acceptSession(body);
   }
 
   @override
@@ -90,63 +130,68 @@ class FirebaseAuthBackend implements AuthBackend {
     required String password,
     required String displayName,
   }) async {
-    try {
-      final credential = await _auth.createUserWithEmailAndPassword(
-        email: email.trim(),
-        password: password,
+    if (password.length < minimumPasswordLength) {
+      throw const AuthServiceException(
+        'Mật khẩu phải có ít nhất $minimumPasswordLength ký tự.',
       );
-      final user = credential.user;
-      if (user == null) {
-        throw const AuthServiceException(
-          'Đăng ký không trả về người dùng nào.',
-        );
-      }
-      final trimmedName = displayName.trim();
-      if (trimmedName.isNotEmpty) {
-        await user.updateDisplayName(trimmedName);
-        await user.reload();
-      }
-      return _fromFirebaseUser(_auth.currentUser ?? user)!;
-    } on firebase_auth.FirebaseAuthException catch (error) {
-      throw AuthServiceException(_firebaseAuthMessage(error));
     }
+    final body = await _api.post(
+      '/auth/register',
+      authenticated: false,
+      body: {
+        'email': email.trim(),
+        'passwordKey': await _deriveKey(email: email, password: password),
+        'displayName': displayName.trim(),
+      },
+    );
+    return _acceptSession(body);
   }
 
   @override
-  Future<void> signOut() => _auth.signOut();
+  Future<void> signOut() async {
+    try {
+      if ((await _tokenStore.readToken())?.isNotEmpty ?? false) {
+        await _api.post('/auth/logout');
+      }
+    } on AmcApiException {
+      // The local sign-out still completes when the server is unreachable.
+    } finally {
+      await _tokenStore.saveToken(null);
+      _currentUser = null;
+    }
+  }
 
-  static AuthBackendUser? _fromFirebaseUser(firebase_auth.User? user) {
-    if (user == null) return null;
+  Future<AuthBackendUser> _acceptSession(Map<String, Object?> body) async {
+    final token = body['token']?.toString() ?? '';
+    final user = _userFromJson(body['user']);
+    if (token.isEmpty || user == null) {
+      throw const AuthServiceException('Server không trả về phiên đăng nhập.');
+    }
+    await _tokenStore.saveToken(token);
+    _currentUser = user;
+    return user;
+  }
+
+  static AuthBackendUser? _userFromJson(Object? value) {
+    if (value is! Map) return null;
+    final uid = _string(value['uid']);
+    if (uid.isEmpty) return null;
     return AuthBackendUser(
-      uid: user.uid,
-      email: user.email ?? '',
-      displayName: user.displayName ?? '',
+      uid: uid,
+      email: _string(value['email']),
+      displayName: _string(value['displayName']),
     );
   }
 }
 
+/// Team operations for the signed-in user; the server derives the user from
+/// the session token.
 abstract class TeamDataSource {
-  Future<void> upsertUserProfile({
-    required String uid,
-    required String email,
-    required String displayName,
-  });
-  Future<TeamMembership?> loadMembershipForUser(String uid);
-  Future<TeamMembership> createTeamForUser({
-    required String uid,
-    required String email,
-    required String displayName,
-    required String teamName,
-  });
-  Future<TeamMembership> joinTeamWithInvite({
-    required String uid,
-    required String email,
-    required String displayName,
-    required String inviteCode,
-  });
+  Future<TeamMembership?> loadMembership();
+  Future<TeamMembership> createTeam(String teamName);
+  Future<TeamMembership> joinTeamWithInvite(String inviteCode);
   Future<CreatedTeamInvite> createInvite({
     required String teamId,
-    required String createdByUid,
     required TeamRole role,
     required DateTime expiresAt,
   });
@@ -159,247 +204,78 @@ abstract class TeamDataSource {
   Future<void> removeMember({required String teamId, required String uid});
 }
 
-class FirebaseTeamDataSource implements TeamDataSource {
-  FirebaseTeamDataSource({FirebaseFirestore? firestore, Uuid? uuid})
-    : _db = firestore ?? FirebaseFirestore.instance,
-      _uuid = uuid ?? const Uuid();
+class AmcTeamDataSource implements TeamDataSource {
+  AmcTeamDataSource(this._api);
 
-  final FirebaseFirestore _db;
-  final Uuid _uuid;
-
-  CollectionReference<Map<String, dynamic>> get _users =>
-      _db.collection('users');
+  final AmcApiClient _api;
 
   @override
-  Future<void> upsertUserProfile({
-    required String uid,
-    required String email,
-    required String displayName,
-  }) async {
-    final now = FieldValue.serverTimestamp();
-    await _users.doc(uid).set({
-      'email': email.trim(),
-      'displayName': displayName.trim(),
-      'updatedAt': now,
-      'lastLoginAt': now,
-    }, SetOptions(merge: true));
+  Future<TeamMembership?> loadMembership() async {
+    final body = await _api.get('/me');
+    return _membershipFromJson(body['membership']);
   }
 
   @override
-  Future<TeamMembership?> loadMembershipForUser(String uid) async {
-    final userSnapshot = await _users.doc(uid).get();
-    final userData = userSnapshot.data();
-    final teamId = _string(userData?['activeTeamId']);
-    if (teamId.isEmpty) return null;
-
-    final teamRef = _db.collection('teams').doc(teamId);
-    final results = await Future.wait([
-      teamRef.get(),
-      teamRef.collection('members').doc(uid).get(),
-    ]);
-    final teamSnapshot = results[0];
-    final memberSnapshot = results[1];
-    final teamData = teamSnapshot.data();
-    final memberData = memberSnapshot.data();
-
-    if (!teamSnapshot.exists || !memberSnapshot.exists || memberData == null) {
-      return null;
-    }
-
-    final status = _string(memberData['status']);
-    if (status != 'active') return null;
-
-    return TeamMembership(
-      teamId: teamId,
-      teamName: _string(teamData?['name']).isEmpty
-          ? 'Team'
-          : _string(teamData?['name']),
-      role: TeamRoleLabel.fromValue(memberData['role']),
-      status: status,
-    );
-  }
-
-  @override
-  Future<TeamMembership> createTeamForUser({
-    required String uid,
-    required String email,
-    required String displayName,
-    required String teamName,
-  }) async {
+  Future<TeamMembership> createTeam(String teamName) async {
     final trimmedName = teamName.trim();
     if (trimmedName.isEmpty) {
       throw const AuthServiceException('Phải nhập tên nhóm.');
     }
-
-    final teamRef = _db.collection('teams').doc();
-    final userRef = _users.doc(uid);
-    final memberRef = teamRef.collection('members').doc(uid);
-
-    await _db.runTransaction((transaction) async {
-      final now = FieldValue.serverTimestamp();
-      transaction.set(teamRef, {
-        'name': trimmedName,
-        'createdByUid': uid,
-        'createdAt': now,
-        'updatedAt': now,
-      });
-      transaction.set(memberRef, {
-        'uid': uid,
-        'role': TeamRole.admin.value,
-        'status': 'active',
-        'joinedAt': now,
-        'updatedAt': now,
-      });
-      transaction.set(userRef, {
-        'email': email.trim(),
-        'displayName': displayName.trim(),
-        'activeTeamId': teamRef.id,
-        'updatedAt': now,
-        'lastLoginAt': now,
-      }, SetOptions(merge: true));
-    });
-
-    return TeamMembership(
-      teamId: teamRef.id,
-      teamName: trimmedName,
-      role: TeamRole.admin,
-    );
+    final body = await _api.post('/teams', body: {'name': trimmedName});
+    return _requireMembership(body['membership']);
   }
 
   @override
-  Future<TeamMembership> joinTeamWithInvite({
-    required String uid,
-    required String email,
-    required String displayName,
-    required String inviteCode,
-  }) async {
-    final parsed = _parseInviteCode(inviteCode);
-    final inviteHash = await _inviteCodeHash(parsed.teamId, parsed.secret);
-    final inviteQuery = await _db
-        .collection('teams')
-        .doc(parsed.teamId)
-        .collection('invites')
-        .where('codeHash', isEqualTo: inviteHash)
-        .limit(1)
-        .get();
-    if (inviteQuery.docs.isEmpty) {
-      throw const AuthServiceException('Mã mời không đúng hoặc đã hết hạn.');
-    }
-
-    final teamRef = _db.collection('teams').doc(parsed.teamId);
-    final inviteRef = inviteQuery.docs.first.reference;
-    final memberRef = teamRef.collection('members').doc(uid);
-    final userRef = _users.doc(uid);
-    late TeamMembership membership;
-
-    await _db.runTransaction((transaction) async {
-      final inviteSnapshot = await transaction.get(inviteRef);
-      if (!inviteSnapshot.exists) {
-        throw const AuthServiceException('Mã mời không đúng hoặc đã hết hạn.');
-      }
-
-      final invite = inviteSnapshot.data();
-      final expiresAt = _date(invite?['expiresAt']);
-      if (_string(invite?['status']) != 'active' ||
-          expiresAt == null ||
-          !expiresAt.isAfter(DateTime.now())) {
-        throw const AuthServiceException('Mã mời không đúng hoặc đã hết hạn.');
-      }
-
-      final role = TeamRoleLabel.fromValue(invite?['role']);
-      final now = FieldValue.serverTimestamp();
-      transaction.set(memberRef, {
-        'uid': uid,
-        'role': role.value,
-        'status': 'active',
-        'joinedViaInviteId': inviteRef.id,
-        'joinedAt': now,
-        'updatedAt': now,
-      });
-      transaction.set(userRef, {
-        'email': email.trim(),
-        'displayName': displayName.trim(),
-        'activeTeamId': parsed.teamId,
-        'updatedAt': now,
-        'lastLoginAt': now,
-      }, SetOptions(merge: true));
-      transaction.update(inviteRef, {
-        'status': 'used',
-        'usedByUid': uid,
-        'usedAt': now,
-      });
-      membership = TeamMembership(
-        teamId: parsed.teamId,
-        teamName: 'Team',
-        role: role,
-      );
-    });
-
-    return await loadMembershipForUser(uid) ?? membership;
+  Future<TeamMembership> joinTeamWithInvite(String inviteCode) async {
+    final body = await _api.post(
+      '/teams/join',
+      body: {'inviteCode': inviteCode.trim()},
+    );
+    return _requireMembership(body['membership']);
   }
 
   @override
   Future<CreatedTeamInvite> createInvite({
     required String teamId,
-    required String createdByUid,
     required TeamRole role,
     required DateTime expiresAt,
   }) async {
-    final secret = _newInviteSecret();
-    final code = '$teamId:$secret';
-    final invite = CreatedTeamInvite(
-      id: _uuid.v4(),
-      code: code,
-      role: role,
-      expiresAt: expiresAt,
+    final body = await _api.post(
+      '/teams/${Uri.encodeComponent(teamId)}/invites',
+      body: {
+        'role': role.value,
+        'expiresAt': expiresAt.toUtc().toIso8601String(),
+      },
     );
-    await _db
-        .collection('teams')
-        .doc(teamId)
-        .collection('invites')
-        .doc(invite.id)
-        .set({
-          'codeHash': await _inviteCodeHash(teamId, secret),
-          'role': role.value,
-          'status': 'active',
-          'createdByUid': createdByUid,
-          'createdAt': FieldValue.serverTimestamp(),
-          'expiresAt': Timestamp.fromDate(expiresAt.toUtc()),
-        });
-    return invite;
+    return CreatedTeamInvite(
+      id: _string(body['id']),
+      code: _string(body['code']),
+      role: TeamRoleLabel.fromValue(body['role']),
+      expiresAt: _date(body['expiresAt']) ?? expiresAt,
+    );
   }
 
   @override
   Future<List<TeamMemberProfile>> listMembers(String teamId) async {
-    final membersSnapshot = await _db
-        .collection('teams')
-        .doc(teamId)
-        .collection('members')
-        .get();
-    final members = <TeamMemberProfile>[];
-    for (final doc in membersSnapshot.docs) {
-      final data = doc.data();
-      final userSnapshot = await _users.doc(doc.id).get();
-      final userData = userSnapshot.data();
-      members.add(
+    final body = await _api.get(
+      '/teams/${Uri.encodeComponent(teamId)}/members',
+    );
+    final members = body['members'] is List
+        ? body['members'] as List
+        : const [];
+    return [
+      for (final member in members.whereType<Map>())
         TeamMemberProfile(
-          uid: doc.id,
-          email: _string(userData?['email']),
-          displayName: _string(userData?['displayName']),
-          role: TeamRoleLabel.fromValue(data['role']),
-          status: _string(data['status']).isEmpty
+          uid: _string(member['uid']),
+          email: _string(member['email']),
+          displayName: _string(member['displayName']),
+          role: TeamRoleLabel.fromValue(member['role']),
+          status: _string(member['status']).isEmpty
               ? 'active'
-              : _string(data['status']),
-          joinedAt: _date(data['joinedAt']),
+              : _string(member['status']),
+          joinedAt: _date(member['joinedAt']),
         ),
-      );
-    }
-    members.sort((a, b) {
-      final byRole = a.role.index.compareTo(b.role.index);
-      if (byRole != 0) return byRole;
-      return a.email.toLowerCase().compareTo(b.email.toLowerCase());
-    });
-    return members;
+    ];
   }
 
   @override
@@ -408,34 +284,47 @@ class FirebaseTeamDataSource implements TeamDataSource {
     required String uid,
     required TeamRole role,
   }) async {
-    await _db
-        .collection('teams')
-        .doc(teamId)
-        .collection('members')
-        .doc(uid)
-        .set({
-          'role': role.value,
-          'updatedAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
+    await _api.patch(
+      '/teams/${Uri.encodeComponent(teamId)}/members/${Uri.encodeComponent(uid)}',
+      body: {'role': role.value},
+    );
   }
 
   @override
-  Future<void> removeMember({required String teamId, required String uid}) {
-    return _db
-        .collection('teams')
-        .doc(teamId)
-        .collection('members')
-        .doc(uid)
-        .delete();
+  Future<void> removeMember({
+    required String teamId,
+    required String uid,
+  }) async {
+    await _api.delete(
+      '/teams/${Uri.encodeComponent(teamId)}/members/${Uri.encodeComponent(uid)}',
+    );
   }
 
-  String _newInviteSecret() {
-    const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    final random = Random.secure();
-    return List.generate(
-      10,
-      (_) => alphabet[random.nextInt(alphabet.length)],
-    ).join();
+  static TeamMembership _requireMembership(Object? value) {
+    final membership = _membershipFromJson(value);
+    if (membership == null) {
+      throw const AuthServiceException(
+        'Server không trả về quyền truy cập nhóm.',
+      );
+    }
+    return membership;
+  }
+
+  static TeamMembership? _membershipFromJson(Object? value) {
+    if (value is! Map) return null;
+    final teamId = _string(value['teamId']);
+    final status = _string(value['status']);
+    if (teamId.isEmpty || (status.isNotEmpty && status != 'active')) {
+      return null;
+    }
+    return TeamMembership(
+      teamId: teamId,
+      teamName: _string(value['teamName']).isEmpty
+          ? 'Team'
+          : _string(value['teamName']),
+      role: TeamRoleLabel.fromValue(value['role']),
+      status: status.isEmpty ? 'active' : status,
+    );
   }
 }
 
@@ -452,45 +341,34 @@ class AuthService extends GetxService {
 
   final AuthSessionStore _sessionStore;
   final DateTime Function() _now;
-  AuthBackend? _backend;
-  TeamDataSource? _teamDataSource;
-  StreamSubscription<AuthBackendUser?>? _authSubscription;
+  final AuthBackend? _backend;
+  final TeamDataSource? _teamDataSource;
 
   final authStatus = AuthStatus.initializing.obs;
   final profile = Rxn<CurrentUserProfile>();
   final authError = ''.obs;
   final isBusy = false.obs;
-  var _firebaseEnabled = false;
+  var _backendConfigured = false;
 
-  bool get firebaseEnabled => _firebaseEnabled;
+  bool get backendConfigured => _backendConfigured;
   bool get isAuthenticated =>
       authStatus.value == AuthStatus.authenticated && profile.value != null;
 
-  Future<AuthService> init({required bool firebaseEnabled}) async {
-    _firebaseEnabled = firebaseEnabled;
-    if (!firebaseEnabled) {
+  Future<AuthService> init({required bool backendConfigured}) async {
+    _backendConfigured =
+        backendConfigured && _backend != null && _teamDataSource != null;
+    if (!_backendConfigured) {
       authStatus.value = AuthStatus.unavailable;
       return this;
     }
 
-    _backend ??= FirebaseAuthBackend();
-    _teamDataSource ??= FirebaseTeamDataSource();
-    _authSubscription = _backend!.authStateChanges().listen(
-      (user) => unawaited(_syncFirebaseUser(user)),
-      onError: (Object error) {
-        authError.value = 'Không đọc được trạng thái đăng nhập: $error';
-        authStatus.value = AuthStatus.unauthenticated;
-      },
-    );
-
-    await _syncFirebaseUser(_backend!.currentUser);
+    try {
+      await _backend!.restore();
+    } catch (error) {
+      authError.value = 'Không khôi phục được đăng nhập: $error';
+    }
+    await _syncUser(_backend!.currentUser);
     return this;
-  }
-
-  @override
-  void onClose() {
-    unawaited(_authSubscription?.cancel());
-    super.onClose();
   }
 
   Future<void> signIn({required String email, required String password}) async {
@@ -517,17 +395,7 @@ class AuthService extends GetxService {
         displayName: displayName,
       );
       await _startSession(user.uid);
-      await _requireTeamDataSource().upsertUserProfile(
-        uid: user.uid,
-        email: user.email,
-        displayName: user.displayName,
-      );
-      final membership = await _requireTeamDataSource().createTeamForUser(
-        uid: user.uid,
-        email: user.email,
-        displayName: user.displayName,
-        teamName: teamName,
-      );
+      final membership = await _requireTeamDataSource().createTeam(teamName);
       _setProfile(user, membership);
     });
   }
@@ -546,10 +414,7 @@ class AuthService extends GetxService {
       );
       await _startSession(user.uid);
       final membership = await _requireTeamDataSource().joinTeamWithInvite(
-        uid: user.uid,
-        email: user.email,
-        displayName: user.displayName,
-        inviteCode: inviteCode,
+        inviteCode,
       );
       _setProfile(user, membership);
     });
@@ -558,12 +423,7 @@ class AuthService extends GetxService {
   Future<void> createTeamForCurrentUser(String teamName) async {
     await _runAuthAction(() async {
       final user = _requireCurrentUser();
-      final membership = await _requireTeamDataSource().createTeamForUser(
-        uid: user.uid,
-        email: user.email,
-        displayName: user.displayName,
-        teamName: teamName,
-      );
+      final membership = await _requireTeamDataSource().createTeam(teamName);
       _setProfile(user, membership);
     });
   }
@@ -572,10 +432,7 @@ class AuthService extends GetxService {
     await _runAuthAction(() async {
       final user = _requireCurrentUser();
       final membership = await _requireTeamDataSource().joinTeamWithInvite(
-        uid: user.uid,
-        email: user.email,
-        displayName: user.displayName,
-        inviteCode: inviteCode,
+        inviteCode,
       );
       _setProfile(user, membership);
     });
@@ -591,7 +448,6 @@ class AuthService extends GetxService {
     }
     return _requireTeamDataSource().createInvite(
       teamId: current.teamId,
-      createdByUid: current.uid,
       role: role,
       expiresAt: _now().add(duration),
     );
@@ -637,7 +493,7 @@ class AuthService extends GetxService {
   }
 
   Future<void> reloadProfile() async {
-    await _syncFirebaseUser(_requireBackend().currentUser);
+    await _syncUser(_requireBackend().currentUser);
   }
 
   Future<void> signOut() async {
@@ -647,8 +503,15 @@ class AuthService extends GetxService {
     await _requireBackend().signOut();
   }
 
-  Future<void> _syncFirebaseUser(AuthBackendUser? user) async {
-    if (!_firebaseEnabled) return;
+  /// Called when the server rejects the stored session (expired or revoked).
+  Future<void> handleSessionRejected() async {
+    if (profile.value == null) return;
+    authError.value = 'Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.';
+    await signOut();
+  }
+
+  Future<void> _syncUser(AuthBackendUser? user) async {
+    if (!_backendConfigured) return;
     if (user == null) {
       profile.value = null;
       authStatus.value = AuthStatus.unauthenticated;
@@ -672,14 +535,7 @@ class AuthService extends GetxService {
   Future<void> _loadProfile(AuthBackendUser user) async {
     try {
       authStatus.value = AuthStatus.initializing;
-      await _requireTeamDataSource().upsertUserProfile(
-        uid: user.uid,
-        email: user.email,
-        displayName: user.displayName,
-      );
-      final membership = await _requireTeamDataSource().loadMembershipForUser(
-        user.uid,
-      );
+      final membership = await _requireTeamDataSource().loadMembership();
       _setProfile(user, membership);
     } catch (error) {
       profile.value = CurrentUserProfile(
@@ -725,7 +581,7 @@ class AuthService extends GetxService {
   }
 
   Future<void> _runAuthAction(Future<void> Function() action) async {
-    _ensureFirebaseAvailable();
+    _ensureBackendAvailable();
     if (isBusy.value) return;
     isBusy.value = true;
     authError.value = '';
@@ -734,9 +590,9 @@ class AuthService extends GetxService {
     } on AuthServiceException catch (error) {
       authError.value = error.message;
       rethrow;
-    } on FirebaseException catch (error) {
-      authError.value = _firebaseFirestoreMessage(error);
-      throw AuthServiceException(authError.value);
+    } on AmcApiException catch (error) {
+      authError.value = error.message;
+      throw AuthServiceException(error.message);
     } catch (error) {
       authError.value = 'Xác thực lỗi: $error';
       throw AuthServiceException(authError.value);
@@ -748,7 +604,7 @@ class AuthService extends GetxService {
   AuthBackend _requireBackend() {
     final backend = _backend;
     if (backend == null) {
-      throw const AuthServiceException('Chưa cấu hình Firebase Auth.');
+      throw const AuthServiceException('Chưa cấu hình server đăng nhập.');
     }
     return backend;
   }
@@ -777,66 +633,17 @@ class AuthService extends GetxService {
     return current;
   }
 
-  void _ensureFirebaseAvailable() {
-    if (!_firebaseEnabled) {
-      throw const AuthServiceException('Chưa cấu hình Firebase.');
+  void _ensureBackendAvailable() {
+    if (!_backendConfigured) {
+      throw const AuthServiceException('Chưa cấu hình server đăng nhập.');
     }
   }
-}
-
-String _firebaseAuthMessage(firebase_auth.FirebaseAuthException error) {
-  return switch (error.code) {
-    'email-already-in-use' => 'Email này đã được đăng ký.',
-    'invalid-email' => 'Email không hợp lệ.',
-    'invalid-credential' => 'Email hoặc mật khẩu không đúng.',
-    'user-not-found' => 'Email hoặc mật khẩu không đúng.',
-    'wrong-password' => 'Email hoặc mật khẩu không đúng.',
-    'weak-password' => 'Mật khẩu quá yếu.',
-    _ => error.message ?? 'Firebase Auth lỗi.',
-  };
-}
-
-String _firebaseFirestoreMessage(FirebaseException error) {
-  final code = error.code.trim().toLowerCase();
-  final message = error.message?.trim();
-  if (code == 'permission-denied' || code == 'unknown') {
-    final suffix = message == null || message.isEmpty ? '' : ' $message';
-    return 'Không đủ quyền trên database của nhóm.$suffix';
-  }
-  final suffix = message == null || message.isEmpty ? '' : ': $message';
-  return 'Database của nhóm lỗi (${error.code})$suffix';
-}
-
-_ParsedInviteCode _parseInviteCode(String value) {
-  final trimmed = value.trim();
-  final separator = trimmed.indexOf(':');
-  if (separator <= 0 || separator == trimmed.length - 1) {
-    throw const AuthServiceException('Mã mời không đúng hoặc đã hết hạn.');
-  }
-  return _ParsedInviteCode(
-    teamId: trimmed.substring(0, separator).trim(),
-    secret: trimmed.substring(separator + 1).trim().toUpperCase(),
-  );
-}
-
-Future<String> _inviteCodeHash(String teamId, String secret) async {
-  final digest = await Sha256().hash(utf8.encode('$teamId:$secret'));
-  return base64UrlEncode(digest.bytes).replaceAll('=', '');
 }
 
 String _string(Object? value) => value?.toString() ?? '';
 
 DateTime? _date(Object? value) {
-  if (value is Timestamp) return value.toDate().toLocal();
-  if (value is DateTime) return value.toLocal();
   final raw = value?.toString();
   if (raw == null || raw.trim().isEmpty) return null;
   return DateTime.tryParse(raw)?.toLocal();
-}
-
-class _ParsedInviteCode {
-  const _ParsedInviteCode({required this.teamId, required this.secret});
-
-  final String teamId;
-  final String secret;
 }

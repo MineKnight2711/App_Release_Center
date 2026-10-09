@@ -680,7 +680,7 @@ class _ControllerHarness {
       path: root.path,
       scripts: const [],
       fastlaneLanes: const [],
-      hasFirebaseDeployTools: false,
+      hasLegacyDistributionPrompt: false,
       hasPlayReleaseTools: true,
       pubspecVersion: '2.0.1+45',
     );

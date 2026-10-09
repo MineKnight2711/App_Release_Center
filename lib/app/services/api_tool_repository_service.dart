@@ -1,12 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:math';
 
+import 'package:app_management_center/app/data/amc_api_client.dart';
 import 'package:app_management_center/app/models/api_tool.dart';
 import 'package:app_management_center/app/models/auth_models.dart';
 import 'package:app_management_center/app/services/auth_service.dart';
 import 'package:app_management_center/app/services/project_store_service.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:get/get.dart';
 
 class ApiToolRepositoryException implements Exception {
@@ -50,74 +49,43 @@ abstract class TeamApiToolDataSource {
   );
 }
 
-class FirestoreTeamApiToolDataSource implements TeamApiToolDataSource {
-  FirestoreTeamApiToolDataSource({FirebaseFirestore? firestore})
-    : _db = firestore ?? FirebaseFirestore.instance;
+class AmcTeamApiToolDataSource implements TeamApiToolDataSource {
+  AmcTeamApiToolDataSource(this._api);
 
-  final FirebaseFirestore _db;
+  final AmcApiClient _api;
 
   @override
   Future<void> deleteCollection(String teamId, String collectionId) async {
-    final teamRef = _db.collection('teams').doc(teamId);
-    final linkedSnapshots = await Future.wait([
-      teamRef
-          .collection('apiToolFolders')
-          .where('collectionId', isEqualTo: collectionId)
-          .get(),
-      teamRef
-          .collection('apiToolRequests')
-          .where('collectionId', isEqualTo: collectionId)
-          .get(),
-      teamRef
-          .collection('apiToolQuickRequests')
-          .where('collectionId', isEqualTo: collectionId)
-          .get(),
-    ]);
-    final writes = <void Function(WriteBatch)>[];
-    for (final snapshot in linkedSnapshots) {
-      for (final document in snapshot.docs) {
-        writes.add((batch) => batch.delete(document.reference));
-      }
-    }
-    writes.add(
-      (batch) => batch.delete(
-        teamRef.collection('apiToolCollections').doc(collectionId),
-      ),
+    await _api.delete(
+      '${_teamPath(teamId)}/collections/${Uri.encodeComponent(collectionId)}',
     );
-    await _commitInBatches(writes);
   }
 
   @override
   Future<ApiToolRepositorySnapshot> load(String teamId) async {
-    final teamRef = _db.collection('teams').doc(teamId);
-    final results = await Future.wait([
-      teamRef.collection('apiToolCollections').get(),
-      teamRef.collection('apiToolFolders').get(),
-      teamRef.collection('apiToolRequests').get(),
-      teamRef.collection('apiToolQuickRequests').get(),
-    ]);
+    final body = await _api.get(_teamPath(teamId));
 
     final collections =
-        results[0].docs
-            .map((doc) => ApiToolCollectionRoot.fromJson(doc.data()))
+        _documents(body['collections'])
+            .map(ApiToolCollectionRoot.fromJson)
             .where((entry) => entry.id.isNotEmpty)
             .toList()
           ..sort((a, b) => a.displayName.compareTo(b.displayName));
     final folders =
-        results[1].docs
-            .map((doc) => ApiToolCollectionFolder.fromJson(doc.data()))
+        _documents(body['folders'])
+            .map(ApiToolCollectionFolder.fromJson)
             .where((entry) => entry.id.isNotEmpty)
             .toList()
           ..sort((a, b) => a.displayName.compareTo(b.displayName));
     final requests =
-        results[2].docs
-            .map((doc) => ApiToolRequest.fromJson(doc.data()))
+        _documents(body['requests'])
+            .map(ApiToolRequest.fromJson)
             .where((entry) => entry.id.isNotEmpty)
             .toList()
           ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
     final quickRequests =
-        results[3].docs
-            .map((doc) => ApiToolQuickRequest.fromJson(doc.data()))
+        _documents(body['quickRequests'])
+            .map(ApiToolQuickRequest.fromJson)
             .where((entry) => entry.id.isNotEmpty)
             .toList()
           ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
@@ -135,15 +103,9 @@ class FirestoreTeamApiToolDataSource implements TeamApiToolDataSource {
     String teamId,
     List<ApiToolCollectionRoot> collections,
   ) {
-    return _replaceDocuments(
-      teamId: teamId,
-      collectionName: 'apiToolCollections',
-      ids: collections.map((entry) => entry.id),
-      jsonById: {
-        for (final collection in collections)
-          collection.id: collection.toJson(),
-      },
-    );
+    return _replace(teamId, 'collections', [
+      for (final collection in collections) collection.toJson(),
+    ]);
   }
 
   @override
@@ -151,22 +113,16 @@ class FirestoreTeamApiToolDataSource implements TeamApiToolDataSource {
     String teamId,
     List<ApiToolCollectionFolder> folders,
   ) {
-    return _replaceDocuments(
-      teamId: teamId,
-      collectionName: 'apiToolFolders',
-      ids: folders.map((entry) => entry.id),
-      jsonById: {for (final folder in folders) folder.id: folder.toJson()},
-    );
+    return _replace(teamId, 'folders', [
+      for (final folder in folders) folder.toJson(),
+    ]);
   }
 
   @override
   Future<void> saveRequests(String teamId, List<ApiToolRequest> requests) {
-    return _replaceDocuments(
-      teamId: teamId,
-      collectionName: 'apiToolRequests',
-      ids: requests.map((entry) => entry.id),
-      jsonById: {for (final request in requests) request.id: request.toJson()},
-    );
+    return _replace(teamId, 'requests', [
+      for (final request in requests) request.toJson(),
+    ]);
   }
 
   @override
@@ -174,107 +130,53 @@ class FirestoreTeamApiToolDataSource implements TeamApiToolDataSource {
     String teamId,
     List<ApiToolQuickRequest> requests,
   ) {
-    return _replaceDocuments(
-      teamId: teamId,
-      collectionName: 'apiToolQuickRequests',
-      ids: requests.map((entry) => entry.id),
-      jsonById: {for (final request in requests) request.id: request.toJson()},
-    );
+    return _replace(teamId, 'quick-requests', [
+      for (final request in requests) request.toJson(),
+    ]);
   }
 
-  Future<void> _replaceDocuments({
-    required String teamId,
-    required String collectionName,
-    required Iterable<String> ids,
-    required Map<String, Map<String, Object?>> jsonById,
-  }) async {
-    final collectionRef = _db
-        .collection('teams')
-        .doc(teamId)
-        .collection(collectionName);
-    final existing = await collectionRef.get();
-    final keepIds = ids.where((id) => id.trim().isNotEmpty).toSet();
-    final writes = <void Function(WriteBatch)>[];
-
-    for (final doc in existing.docs) {
-      if (!keepIds.contains(doc.id)) {
-        writes.add((batch) => batch.delete(doc.reference));
-      }
-    }
-
-    for (final entry in jsonById.entries) {
-      if (entry.key.trim().isEmpty) continue;
-      _ensureDocumentFits(entry.key, entry.value);
-      writes.add(
-        (batch) => batch.set(collectionRef.doc(entry.key), entry.value),
-      );
-    }
-
-    await _commitInBatches(writes);
+  /// The server replaces the whole set: missing ids are deleted.
+  Future<void> _replace(
+    String teamId,
+    String kind,
+    List<Map<String, Object?>> items,
+  ) async {
+    final kept = items
+        .where((item) => item['id']?.toString().trim().isNotEmpty ?? false)
+        .toList();
+    kept.forEach(_ensureDocumentFits);
+    await _api.put('${_teamPath(teamId)}/$kind', body: {'items': kept});
   }
 
-  /// Firestore refuses a commit carrying more than [_maxWritesPerBatch] writes,
-  /// so a large collection has to be split across several batches.
-  Future<void> _commitInBatches(List<void Function(WriteBatch)> writes) async {
-    for (var start = 0; start < writes.length; start += _maxWritesPerBatch) {
-      final batch = _db.batch();
-      final end = min(start + _maxWritesPerBatch, writes.length);
-      for (var index = start; index < end; index++) {
-        writes[index](batch);
-      }
-      await batch.commit();
-    }
-  }
-
-  /// Firestore answers an oversized document with a bare `invalid-argument`
-  /// that names neither the document nor the limit, so the size is checked here
-  /// where the offending request can still be pointed at by name.
-  void _ensureDocumentFits(String documentId, Map<String, Object?> json) {
-    final bytes = estimateFirestoreDocumentBytes(json);
+  /// The database stores each HTTP Tool as one JSON value; a value that is too
+  /// large fails without naming the request, so it is checked here where the
+  /// offending request can still be pointed at by name.
+  void _ensureDocumentFits(Map<String, Object?> json) {
+    final bytes = documentBytes(json);
     if (bytes <= _maxDocumentBytes) return;
-    final name = (json['name'] ?? '').toString().trim();
+    final name = (json['name'] ?? json['id'] ?? '').toString().trim();
     throw ApiToolRepositoryException(
-      '"${name.isEmpty ? documentId : name}" is ${(bytes / 1024).round()} KB, '
-      'over the ${_maxDocumentBytes ~/ 1024} KB Firestore stores per document. '
-      'Trim the body or the form-data value that carries the payload, then '
-      'import again.',
+      '"$name" nặng ${(bytes / 1024).round()} KB, vượt giới hạn '
+      '${_maxDocumentBytes ~/ 1024} KB mỗi mục của database nhóm. Bớt body '
+      'hoặc giá trị form-data đang chứa payload rồi import lại.',
     );
+  }
+
+  static String _teamPath(String teamId) =>
+      '/teams/${Uri.encodeComponent(teamId)}/api-tools';
+
+  static Iterable<Map<String, Object?>> _documents(Object? value) {
+    if (value is! List) return const [];
+    return value.whereType<Map>().map(Map<String, Object?>.from);
   }
 }
 
-/// Firestore rejects a commit with more than 500 writes and a document larger
-/// than 1 MiB. Both are backend limits with no client-side check.
-const int _maxWritesPerBatch = 500;
+/// Largest HTTP Tool the team database accepts, as encoded JSON.
 const int _maxDocumentBytes = 1024 * 1024;
 
-/// Approximates what Firestore counts as a document's size: 32 bytes of
-/// overhead plus every field name and value.
-int estimateFirestoreDocumentBytes(Map<String, Object?> json) {
-  return 32 + _estimateValueBytes(json);
-}
-
-int _estimateValueBytes(Object? value) {
-  if (value == null || value is bool) return 1;
-  if (value is num) return 8;
-  if (value is String) return utf8.encode(value).length + 1;
-  if (value is Map) {
-    return value.entries.fold<int>(
-      0,
-      (total, entry) =>
-          total +
-          utf8.encode(entry.key.toString()).length +
-          1 +
-          _estimateValueBytes(entry.value),
-    );
-  }
-  if (value is Iterable) {
-    return value.fold<int>(
-      0,
-      (total, entry) => total + _estimateValueBytes(entry),
-    );
-  }
-  return utf8.encode(value.toString()).length + 1;
-}
+/// What one HTTP Tool costs in the team database: its UTF-8 JSON encoding.
+int documentBytes(Map<String, Object?> json) =>
+    utf8.encode(jsonEncode(json)).length;
 
 class ApiToolRepositoryService extends GetxService {
   ApiToolRepositoryService({
@@ -289,7 +191,7 @@ class ApiToolRepositoryService extends GetxService {
 
   final ProjectStoreService _localStore;
   final AuthService? _auth;
-  TeamApiToolDataSource? _teamDataSource;
+  final TeamApiToolDataSource? _teamDataSource;
   StreamSubscription<CurrentUserProfile?>? _profileSubscription;
 
   final workspaceLabel = 'Workspace ở máy'.obs;
@@ -323,10 +225,7 @@ class ApiToolRepositoryService extends GetxService {
     return current != null && current.hasTeam ? current : null;
   }
 
-  Future<ApiToolRepositoryService> init({required bool firebaseEnabled}) async {
-    if (firebaseEnabled) {
-      _teamDataSource ??= FirestoreTeamApiToolDataSource();
-    }
+  Future<ApiToolRepositoryService> init() async {
     _profileSubscription = _auth?.profile.listen((_) => unawaited(refresh()));
     await refresh();
     return this;
@@ -352,7 +251,7 @@ class ApiToolRepositoryService extends GetxService {
     workspaceLabel.value = 'Nhóm: ${teamProfile.teamName}';
     canWriteApiTools.value = teamProfile.canEditApiTools;
     try {
-      final snapshot = await _teamDataSource!.load(teamProfile.teamId);
+      final snapshot = await _teamDataSource.load(teamProfile.teamId);
       _collections = snapshot.collections;
       _folders = snapshot.folders;
       _requests = snapshot.requests;
@@ -376,7 +275,7 @@ class ApiToolRepositoryService extends GetxService {
       ..sort((a, b) => a.displayName.compareTo(b.displayName));
     final teamProfile = _currentTeamProfile;
     if (teamProfile != null && _teamDataSource != null) {
-      await _teamDataSource!.saveCollections(teamProfile.teamId, normalized);
+      await _teamDataSource.saveCollections(teamProfile.teamId, normalized);
       _collections = normalized;
       return;
     }
@@ -390,7 +289,7 @@ class ApiToolRepositoryService extends GetxService {
       ..sort((a, b) => a.displayName.compareTo(b.displayName));
     final teamProfile = _currentTeamProfile;
     if (teamProfile != null && _teamDataSource != null) {
-      await _teamDataSource!.saveFolders(teamProfile.teamId, normalized);
+      await _teamDataSource.saveFolders(teamProfile.teamId, normalized);
       _folders = normalized;
       return;
     }
@@ -404,7 +303,7 @@ class ApiToolRepositoryService extends GetxService {
       ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
     final teamProfile = _currentTeamProfile;
     if (teamProfile != null && _teamDataSource != null) {
-      await _teamDataSource!.saveRequests(teamProfile.teamId, normalized);
+      await _teamDataSource.saveRequests(teamProfile.teamId, normalized);
       _requests = normalized;
       return;
     }
@@ -420,7 +319,7 @@ class ApiToolRepositoryService extends GetxService {
       ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
     final teamProfile = _currentTeamProfile;
     if (teamProfile != null && _teamDataSource != null) {
-      await _teamDataSource!.saveQuickRequests(teamProfile.teamId, normalized);
+      await _teamDataSource.saveQuickRequests(teamProfile.teamId, normalized);
       _quickRequests = normalized;
       return;
     }
@@ -450,7 +349,7 @@ class ApiToolRepositoryService extends GetxService {
 
     final teamProfile = _currentTeamProfile;
     if (teamProfile != null && _teamDataSource != null) {
-      await _teamDataSource!.deleteCollection(teamProfile.teamId, normalizedId);
+      await _teamDataSource.deleteCollection(teamProfile.teamId, normalizedId);
       _collections = collections;
       _folders = folders;
       _requests = requests;
@@ -483,12 +382,12 @@ class ApiToolRepositoryService extends GetxService {
     final teamProfile = _currentTeamProfile;
     if (teamProfile != null && _teamDataSource != null) {
       await Future.wait([
-        _teamDataSource!.saveCollections(
+        _teamDataSource.saveCollections(
           teamProfile.teamId,
           normalizedCollections,
         ),
-        _teamDataSource!.saveFolders(teamProfile.teamId, normalizedFolders),
-        _teamDataSource!.saveRequests(teamProfile.teamId, normalizedRequests),
+        _teamDataSource.saveFolders(teamProfile.teamId, normalizedFolders),
+        _teamDataSource.saveRequests(teamProfile.teamId, normalizedRequests),
       ]);
       _collections = normalizedCollections;
       _folders = normalizedFolders;
@@ -515,7 +414,7 @@ class ApiToolRepositoryService extends GetxService {
     }
     _ensureWritable();
 
-    final remote = await _teamDataSource!.load(teamProfile.teamId);
+    final remote = await _teamDataSource.load(teamProfile.teamId);
     final collections = _mergeById(
       remote.collections,
       _localStore.apiToolCollections,
@@ -528,10 +427,10 @@ class ApiToolRepositoryService extends GetxService {
     );
 
     await Future.wait([
-      _teamDataSource!.saveCollections(teamProfile.teamId, collections),
-      _teamDataSource!.saveFolders(teamProfile.teamId, folders),
-      _teamDataSource!.saveRequests(teamProfile.teamId, requests),
-      _teamDataSource!.saveQuickRequests(teamProfile.teamId, quickRequests),
+      _teamDataSource.saveCollections(teamProfile.teamId, collections),
+      _teamDataSource.saveFolders(teamProfile.teamId, folders),
+      _teamDataSource.saveRequests(teamProfile.teamId, requests),
+      _teamDataSource.saveQuickRequests(teamProfile.teamId, quickRequests),
     ]);
     _collections = collections;
     _folders = folders;

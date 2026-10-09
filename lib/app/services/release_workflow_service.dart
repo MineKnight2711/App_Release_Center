@@ -690,14 +690,15 @@ class ReleaseWorkflowService extends GetxService {
         project: config.project,
         script: _requiredScript(config.project, ReleaseScriptKind.deploy),
         args: [
-          if (config.project.hasFirebaseDeployTools) 'no',
+          if (config.project.hasLegacyDistributionPrompt) 'no',
           'yes',
           if (currentRun.value!.releaseNotes.isNotEmpty)
             currentRun.value!.releaseNotes,
         ],
         environment: {
           ...environment,
-          if (config.project.hasFirebaseDeployTools) 'DEPLOY_LEGACY_ARGS': '1',
+          if (config.project.hasLegacyDistributionPrompt)
+            'DEPLOY_LEGACY_ARGS': '1',
           'UPLOAD_PLAY_IMAGES': config.uploadListingImages ? '1' : '0',
           if (!config.validateListingImages) 'SKIP_PLAY_IMAGE_CHECK': '1',
         },

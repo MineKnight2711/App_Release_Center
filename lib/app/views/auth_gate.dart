@@ -8,9 +8,14 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 class AuthGate extends StatelessWidget {
-  const AuthGate({super.key, required this.firebaseConfigured});
+  const AuthGate({
+    super.key,
+    required this.backendConfigured,
+    this.backendConfigurationError,
+  });
 
-  final bool firebaseConfigured;
+  final bool backendConfigured;
+  final String? backendConfigurationError;
 
   @override
   Widget build(BuildContext context) {
@@ -21,10 +26,12 @@ class AuthGate extends StatelessWidget {
         AuthStatus.authenticated => const HomeView(),
         AuthStatus.teamRequired => const TeamSetupView(),
         AuthStatus.unauthenticated => LoginView(
-          firebaseConfigured: firebaseConfigured,
+          backendConfigured: backendConfigured,
+          backendConfigurationError: backendConfigurationError,
         ),
         AuthStatus.unavailable => LoginView(
-          firebaseConfigured: firebaseConfigured,
+          backendConfigured: backendConfigured,
+          backendConfigurationError: backendConfigurationError,
         ),
         AuthStatus.initializing => const _AuthLoadingView(),
       };

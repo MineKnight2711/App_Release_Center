@@ -8,15 +8,12 @@ environment:
 
 dependencies:
   archive: ^4.0.9
-  cloud_firestore: ^6.8.0
   cryptography: ^2.9.0
   desktop_drop: ^0.8.4
   desktop_webview_window: ^0.3.0
   enough_mail: ^2.1.7
   file_picker: 8.3.7
   file_selector: ^1.1.0
-  firebase_auth: ^6.5.7
-  firebase_core: ^4.13.0
   flutter:
     sdk: flutter
   flutter_secure_storage: ^10.3.1

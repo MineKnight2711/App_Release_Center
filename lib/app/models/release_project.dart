@@ -9,7 +9,7 @@ class ReleaseProject {
     required this.path,
     required this.scripts,
     required this.fastlaneLanes,
-    required this.hasFirebaseDeployTools,
+    required this.hasLegacyDistributionPrompt,
     required this.hasPlayReleaseTools,
     this.pubspecVersion,
   });
@@ -17,7 +17,11 @@ class ReleaseProject {
   final String path;
   final List<ReleaseScript> scripts;
   final List<ReleaseFastlaneLane> fastlaneLanes;
-  final bool hasFirebaseDeployTools;
+
+  /// Legacy `auto/deploy.sh` scripts prompt for an app distribution step
+  /// before the Play upload; the app always answers "no" to keep the
+  /// positional arguments aligned.
+  final bool hasLegacyDistributionPrompt;
   final bool hasPlayReleaseTools;
   final String? pubspecVersion;
 

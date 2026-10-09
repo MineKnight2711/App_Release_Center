@@ -296,24 +296,11 @@ class _ReleaseOptions extends GetView<HomeController> {
   Widget build(BuildContext context) {
     return Obx(() {
       final project = controller.project.value;
-      final hasFirebaseTools = project?.hasFirebaseDeployTools ?? false;
       final hasPlayTools = project?.hasPlayReleaseTools ?? false;
 
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (hasFirebaseTools) ...[
-            CheckboxListTile(
-              value: controller.includeFirebaseDeploy.value,
-              onChanged: (value) {
-                controller.includeFirebaseDeploy.value = value ?? true;
-              },
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Firebase App Distribution'),
-              controlAffinity: ListTileControlAffinity.leading,
-            ),
-            const Divider(height: 24),
-          ],
           if (hasPlayTools) ...[
             const _PlayUploadOptions(),
             const SizedBox(height: 10),
@@ -324,7 +311,7 @@ class _ReleaseOptions extends GetView<HomeController> {
             const _GoogleDriveFallbackOptions(),
             const Divider(height: 24),
           ],
-          if (!hasFirebaseTools && !hasPlayTools) ...[
+          if (!hasPlayTools) ...[
             _HudCardShell(
               padding: const EdgeInsets.all(10),
               child: Row(
@@ -4276,7 +4263,6 @@ IconData _resourceKindIcon(ResourceTargetKind kind) {
     ResourceTargetKind.properties => Icons.article_outlined,
     ResourceTargetKind.fastlaneServiceAccount =>
       Icons.admin_panel_settings_outlined,
-    ResourceTargetKind.firebaseConfig => Icons.local_fire_department_outlined,
     ResourceTargetKind.signingKey => Icons.vpn_key_outlined,
     ResourceTargetKind.appStoreKey => Icons.key_outlined,
   };
@@ -4292,7 +4278,6 @@ IconData _resourceCatalogKindIcon(ResourceCatalogKind kind) {
     ResourceCatalogKind.figma => Icons.design_services_outlined,
     ResourceCatalogKind.playConsole => Icons.shop_2_outlined,
     ResourceCatalogKind.appStoreConnect => Icons.app_shortcut_outlined,
-    ResourceCatalogKind.firebase => Icons.local_fire_department_outlined,
     ResourceCatalogKind.cicd => Icons.account_tree_outlined,
     ResourceCatalogKind.repository => Icons.source_outlined,
     ResourceCatalogKind.backendAdmin => Icons.admin_panel_settings_outlined,

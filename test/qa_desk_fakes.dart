@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:app_management_center/app/modules/qa_desk/controllers/qa_workspace_controller.dart';
 import 'package:app_management_center/app/modules/qa_desk/models/qa_models.dart';
 import 'package:app_management_center/app/modules/qa_desk/models/scenario_models.dart';
+import 'package:app_management_center/app/modules/qa_desk/services/account_vault.dart';
 import 'package:app_management_center/app/modules/qa_desk/services/appium_server_service.dart';
 import 'package:app_management_center/app/modules/qa_desk/services/artifact_store.dart';
 import 'package:app_management_center/app/modules/qa_desk/services/device_discovery_service.dart';
@@ -136,6 +137,12 @@ class FakeHost extends ChangeNotifier implements QaDeskHost {
 
   @override
   QaTeamContext? team;
+
+  /// The team vault's storage when [team] is set.
+  VaultBackend? vaultBackend;
+
+  @override
+  VaultBackend? teamVaultBackend(String teamId) => vaultBackend;
 
   void setBusy(Iterable<String> paths) {
     _busy

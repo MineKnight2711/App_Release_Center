@@ -142,7 +142,7 @@ abstract class AccountVault extends ChangeNotifier {
   }.toList()..sort();
 }
 
-/// Accounts kept in this machine's secure storage, for AMC without Firebase
+/// Accounts kept in this machine's secure storage, for AMC without a team
 /// or before a team vault exists.
 class LocalAccountVault extends AccountVault {
   LocalAccountVault({required SecretStore store, String? machine})
@@ -281,7 +281,7 @@ class LocalAccountVault extends AccountVault {
 }
 
 /// The team vault's storage, kept apart so the vault's rules and encryption
-/// are tested without Firestore. Documents arrive already encrypted.
+/// are tested without a server. Documents arrive already encrypted.
 abstract interface class VaultBackend {
   Future<Map<String, dynamic>?> readMeta();
   Future<void> writeMeta(Map<String, dynamic> meta);

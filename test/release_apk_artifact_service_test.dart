@@ -175,7 +175,7 @@ ReleaseProject _project(Directory root, {required String? version}) {
     path: root.path,
     scripts: const [],
     fastlaneLanes: const [],
-    hasFirebaseDeployTools: false,
+    hasLegacyDistributionPrompt: false,
     hasPlayReleaseTools: true,
     pubspecVersion: version,
   );

@@ -1,7 +1,7 @@
 /// Which FlowFin deployment the module talks to.
 ///
 /// The desktop app calls the FlowFin Worker directly. Nothing here routes
-/// through App Management Center's own Firebase project or its notification
+/// through App Management Center's own amc-api Worker or its notification
 /// relay, so the module adds no load to that backend.
 enum FlowFinEnvironment { local, staging, production }
 

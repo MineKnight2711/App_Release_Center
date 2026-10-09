@@ -310,7 +310,7 @@ class _SetupState extends State<_Setup> {
         const NoticeBox(
           text:
               'Tài khoản được mã hoá trên máy bằng passphrase của team; '
-              'Firebase chỉ giữ bản mã. Mỗi thành viên nhập passphrase một '
+              'server chỉ giữ bản mã. Mỗi thành viên nhập passphrase một '
               'lần trên máy của mình. Mất passphrase là phải tạo lại kho: hãy '
               'lưu nó trong password manager của team.',
           icon: Icons.lock_outline,

@@ -420,14 +420,6 @@ class CiCdDependencyDoctorService {
   Future<List<CiCdDependencyCheck>> _optionalChecks(String projectPath) async {
     return [
       await _commandCheck(
-        id: 'firebase-cli',
-        label: 'Firebase CLI',
-        group: CiCdSetupGroup.optionalTools,
-        executable: 'firebase',
-        arguments: const ['--version'],
-        fallbackUrl: 'https://firebase.google.com/docs/cli',
-      ),
-      await _commandCheck(
         id: 'github-cli',
         label: 'GitHub CLI',
         group: CiCdSetupGroup.optionalTools,

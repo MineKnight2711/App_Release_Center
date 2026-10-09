@@ -6,14 +6,13 @@ import 'package:app_management_center/app/modules/plan_studio/views/plan_studio_
 import 'package:app_management_center/app/modules/plan_studio/views/today_view.dart';
 
 import 'package:app_management_center/app/bindings/app_binding.dart';
+import 'package:app_management_center/app/config/backend_config.dart';
 import 'package:app_management_center/app/services/legacy_storage_migration_service.dart';
 import 'package:app_management_center/app/services/theme_service.dart';
 import 'package:app_management_center/app/views/app_lock_gate.dart';
 import 'package:app_management_center/app/views/auth_gate.dart';
 import 'package:app_management_center/app/views/mobile_control_view.dart';
-import 'package:app_management_center/firebase_options.dart';
 import 'package:desktop_webview_window/desktop_webview_window.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -28,12 +27,20 @@ Future<void> main(List<String> args) async {
   }
   // Must run before any service reads preferences or secure storage.
   await const LegacyStorageMigrationService().migrateIfNeeded();
-  final firebaseOptions = await DefaultFirebaseOptions.load();
-  if (firebaseOptions != null) {
-    await Firebase.initializeApp(options: firebaseOptions);
+  BackendConfig? backendConfig;
+  String? backendConfigurationError;
+  try {
+    backendConfig = await BackendConfig.load();
+  } on FormatException catch (error) {
+    backendConfigurationError = error.message;
   }
-  await AppBinding.initServices(firebaseEnabled: firebaseOptions != null);
-  runApp(AppManagementCenterApp(firebaseConfigured: firebaseOptions != null));
+  await AppBinding.initServices(backendConfig: backendConfig);
+  runApp(
+    AppManagementCenterApp(
+      backendConfigured: backendConfig != null,
+      backendConfigurationError: backendConfigurationError,
+    ),
+  );
   if (Platform.isWindows) {
     WidgetsBinding.instance.addPostFrameCallback(
       (_) => unawaited(_startPlanStudio()),
@@ -67,9 +74,14 @@ Future<void> _startPlanStudio() async {
 }
 
 class AppManagementCenterApp extends StatelessWidget {
-  const AppManagementCenterApp({super.key, required this.firebaseConfigured});
+  const AppManagementCenterApp({
+    super.key,
+    required this.backendConfigured,
+    this.backendConfigurationError,
+  });
 
-  final bool firebaseConfigured;
+  final bool backendConfigured;
+  final String? backendConfigurationError;
 
   @override
   Widget build(BuildContext context) {
@@ -82,7 +94,10 @@ class AppManagementCenterApp extends StatelessWidget {
       theme: themeService.themeData,
       home: Platform.isAndroid || Platform.isIOS
           ? const AppLockGate(child: MobileControlView())
-          : AuthGate(firebaseConfigured: firebaseConfigured),
+          : AuthGate(
+              backendConfigured: backendConfigured,
+              backendConfigurationError: backendConfigurationError,
+            ),
     );
   }
 }

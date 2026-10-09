@@ -37,8 +37,7 @@ extension CiCdSetupGroupLabel on CiCdSetupGroup {
       CiCdSetupGroup.core => 'Git, Flutter, Dart và các công cụ shell.',
       CiCdSetupGroup.android => 'JDK 17, công cụ Android SDK và license.',
       CiCdSetupGroup.rubyFastlane => 'Ruby, RubyGems, Bundler và Fastlane.',
-      CiCdSetupGroup.optionalTools =>
-        'Firebase CLI, GitHub CLI và key của Play.',
+      CiCdSetupGroup.optionalTools => 'GitHub CLI và key của Play.',
     };
   }
 }
@@ -178,13 +177,6 @@ class CiCdSetupCatalog {
       label: 'Chạy bundle install cho dự án',
       group: CiCdSetupGroup.rubyFastlane,
       description: 'Chạy bundle install khi có android/fastlane/Gemfile.',
-    ),
-    CiCdSetupOption(
-      id: 'firebase-cli',
-      label: 'Firebase CLI',
-      group: CiCdSetupGroup.optionalTools,
-      description: 'CLI tuỳ chọn cho luồng Firebase App Distribution.',
-      defaultSelected: false,
     ),
     CiCdSetupOption(
       id: 'github-cli',

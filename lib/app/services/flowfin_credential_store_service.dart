@@ -9,7 +9,8 @@ import 'package:get/get.dart';
 ///
 /// Sessions are namespaced per environment so signing in to staging never
 /// hands a token to production, and signing out of one leaves the other alone.
-/// Tokens are never written to preferences, to Firestore, or to any log.
+/// Tokens are never written to preferences, to the team database, or to any
+/// log.
 class FlowFinCredentialStoreService extends GetxService {
   FlowFinCredentialStoreService({SecureKeyValueStore? secureStore})
     : _secureStore = secureStore ?? FlutterSecureKeyValueStore();

@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:app_management_center/app/models/api_tool.dart';
 import 'package:app_management_center/app/models/auth_models.dart';
 import 'package:app_management_center/app/services/api_tool_repository_service.dart';
@@ -14,7 +12,7 @@ void main() {
     final localStore = await ProjectStoreService().init();
     final repository = await ApiToolRepositoryService(
       localStore: localStore,
-    ).init(firebaseEnabled: false);
+    ).init();
     final request = ApiToolRequest(
       id: 'request-1',
       name: 'Ở máy',
@@ -35,7 +33,7 @@ void main() {
     final localStore = await ProjectStoreService().init();
     final repository = await ApiToolRepositoryService(
       localStore: localStore,
-    ).init(firebaseEnabled: false);
+    ).init();
     final now = DateTime(2026, 8, 17);
     final quickRequest = ApiToolQuickRequest(
       id: 'quick-1',
@@ -62,7 +60,7 @@ void main() {
     final localStore = await ProjectStoreService().init();
     final repository = await ApiToolRepositoryService(
       localStore: localStore,
-    ).init(firebaseEnabled: false);
+    ).init();
     final now = DateTime(2026, 8, 17);
     await repository.saveApiToolCollections([
       ApiToolCollectionRoot(id: 'remove', name: 'Remove', updatedAt: now),
@@ -129,14 +127,14 @@ void main() {
   test('writes HTTP Tool collections to team data source', () async {
     SharedPreferences.setMockInitialValues({});
     final localStore = await ProjectStoreService().init();
-    final auth = await _teamAuthService().init(firebaseEnabled: true);
+    final auth = await _teamAuthService().init(backendConfigured: true);
     await auth.signIn(email: 'dev@example.com', password: 'secret123');
     final teamData = _FakeTeamApiToolDataSource();
     final repository = await ApiToolRepositoryService(
       localStore: localStore,
       auth: auth,
       teamDataSource: teamData,
-    ).init(firebaseEnabled: true);
+    ).init();
     final collection = ApiToolCollectionRoot(
       id: 'collection-1',
       name: 'Shared',
@@ -153,14 +151,14 @@ void main() {
   test('writes Quick Requests to the active team workspace', () async {
     SharedPreferences.setMockInitialValues({});
     final localStore = await ProjectStoreService().init();
-    final auth = await _teamAuthService().init(firebaseEnabled: true);
+    final auth = await _teamAuthService().init(backendConfigured: true);
     await auth.signIn(email: 'dev@example.com', password: 'secret123');
     final teamData = _FakeTeamApiToolDataSource();
     final repository = await ApiToolRepositoryService(
       localStore: localStore,
       auth: auth,
       teamDataSource: teamData,
-    ).init(firebaseEnabled: true);
+    ).init();
     final now = DateTime(2026, 8, 17);
     final quickRequest = ApiToolQuickRequest(
       id: 'quick-team',
@@ -186,7 +184,7 @@ void main() {
   test('deletes a team collection and all linked HTTP Tool data', () async {
     SharedPreferences.setMockInitialValues({});
     final localStore = await ProjectStoreService().init();
-    final auth = await _teamAuthService().init(firebaseEnabled: true);
+    final auth = await _teamAuthService().init(backendConfigured: true);
     await auth.signIn(email: 'dev@example.com', password: 'secret123');
     final now = DateTime(2026, 8, 17);
     final teamData = _FakeTeamApiToolDataSource()
@@ -234,7 +232,7 @@ void main() {
       localStore: localStore,
       auth: auth,
       teamDataSource: teamData,
-    ).init(firebaseEnabled: true);
+    ).init();
 
     await repository.deleteApiToolCollection('remove');
 
@@ -249,14 +247,14 @@ void main() {
   test('team repository keeps request history local only', () async {
     SharedPreferences.setMockInitialValues({});
     final localStore = await ProjectStoreService().init();
-    final auth = await _teamAuthService().init(firebaseEnabled: true);
+    final auth = await _teamAuthService().init(backendConfigured: true);
     await auth.signIn(email: 'dev@example.com', password: 'secret123');
     final teamData = _FakeTeamApiToolDataSource();
     final repository = await ApiToolRepositoryService(
       localStore: localStore,
       auth: auth,
       teamDataSource: teamData,
-    ).init(firebaseEnabled: true);
+    ).init();
     final request = ApiToolRequest(
       id: 'request-1',
       name: 'Shared',
@@ -285,7 +283,7 @@ void main() {
     final localStore = await ProjectStoreService().init();
     final repository = await ApiToolRepositoryService(
       localStore: localStore,
-    ).init(firebaseEnabled: false);
+    ).init();
     final now = DateTime(2026, 8, 5);
     final collection = ApiToolCollectionRoot(
       id: 'postman-collection',
@@ -323,14 +321,14 @@ void main() {
   test('imports HTTP Tools into team workspace', () async {
     SharedPreferences.setMockInitialValues({});
     final localStore = await ProjectStoreService().init();
-    final auth = await _teamAuthService().init(firebaseEnabled: true);
+    final auth = await _teamAuthService().init(backendConfigured: true);
     await auth.signIn(email: 'dev@example.com', password: 'secret123');
     final teamData = _FakeTeamApiToolDataSource();
     final repository = await ApiToolRepositoryService(
       localStore: localStore,
       auth: auth,
       teamDataSource: teamData,
-    ).init(firebaseEnabled: true);
+    ).init();
     final now = DateTime(2026, 8, 5);
     final collection = ApiToolCollectionRoot(
       id: 'postman-collection',
@@ -377,14 +375,14 @@ void main() {
         updatedAt: now,
       ),
     ]);
-    final auth = await _teamAuthService().init(firebaseEnabled: true);
+    final auth = await _teamAuthService().init(backendConfigured: true);
     await auth.signIn(email: 'dev@example.com', password: 'secret123');
     final teamData = _FakeTeamApiToolDataSource();
     final repository = await ApiToolRepositoryService(
       localStore: localStore,
       auth: auth,
       teamDataSource: teamData,
-    ).init(firebaseEnabled: true);
+    ).init();
 
     await repository.importLocalApiToolsToTeam();
 
@@ -392,13 +390,13 @@ void main() {
     expect(repository.apiToolQuickRequests.single.name, 'Local reset');
   });
 
-  test('estimates the Firestore size of a document', () {
-    final small = estimateFirestoreDocumentBytes({
+  test('measures the stored size of a document', () {
+    final small = documentBytes({
       'name': 'ok',
       'enabled': true,
       'headers': const <Object?>[],
     });
-    final oversized = estimateFirestoreDocumentBytes({
+    final oversized = documentBytes({
       'name': 'Upload',
       'multipartFields': [
         {'value': 'x' * (1024 * 1024)},
@@ -539,14 +537,13 @@ class _FakeAuthBackend implements AuthBackend {
   _FakeAuthBackend(this.user);
 
   final AuthBackendUser user;
-  final _controller = StreamController<AuthBackendUser?>.broadcast();
   AuthBackendUser? _currentUser;
 
   @override
   AuthBackendUser? get currentUser => _currentUser;
 
   @override
-  Stream<AuthBackendUser?> authStateChanges() => _controller.stream;
+  Future<void> restore() async {}
 
   @override
   Future<AuthBackendUser> signIn({
@@ -554,7 +551,6 @@ class _FakeAuthBackend implements AuthBackend {
     required String password,
   }) async {
     _currentUser = user;
-    _controller.add(user);
     return user;
   }
 
@@ -565,14 +561,12 @@ class _FakeAuthBackend implements AuthBackend {
     required String displayName,
   }) async {
     _currentUser = user;
-    _controller.add(user);
     return user;
   }
 
   @override
   Future<void> signOut() async {
     _currentUser = null;
-    _controller.add(null);
   }
 }
 
@@ -582,35 +576,18 @@ class _FakeTeamDataSource implements TeamDataSource {
   final TeamMembership membership;
 
   @override
-  Future<void> upsertUserProfile({
-    required String uid,
-    required String email,
-    required String displayName,
-  }) async {}
+  Future<TeamMembership?> loadMembership() async => membership;
 
   @override
-  Future<TeamMembership?> loadMembershipForUser(String uid) async => membership;
+  Future<TeamMembership> createTeam(String teamName) async => membership;
 
   @override
-  Future<TeamMembership> createTeamForUser({
-    required String uid,
-    required String email,
-    required String displayName,
-    required String teamName,
-  }) async => membership;
-
-  @override
-  Future<TeamMembership> joinTeamWithInvite({
-    required String uid,
-    required String email,
-    required String displayName,
-    required String inviteCode,
-  }) async => membership;
+  Future<TeamMembership> joinTeamWithInvite(String inviteCode) async =>
+      membership;
 
   @override
   Future<CreatedTeamInvite> createInvite({
     required String teamId,
-    required String createdByUid,
     required TeamRole role,
     required DateTime expiresAt,
   }) async {
