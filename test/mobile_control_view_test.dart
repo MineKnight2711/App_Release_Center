@@ -1,11 +1,12 @@
-import 'package:app_release_center/app/data/release_center_connect.dart';
-import 'package:app_release_center/app/services/ch_play_credential_store_service.dart';
-import 'package:app_release_center/app/services/notification_credential_store_service.dart';
-import 'package:app_release_center/app/services/project_store_service.dart';
-import 'package:app_release_center/app/services/release_runner_service.dart';
-import 'package:app_release_center/app/services/remote_control_service.dart';
-import 'package:app_release_center/app/services/script_catalog_service.dart';
-import 'package:app_release_center/app/views/mobile_control_view.dart';
+import 'package:app_management_center/app/data/release_center_connect.dart';
+import 'package:app_management_center/app/services/ch_play_credential_store_service.dart';
+import 'package:app_management_center/app/services/mobile_control_credential_store_service.dart';
+import 'package:app_management_center/app/services/notification_credential_store_service.dart';
+import 'package:app_management_center/app/services/project_store_service.dart';
+import 'package:app_management_center/app/services/release_runner_service.dart';
+import 'package:app_management_center/app/services/remote_control_service.dart';
+import 'package:app_management_center/app/services/script_catalog_service.dart';
+import 'package:app_management_center/app/views/mobile_control_view.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -31,21 +32,24 @@ void main() {
     Get.put<ReleaseCenterConnect>(connect);
     Get.put<NotificationCredentialStoreService>(credentials);
     Get.put<RemoteControlService>(
-      RemoteControlService(
+      await RemoteControlService(
         store: store,
         catalog: catalog,
         runner: runner,
         connect: connect,
         credentialStore: credentials,
-      ),
+        mobileCredentialStore: MobileControlCredentialStoreService(
+          secureStore: _MemorySecureKeyValueStore(),
+        ),
+      ).init(),
     );
 
     await tester.pumpWidget(const GetMaterialApp(home: MobileControlView()));
 
-    expect(find.text('Pair Phone'), findsOneWidget);
+    expect(find.text('Ghép điện thoại'), findsOneWidget);
     expect(find.text('Relay endpoint'), findsOneWidget);
-    expect(find.text('Pairing code'), findsOneWidget);
-    expect(find.text('Link'), findsOneWidget);
+    expect(find.text('Mã ghép'), findsOneWidget);
+    expect(find.text('Liên kết'), findsOneWidget);
   });
 }
 

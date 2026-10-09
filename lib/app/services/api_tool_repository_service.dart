@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:math';
 
-import 'package:app_release_center/app/models/api_tool.dart';
-import 'package:app_release_center/app/models/auth_models.dart';
-import 'package:app_release_center/app/services/auth_service.dart';
-import 'package:app_release_center/app/services/project_store_service.dart';
+import 'package:app_management_center/app/models/api_tool.dart';
+import 'package:app_management_center/app/models/auth_models.dart';
+import 'package:app_management_center/app/services/auth_service.dart';
+import 'package:app_management_center/app/services/project_store_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:get/get.dart';
 
@@ -71,14 +73,18 @@ class FirestoreTeamApiToolDataSource implements TeamApiToolDataSource {
           .where('collectionId', isEqualTo: collectionId)
           .get(),
     ]);
-    final batch = _db.batch();
+    final writes = <void Function(WriteBatch)>[];
     for (final snapshot in linkedSnapshots) {
       for (final document in snapshot.docs) {
-        batch.delete(document.reference);
+        writes.add((batch) => batch.delete(document.reference));
       }
     }
-    batch.delete(teamRef.collection('apiToolCollections').doc(collectionId));
-    await batch.commit();
+    writes.add(
+      (batch) => batch.delete(
+        teamRef.collection('apiToolCollections').doc(collectionId),
+      ),
+    );
+    await _commitInBatches(writes);
   }
 
   @override
@@ -188,21 +194,86 @@ class FirestoreTeamApiToolDataSource implements TeamApiToolDataSource {
         .collection(collectionName);
     final existing = await collectionRef.get();
     final keepIds = ids.where((id) => id.trim().isNotEmpty).toSet();
-    final batch = _db.batch();
+    final writes = <void Function(WriteBatch)>[];
 
     for (final doc in existing.docs) {
       if (!keepIds.contains(doc.id)) {
-        batch.delete(doc.reference);
+        writes.add((batch) => batch.delete(doc.reference));
       }
     }
 
     for (final entry in jsonById.entries) {
       if (entry.key.trim().isEmpty) continue;
-      batch.set(collectionRef.doc(entry.key), entry.value);
+      _ensureDocumentFits(entry.key, entry.value);
+      writes.add(
+        (batch) => batch.set(collectionRef.doc(entry.key), entry.value),
+      );
     }
 
-    await batch.commit();
+    await _commitInBatches(writes);
   }
+
+  /// Firestore refuses a commit carrying more than [_maxWritesPerBatch] writes,
+  /// so a large collection has to be split across several batches.
+  Future<void> _commitInBatches(List<void Function(WriteBatch)> writes) async {
+    for (var start = 0; start < writes.length; start += _maxWritesPerBatch) {
+      final batch = _db.batch();
+      final end = min(start + _maxWritesPerBatch, writes.length);
+      for (var index = start; index < end; index++) {
+        writes[index](batch);
+      }
+      await batch.commit();
+    }
+  }
+
+  /// Firestore answers an oversized document with a bare `invalid-argument`
+  /// that names neither the document nor the limit, so the size is checked here
+  /// where the offending request can still be pointed at by name.
+  void _ensureDocumentFits(String documentId, Map<String, Object?> json) {
+    final bytes = estimateFirestoreDocumentBytes(json);
+    if (bytes <= _maxDocumentBytes) return;
+    final name = (json['name'] ?? '').toString().trim();
+    throw ApiToolRepositoryException(
+      '"${name.isEmpty ? documentId : name}" is ${(bytes / 1024).round()} KB, '
+      'over the ${_maxDocumentBytes ~/ 1024} KB Firestore stores per document. '
+      'Trim the body or the form-data value that carries the payload, then '
+      'import again.',
+    );
+  }
+}
+
+/// Firestore rejects a commit with more than 500 writes and a document larger
+/// than 1 MiB. Both are backend limits with no client-side check.
+const int _maxWritesPerBatch = 500;
+const int _maxDocumentBytes = 1024 * 1024;
+
+/// Approximates what Firestore counts as a document's size: 32 bytes of
+/// overhead plus every field name and value.
+int estimateFirestoreDocumentBytes(Map<String, Object?> json) {
+  return 32 + _estimateValueBytes(json);
+}
+
+int _estimateValueBytes(Object? value) {
+  if (value == null || value is bool) return 1;
+  if (value is num) return 8;
+  if (value is String) return utf8.encode(value).length + 1;
+  if (value is Map) {
+    return value.entries.fold<int>(
+      0,
+      (total, entry) =>
+          total +
+          utf8.encode(entry.key.toString()).length +
+          1 +
+          _estimateValueBytes(entry.value),
+    );
+  }
+  if (value is Iterable) {
+    return value.fold<int>(
+      0,
+      (total, entry) => total + _estimateValueBytes(entry),
+    );
+  }
+  return utf8.encode(value.toString()).length + 1;
 }
 
 class ApiToolRepositoryService extends GetxService {
@@ -221,7 +292,7 @@ class ApiToolRepositoryService extends GetxService {
   TeamApiToolDataSource? _teamDataSource;
   StreamSubscription<CurrentUserProfile?>? _profileSubscription;
 
-  final workspaceLabel = 'Local workspace'.obs;
+  final workspaceLabel = 'Workspace ở máy'.obs;
   final repositoryStatus = ''.obs;
   final isLoading = false.obs;
   final canWriteApiTools = true.obs;
@@ -271,14 +342,14 @@ class ApiToolRepositoryService extends GetxService {
     final teamProfile = _currentTeamProfile;
     if (teamProfile == null || _teamDataSource == null) {
       _loadLocalCache();
-      workspaceLabel.value = 'Local workspace';
+      workspaceLabel.value = 'Workspace ở máy';
       repositoryStatus.value = '';
       canWriteApiTools.value = true;
       return;
     }
 
     isLoading.value = true;
-    workspaceLabel.value = 'Team: ${teamProfile.teamName}';
+    workspaceLabel.value = 'Nhóm: ${teamProfile.teamName}';
     canWriteApiTools.value = teamProfile.canEditApiTools;
     try {
       final snapshot = await _teamDataSource!.load(teamProfile.teamId);
@@ -291,7 +362,7 @@ class ApiToolRepositoryService extends GetxService {
       _loadLocalCache();
       canWriteApiTools.value = false;
       repositoryStatus.value =
-          'Team HTTP Tools are unavailable. Local data is shown read-only.';
+          'Không truy cập được HTTP Tools của nhóm. Dữ liệu ở máy chỉ xem được.';
     } finally {
       isLoading.value = false;
     }
@@ -361,7 +432,7 @@ class ApiToolRepositoryService extends GetxService {
     _ensureWritable();
     final normalizedId = collectionId.trim();
     if (normalizedId.isEmpty) {
-      throw const ApiToolRepositoryException('Select a collection to delete.');
+      throw const ApiToolRepositoryException('Chọn collection cần xoá.');
     }
 
     final collections = _collections
@@ -438,7 +509,9 @@ class ApiToolRepositoryService extends GetxService {
   Future<void> importLocalApiToolsToTeam() async {
     final teamProfile = _currentTeamProfile;
     if (teamProfile == null || _teamDataSource == null) {
-      throw const ApiToolRepositoryException('Sign in to a team first.');
+      throw const ApiToolRepositoryException(
+        'Đăng nhập vào một nhóm trước đã.',
+      );
     }
     _ensureWritable();
 
@@ -464,7 +537,7 @@ class ApiToolRepositoryService extends GetxService {
     _folders = folders;
     _requests = requests;
     _quickRequests = quickRequests;
-    repositoryStatus.value = 'Local HTTP Tools were imported to the team.';
+    repositoryStatus.value = 'Đã đưa HTTP Tools ở máy lên nhóm.';
   }
 
   void _loadLocalCache() {
@@ -478,7 +551,7 @@ class ApiToolRepositoryService extends GetxService {
     if (!canWriteApiTools.value) {
       throw ApiToolRepositoryException(
         repositoryStatus.value.isEmpty
-            ? 'You do not have permission to edit HTTP Tools.'
+            ? 'Bạn không có quyền sửa HTTP Tools.'
             : repositoryStatus.value,
       );
     }

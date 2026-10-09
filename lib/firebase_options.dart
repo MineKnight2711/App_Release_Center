@@ -83,12 +83,19 @@ class DefaultFirebaseOptions {
 
     final appData = Platform.environment['APPDATA']?.trim();
     if (appData != null && appData.isNotEmpty) {
-      final configDirectory =
-          '$appData${Platform.pathSeparator}App Release Center';
-      files.addAll([
-        File('$configDirectory${Platform.pathSeparator}.env'),
-        File('$configDirectory${Platform.pathSeparator}firebase.env'),
-      ]);
+      // The pre-rebrand directory is still searched so an existing
+      // firebase.env keeps working after the App Release Center rename.
+      for (final directoryName in const [
+        'App Management Center',
+        'App Release Center',
+      ]) {
+        final configDirectory =
+            '$appData${Platform.pathSeparator}$directoryName';
+        files.addAll([
+          File('$configDirectory${Platform.pathSeparator}.env'),
+          File('$configDirectory${Platform.pathSeparator}firebase.env'),
+        ]);
+      }
     }
 
     final seen = <String>{};

@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:math';
 
-import 'package:app_release_center/app/services/gemini_env_service.dart';
+import 'package:app_management_center/app/services/gemini_env_service.dart';
 import 'package:cryptography/cryptography.dart';
 import 'package:get/get.dart';
 

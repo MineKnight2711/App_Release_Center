@@ -1,7 +1,7 @@
 import 'dart:convert';
 
-import 'package:app_release_center/app/models/api_tool.dart';
-import 'package:app_release_center/app/services/api_tool_postman_import_service.dart';
+import 'package:app_management_center/app/models/api_tool.dart';
+import 'package:app_management_center/app/services/api_tool_postman_import_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -19,7 +19,7 @@ void main() {
           'name': 'Auth',
           'item': [
             {
-              'name': 'Login',
+              'name': 'Đăng nhập',
               'request': {
                 'method': 'POST',
                 'header': [
@@ -93,7 +93,9 @@ void main() {
     expect(result.folders.single.name, 'Auth');
     expect(result.requests, hasLength(3));
 
-    final login = result.requests.singleWhere((entry) => entry.name == 'Login');
+    final login = result.requests.singleWhere(
+      (entry) => entry.name == 'Đăng nhập',
+    );
     expect(login.method, ApiToolMethod.post);
     expect(login.url, '{{BASE_URL}}/login');
     expect(login.folderId, result.folders.single.id);
@@ -196,6 +198,68 @@ void main() {
     expect(environment.variables[0].value, '');
     expect(environment.enabledVariables['APP_USER'], 'demo@example.com');
     expect(environment.enabledVariables.containsKey('APP_KEYS'), isFalse);
+  });
+
+  test('drops inline values too large for a Firestore document', () {
+    final service = ApiToolPostmanCollectionImportService(
+      now: () => DateTime.utc(2026, 9, 8),
+    );
+    final oversized =
+        'A' * (ApiToolPostmanCollectionImportService.maxImportedValueBytes + 1);
+    final jsonText = jsonEncode({
+      'info': {'name': 'Uploads'},
+      'item': [
+        {
+          'name': 'Upload signature',
+          'request': {
+            'method': 'POST',
+            'url': 'https://example.com/upload',
+            'body': {
+              'mode': 'formdata',
+              'formdata': [
+                {'key': 'chuky', 'value': oversized, 'type': 'text'},
+                {'key': 'chuky', 'src': 'postman-cloud:///abc', 'type': 'file'},
+              ],
+            },
+          },
+        },
+      ],
+    });
+
+    final result = service.importJsonText(jsonText);
+    final fields = result.requests.single.multipartFields;
+
+    expect(fields, hasLength(2));
+    expect(fields.first.value, isEmpty);
+    expect(fields.last.value, 'postman-cloud:///abc');
+    expect(result.warnings, hasLength(1));
+    expect(result.warnings.single, contains('Upload signature'));
+    expect(result.warnings.single, contains('chuky'));
+  });
+
+  test('keeps values that fit and reports no warnings', () {
+    final service = ApiToolPostmanCollectionImportService(
+      now: () => DateTime.utc(2026, 9, 8),
+    );
+    final body = 'B' * 1024;
+    final jsonText = jsonEncode({
+      'info': {'name': 'Uploads'},
+      'item': [
+        {
+          'name': 'Tạo',
+          'request': {
+            'method': 'POST',
+            'url': 'https://example.com/create',
+            'body': {'mode': 'raw', 'raw': body},
+          },
+        },
+      ],
+    });
+
+    final result = service.importJsonText(jsonText);
+
+    expect(result.requests.single.body, body);
+    expect(result.warnings, isEmpty);
   });
 
   test('rejects Postman environments without variables', () {

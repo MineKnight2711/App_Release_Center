@@ -39,7 +39,7 @@ class _ApiToolEnvTokenChip extends StatelessWidget {
           ),
           borderRadius: BorderRadius.circular(6),
           border: Border.all(color: color.withValues(alpha: 0.66)),
-          boxShadow: floating && AppCyberTheme.isCyber
+          boxShadow: floating && AppCyberTheme.palette.hasGlow
               ? [
                   BoxShadow(
                     color: color.withValues(alpha: 0.24),
@@ -499,7 +499,7 @@ class _ApiToolRequestTile extends StatelessWidget {
 Color _apiToolMethodColor(ApiToolMethod method) {
   return switch (method) {
     ApiToolMethod.get =>
-      AppCyberTheme.isCyber ? const Color(0xFF00F3FF) : const Color(0xFF10B981),
+      AppCyberTheme.palette.hasGlow ? AppCyberTheme.palette.accent : const Color(0xFF10B981),
     ApiToolMethod.post => const Color(0xFFF59E0B),
     ApiToolMethod.put => const Color(0xFF3B82F6),
     ApiToolMethod.patch => const Color(0xFF8B5CF6),
@@ -799,9 +799,7 @@ class _ApiToolResponseHero extends StatelessWidget {
     if (statusCode >= 500) return const Color(0xFFEF4444);
     if (statusCode >= 400) return const Color(0xFFF59E0B);
     if (statusCode >= 200 && statusCode < 300) {
-      return AppCyberTheme.isCyber
-          ? AppCyberTheme.neonGreen
-          : const Color(0xFF10B981);
+      return AppCyberTheme.palette.success;
     }
     return AppCyberTheme.electricBlue;
   }
@@ -852,7 +850,7 @@ class _ApiToolResponseHero extends StatelessWidget {
           if (truncated)
             const _MetaChip(
               icon: Icons.content_cut_outlined,
-              label: 'Body truncated',
+              label: 'Body đã bị cắt bớt',
               highlighted: true,
             ),
         ],
@@ -873,7 +871,7 @@ class _ApiToolHeaderTable extends StatelessWidget {
       return _ApiToolMessage(
         icon: Icons.view_headline_outlined,
         color: AppCyberTheme.textMuted,
-        message: 'This response did not return any header.',
+        message: 'Response này không trả về header nào.',
       );
     }
 
@@ -916,7 +914,7 @@ class _ApiToolHeaderTable extends StatelessWidget {
                 ),
                 IconButton(
                   key: Key('api-tool-copy-response-header-${entry.key}'),
-                  tooltip: 'Copy header',
+                  tooltip: 'Sao chép header',
                   visualDensity: VisualDensity.compact,
                   onPressed: () => unawaited(
                     Clipboard.setData(

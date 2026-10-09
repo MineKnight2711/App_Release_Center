@@ -1,10 +1,10 @@
 # Project-level configuration.
 cmake_minimum_required(VERSION 3.14)
-project(app_release_center LANGUAGES CXX)
+project(app_management_center LANGUAGES CXX)
 
 # The name of the executable created for the application. Change this to change
 # the on-disk name of your application.
-set(BINARY_NAME "app_release_center")
+set(BINARY_NAME "app_management_center")
 
 # Explicitly opt in to modern CMake behaviors to avoid warnings with recent
 # versions of CMake.
@@ -51,6 +51,7 @@ add_subdirectory(${FLUTTER_MANAGED_DIR})
 
 # Application build; see runner/CMakeLists.txt.
 add_subdirectory("runner")
+add_subdirectory("remote_unlock_provider")
 
 
 # Generated plugin build rules, which manage building the plugins and adding
@@ -73,6 +74,15 @@ set(INSTALL_BUNDLE_DATA_DIR "${CMAKE_INSTALL_PREFIX}/data")
 set(INSTALL_BUNDLE_LIB_DIR "${CMAKE_INSTALL_PREFIX}")
 
 install(TARGETS ${BINARY_NAME} RUNTIME DESTINATION "${CMAKE_INSTALL_PREFIX}"
+  COMPONENT Runtime)
+
+install(TARGETS amc_remote_unlock_provider RUNTIME DESTINATION "${CMAKE_INSTALL_PREFIX}"
+  COMPONENT Runtime)
+
+install(FILES
+  "${CMAKE_SOURCE_DIR}/../installer/windows/install_remote_unlock.ps1"
+  "${CMAKE_SOURCE_DIR}/../installer/windows/uninstall_remote_unlock.ps1"
+  DESTINATION "${CMAKE_INSTALL_PREFIX}"
   COMPONENT Runtime)
 
 install(FILES "${FLUTTER_ICU_DATA_FILE}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"

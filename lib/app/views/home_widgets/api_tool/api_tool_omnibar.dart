@@ -77,7 +77,7 @@ mixin _ApiToolOmnibarSection on _ApiToolDialogCore {
         _buildEnvironmentVariablesMenu(_activeEnvironment),
         IconButton(
           key: const Key('close-api-tool'),
-          tooltip: 'Close',
+          tooltip: 'Đóng',
           onPressed: () => Navigator.of(context).pop(),
           icon: const Icon(Icons.close),
         ),
@@ -98,7 +98,7 @@ mixin _ApiToolOmnibarSection on _ApiToolDialogCore {
         border: Border.all(
           color: AppCyberTheme.electricBlue.withValues(alpha: 0.34),
         ),
-        boxShadow: AppCyberTheme.isCyber
+        boxShadow: AppCyberTheme.palette.hasGlow
             ? [
                 BoxShadow(
                   color: AppCyberTheme.electricBlue.withValues(alpha: 0.12),
@@ -205,7 +205,7 @@ mixin _ApiToolOmnibarSection on _ApiToolDialogCore {
   Widget _buildSendButton() {
     if (_isSending) {
       return Tooltip(
-        message: 'Stop the request in flight',
+        message: 'Dừng request đang gửi',
         child: FilledButton.icon(
           key: const Key('api-tool-cancel'),
           onPressed: _cancelRequest,
@@ -217,13 +217,13 @@ mixin _ApiToolOmnibarSection on _ApiToolDialogCore {
             dimension: 16,
             child: CircularProgressIndicator(strokeWidth: 2),
           ),
-          label: const Text('Stop'),
+          label: const Text('Dừng'),
         ),
       );
     }
 
     return Tooltip(
-      message: 'Send request (${_apiToolSendShortcutLabel()})',
+      message: 'Gửi request (${_apiToolSendShortcutLabel()})',
       child: FilledButton.icon(
         key: const Key('api-tool-send'),
         onPressed: _canSendRequest ? _sendRequest : null,
@@ -231,7 +231,7 @@ mixin _ApiToolOmnibarSection on _ApiToolDialogCore {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         ),
         icon: const Icon(Icons.send_outlined, size: 18),
-        label: const Text('Send'),
+        label: const Text('Gửi'),
       ),
     );
   }
@@ -319,7 +319,7 @@ mixin _ApiToolOmnibarSection on _ApiToolDialogCore {
                     child: Text(
                       environment.id == activeEnvironmentId &&
                               (variableCount ?? 0) > 0
-                          ? '${environment.displayName} ($variableCount vars)'
+                          ? '${environment.displayName} ($variableCount biến)'
                           : environment.displayName,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -394,8 +394,8 @@ mixin _ApiToolOmnibarSection on _ApiToolDialogCore {
       builder: (context, controller, child) {
         return Tooltip(
           message: hasVariables
-              ? 'Show environment variables'
-              : 'No environment variables',
+              ? 'Xem biến môi trường'
+              : 'Chưa có biến môi trường',
           child: SizedBox.square(
             dimension: 34,
             child: OutlinedButton(

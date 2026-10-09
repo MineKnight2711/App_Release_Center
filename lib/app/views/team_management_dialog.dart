@@ -1,8 +1,8 @@
 import 'dart:async';
 
-import 'package:app_release_center/app/models/auth_models.dart';
-import 'package:app_release_center/app/services/auth_service.dart';
-import 'package:app_release_center/app/theme/cyber_theme.dart';
+import 'package:app_management_center/app/models/auth_models.dart';
+import 'package:app_management_center/app/services/auth_service.dart';
+import 'package:app_management_center/app/theme/cyber_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
@@ -52,7 +52,7 @@ class _TeamManagementDialogState extends State<_TeamManagementDialog> {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              profile?.teamName.isNotEmpty == true ? profile!.teamName : 'Team',
+              profile?.teamName.isNotEmpty == true ? profile!.teamName : 'Nhóm',
             ),
           ),
         ],
@@ -73,7 +73,7 @@ class _TeamManagementDialogState extends State<_TeamManagementDialog> {
                 ),
                 _TeamChip(
                   icon: Icons.verified_user_outlined,
-                  label: profile?.role?.label ?? 'No role',
+                  label: profile?.role?.label ?? 'Chưa có vai trò',
                   highlighted: isAdmin,
                 ),
               ],
@@ -93,7 +93,7 @@ class _TeamManagementDialogState extends State<_TeamManagementDialog> {
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator())
                   : _members.isEmpty
-                  ? const Center(child: Text('No members yet.'))
+                  ? const Center(child: Text('Chưa có thành viên nào.'))
                   : ListView.separated(
                       itemCount: _members.length,
                       separatorBuilder: (_, _) => const SizedBox(height: 8),
@@ -109,7 +109,7 @@ class _TeamManagementDialogState extends State<_TeamManagementDialog> {
         OutlinedButton.icon(
           onPressed: () => Navigator.of(context).pop(),
           icon: const Icon(Icons.close_outlined),
-          label: const Text('Close'),
+          label: const Text('Đóng'),
         ),
       ],
     );
@@ -124,7 +124,7 @@ class _TeamManagementDialogState extends State<_TeamManagementDialog> {
             key: ValueKey('invite-role-${_inviteRole.value}'),
             initialValue: _inviteRole,
             decoration: const InputDecoration(
-              labelText: 'Invite role',
+              labelText: 'Vai trò khi mời',
               prefixIcon: Icon(Icons.verified_user_outlined),
             ),
             items: TeamRole.values
@@ -149,7 +149,7 @@ class _TeamManagementDialogState extends State<_TeamManagementDialog> {
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
               : const Icon(Icons.mark_email_unread_outlined),
-          label: const Text('Create invite'),
+          label: const Text('Tạo lời mời'),
         ),
       ],
     );
@@ -202,7 +202,7 @@ class _TeamManagementDialogState extends State<_TeamManagementDialog> {
               key: ValueKey('member-role-${member.uid}-${member.role.value}'),
               initialValue: member.role,
               isExpanded: true,
-              decoration: const InputDecoration(labelText: 'Role'),
+              decoration: const InputDecoration(labelText: 'Vai trò'),
               items: TeamRole.values
                   .map(
                     (role) =>
@@ -220,7 +220,7 @@ class _TeamManagementDialogState extends State<_TeamManagementDialog> {
           ),
           const SizedBox(width: 8),
           IconButton(
-            tooltip: 'Remove member',
+            tooltip: 'Xoá thành viên',
             onPressed: !isAdmin || isSelf
                 ? null
                 : () => unawaited(_removeMember(member.uid)),
@@ -319,11 +319,11 @@ class _InviteCodePanel extends StatelessWidget {
             ),
           ),
           IconButton(
-            tooltip: 'Copy invite code',
+            tooltip: 'Sao chép mã mời',
             onPressed: () {
               Clipboard.setData(ClipboardData(text: invite.code));
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Invite code copied.')),
+                const SnackBar(content: Text('Đã sao chép mã mời.')),
               );
             },
             icon: const Icon(Icons.copy_outlined),

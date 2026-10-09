@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:app_release_center/app/models/resource_catalog.dart';
+import 'package:app_management_center/app/models/resource_catalog.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

@@ -14,14 +14,14 @@ mixin _ApiToolSidebarSection on _ApiToolDialogCore {
                   key: Key('api-tool-collections-tab'),
                   child: _CompactTabLabel(
                     icon: Icons.folder_copy_outlined,
-                    label: 'Collections',
+                    label: 'Collection',
                   ),
                 ),
                 Tab(
                   key: Key('api-tool-history-tab'),
                   child: _CompactTabLabel(
                     icon: Icons.history_outlined,
-                    label: 'History',
+                    label: 'Lịch sử',
                   ),
                 ),
                 Tab(
@@ -108,7 +108,7 @@ mixin _ApiToolSidebarSection on _ApiToolDialogCore {
                 key: const Key('api-tool-new-request'),
                 onPressed: _isSending ? null : _clearRequest,
                 leadingIcon: const Icon(Icons.add_circle_outline, size: 18),
-                child: const Text('New request'),
+                child: const Text('Request mới'),
               ),
               MenuItemButton(
                 key: const Key('api-tool-add-folder'),
@@ -117,7 +117,7 @@ mixin _ApiToolSidebarSection on _ApiToolDialogCore {
                     : () =>
                           unawaited(_createFolder(context, parentFolderId: '')),
                 leadingIcon: const Icon(Icons.folder_outlined, size: 18),
-                child: const Text('New folder'),
+                child: const Text('Folder mới'),
               ),
               MenuItemButton(
                 key: const Key('api-tool-add-subfolder'),
@@ -133,7 +133,7 @@ mixin _ApiToolSidebarSection on _ApiToolDialogCore {
                   Icons.snippet_folder_outlined,
                   size: 18,
                 ),
-                child: const Text('New subfolder'),
+                child: const Text('Folder con mới'),
               ),
               MenuItemButton(
                 key: const Key('api-tool-add-collection'),
@@ -144,7 +144,7 @@ mixin _ApiToolSidebarSection on _ApiToolDialogCore {
                   Icons.create_new_folder_outlined,
                   size: 18,
                 ),
-                child: const Text('New collection'),
+                child: const Text('Collection mới'),
               ),
             ],
             builder: (context, controller, child) {
@@ -171,7 +171,7 @@ mixin _ApiToolSidebarSection on _ApiToolDialogCore {
                   ? null
                   : () => unawaited(_editEnvironments(context)),
               leadingIcon: const Icon(Icons.public_outlined, size: 18),
-              child: const Text('Edit environment'),
+              child: const Text('Sửa môi trường'),
             ),
             MenuItemButton(
               key: const Key('api-tool-import-postman'),
@@ -184,7 +184,7 @@ mixin _ApiToolSidebarSection on _ApiToolDialogCore {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.file_upload_outlined, size: 18),
-              child: const Text('Import Postman collection'),
+              child: const Text('Nhập collection từ Postman'),
             ),
             MenuItemButton(
               key: const Key('api-tool-import-postman-environment'),
@@ -197,7 +197,7 @@ mixin _ApiToolSidebarSection on _ApiToolDialogCore {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.tune_outlined, size: 18),
-              child: const Text('Import Postman environment'),
+              child: const Text('Nhập môi trường từ Postman'),
             ),
             if (isTeamMode) ...[
               MenuItemButton(
@@ -206,7 +206,7 @@ mixin _ApiToolSidebarSection on _ApiToolDialogCore {
                     ? null
                     : () => unawaited(_importLocalApiTools()),
                 leadingIcon: const Icon(Icons.upload_file_outlined, size: 18),
-                child: const Text('Import local tools to team'),
+                child: const Text('Đưa công cụ ở máy lên nhóm'),
               ),
               MenuItemButton(
                 key: const Key('api-tool-refresh-team'),
@@ -219,7 +219,7 @@ mixin _ApiToolSidebarSection on _ApiToolDialogCore {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.refresh_outlined, size: 18),
-                child: const Text('Refresh HTTP Tools'),
+                child: const Text('Làm mới HTTP Tools'),
               ),
             ],
             const Divider(height: 8),
@@ -229,13 +229,13 @@ mixin _ApiToolSidebarSection on _ApiToolDialogCore {
                   ? null
                   : () => unawaited(_deleteActiveCollection()),
               leadingIcon: const Icon(Icons.delete_outline, size: 18),
-              child: const Text('Delete collection'),
+              child: const Text('Xoá collection'),
             ),
           ],
           builder: (context, controller, child) {
             return _ApiToolSidebarActionButton(
               buttonKey: const Key('api-tool-more-menu'),
-              tooltip: 'More collection actions',
+              tooltip: 'Thêm thao tác với collection',
               onPressed: () =>
                   controller.isOpen ? controller.close() : controller.open(),
               icon: _isImportingPostman || _isRefreshingRepository
@@ -268,8 +268,8 @@ mixin _ApiToolSidebarSection on _ApiToolDialogCore {
         color: AppCyberTheme.textPrimary,
       ),
       decoration: InputDecoration(
-        labelText: 'Search requests',
-        hintText: 'Name, URL, method',
+        labelText: 'Tìm request',
+        hintText: 'Tên, URL, method',
         prefixIcon: const Icon(Icons.search_outlined),
         suffixIcon: searchTerm.isEmpty
             ? _ApiToolSearchCountBadge(label: totalCount.toString())
@@ -279,7 +279,7 @@ mixin _ApiToolSidebarSection on _ApiToolDialogCore {
                   _ApiToolSearchCountBadge(label: '$matchCount/$totalCount'),
                   IconButton(
                     key: const Key('api-tool-clear-request-search'),
-                    tooltip: 'Clear search',
+                    tooltip: 'Xoá ô tìm',
                     onPressed: _requestSearchController.clear,
                     icon: const Icon(Icons.close_outlined, size: 18),
                   ),
@@ -336,9 +336,7 @@ mixin _ApiToolSidebarSection on _ApiToolDialogCore {
     final searchTerm = _requestSearchTerm;
     if (activeCollection == null) {
       rows.add(
-        _ApiToolEmptyTreeMessage(
-          label: 'Create a collection to save requests.',
-        ),
+        _ApiToolEmptyTreeMessage(label: 'Tạo một collection để lưu request.'),
       );
       return rows;
     }
@@ -350,7 +348,7 @@ mixin _ApiToolSidebarSection on _ApiToolDialogCore {
       _ApiToolFolderTile(
         key: Key('api-tool-root-folder-${activeCollection.id}'),
         title: activeCollection.displayName,
-        subtitle: 'Root collection',
+        subtitle: 'Gốc collection',
         depth: 0,
         selected: _selectedFolderId.isEmpty,
         expanded: collectionExpanded,
@@ -388,13 +386,14 @@ mixin _ApiToolSidebarSection on _ApiToolDialogCore {
     if (_activeCollectionRequests.isEmpty && rootFolders.isEmpty) {
       rows.add(
         const _ApiToolEmptyTreeMessage(
-          label: 'No requests or folders in this collection.',
+          label: 'Collection này chưa có request hay folder nào.',
         ),
       );
     } else if (searchTerm.isNotEmpty && rows.length == contentStartIndex) {
       rows.add(
         _ApiToolEmptyTreeMessage(
-          label: 'No requests match "${_requestSearchController.text.trim()}".',
+          label:
+              'Không có request nào khớp "${_requestSearchController.text.trim()}".',
         ),
       );
     }
@@ -492,7 +491,7 @@ mixin _ApiToolSidebarSection on _ApiToolDialogCore {
     if (_history.isEmpty) {
       return Center(
         child: Text(
-          'No calls yet',
+          'Chưa gọi lần nào',
           style: AppCyberTheme.dataTextStyle(
             size: 11.2,
             color: AppCyberTheme.textMuted,
@@ -546,7 +545,7 @@ mixin _ApiToolSidebarSection on _ApiToolDialogCore {
             ),
             const SizedBox(width: 8),
             Tooltip(
-              message: 'Create from the request currently in the editor',
+              message: 'Tạo từ request đang mở trong trình soạn',
               child: IconButton.outlined(
                 key: const Key('api-tool-copy-to-quick-request'),
                 onPressed:
@@ -562,7 +561,8 @@ mixin _ApiToolSidebarSection on _ApiToolDialogCore {
         Expanded(
           child: _quickRequests.isEmpty
               ? const _ApiToolEmptyTreeMessage(
-                  label: 'No Quick Requests yet. Set one up to run it once.',
+                  label:
+                      'Chưa có Quick Request nào. Tạo một cái để chạy nhanh.',
                 )
               : ListView.separated(
                   key: const Key('api-tool-quick-request-list'),
@@ -595,6 +595,6 @@ mixin _ApiToolSidebarSection on _ApiToolDialogCore {
     for (final collection in _collections) {
       if (collection.id == id) return collection.displayName;
     }
-    return 'Missing collection';
+    return 'Thiếu collection';
   }
 }

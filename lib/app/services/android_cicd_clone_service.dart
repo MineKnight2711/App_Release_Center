@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:app_release_center/app/services/ch_play_project_inspector_service.dart';
+import 'package:app_management_center/app/services/ch_play_project_inspector_service.dart';
 import 'package:get/get.dart';
 import 'package:path/path.dart' as p;
 
@@ -87,13 +87,13 @@ class AndroidCicdCloneService extends GetxService {
   }) async {
     final root = Directory(p.normalize(projectPath));
     if (!root.existsSync()) {
-      throw FileSystemException('Project directory does not exist.', root.path);
+      throw FileSystemException('Thư mục dự án không tồn tại.', root.path);
     }
 
     final pubspec = File(p.join(root.path, 'pubspec.yaml'));
     if (!pubspec.existsSync()) {
       throw FileSystemException(
-        'Selected directory is not a Flutter project.',
+        'Thư mục đang chọn không phải dự án Flutter.',
         root.path,
       );
     }
@@ -101,7 +101,7 @@ class AndroidCicdCloneService extends GetxService {
     final androidDirectory = Directory(p.join(root.path, 'android'));
     if (!androidDirectory.existsSync()) {
       throw FileSystemException(
-        'Selected Flutter project does not contain an android folder.',
+        'Dự án Flutter đang chọn không có thư mục android.',
         root.path,
       );
     }
@@ -110,7 +110,7 @@ class AndroidCicdCloneService extends GetxService {
     final gradleFile = _findAppGradleFile(root.path);
     if (gradleFile == null && !isFallback) {
       throw FileSystemException(
-        'Could not find android/app/build.gradle or build.gradle.kts.',
+        'Không tìm thấy android/app/build.gradle hay build.gradle.kts.',
         root.path,
       );
     }
@@ -131,7 +131,7 @@ class AndroidCicdCloneService extends GetxService {
 
     if (isFallback) {
       warnings.add(
-        'Fallback mode uses a no-flavor Fastfile and skips Gradle signing patching.',
+        'Chế độ fallback dùng Fastfile không flavor và bỏ qua bước vá phần ký trong Gradle.',
       );
       if (detectedFlavors.isNotEmpty) {
         warnings.add(
@@ -140,7 +140,7 @@ class AndroidCicdCloneService extends GetxService {
       }
       if (gradleFile == null) {
         warnings.add(
-          'Gradle app build file was not found. Update ANDROID_PACKAGE_NAME before uploading.',
+          'Không thấy file build Gradle của app. Sửa ANDROID_PACKAGE_NAME trước khi upload.',
         );
       }
     }
@@ -254,7 +254,7 @@ class AndroidCicdCloneService extends GetxService {
 
     if (applicationId == null) {
       warnings.add(
-        'Application id was not detected. The scaffold will use com.example.app; update ANDROID_PACKAGE_NAME in android/env.properties before uploading.',
+        'Không nhận ra application id. Bộ khung sẽ dùng com.example.app; sửa ANDROID_PACKAGE_NAME trong android/env.properties trước khi upload.',
       );
     }
 
@@ -280,7 +280,7 @@ class AndroidCicdCloneService extends GetxService {
       flavors: flavors,
       selectedFlavor: selectedFlavor,
       gradleFilePath: gradleFile == null
-          ? 'Not found'
+          ? 'Không thấy'
           : p.relative(gradleFile.path, from: root.path),
       mode: mode,
       changes: changes,
@@ -389,7 +389,7 @@ class AndroidCicdCloneService extends GetxService {
     if (source.contains('env.properties') ||
         source.contains('ANDROID_JKS_PATH') ||
         source.contains('releaseKeystoreFile')) {
-      warnings.add('Gradle signing already appears to use env.properties.');
+      warnings.add('Phần ký trong Gradle có vẻ đã dùng env.properties rồi.');
       return null;
     }
 
@@ -410,14 +410,14 @@ class AndroidCicdCloneService extends GetxService {
   String? _patchGroovyGradle(String source, List<String> warnings) {
     if (source.contains(RegExp(r'^\s*signingConfigs\s*\{', multiLine: true))) {
       warnings.add(
-        'Gradle signingConfigs already exists. Review signing manually before release.',
+        'Gradle đã có signingConfigs. Hãy tự kiểm tra phần ký trước khi release.',
       );
       return null;
     }
     if (!source.contains(RegExp(r'^\s*android\s*\{', multiLine: true)) ||
         !source.contains(RegExp(r'^\s*buildTypes\s*\{', multiLine: true))) {
       warnings.add(
-        'Could not safely patch Groovy Gradle signing. Add android/env.properties signing manually.',
+        'Không vá an toàn được phần ký trong Gradle Groovy. Hãy tự thêm phần ký từ android/env.properties.',
       );
       return null;
     }
@@ -445,7 +445,7 @@ class AndroidCicdCloneService extends GetxService {
       final releasePattern = RegExp(r'^(\s*)release\s*\{\s*$', multiLine: true);
       if (!releasePattern.hasMatch(patched)) {
         warnings.add(
-          'Could not find release build type to attach env.properties signing.',
+          'Không tìm thấy build type release để gắn phần ký từ env.properties.',
         );
         return patched;
       }
@@ -462,14 +462,14 @@ class AndroidCicdCloneService extends GetxService {
   String? _patchKotlinGradle(String source, List<String> warnings) {
     if (source.contains(RegExp(r'^\s*signingConfigs\s*\{', multiLine: true))) {
       warnings.add(
-        'Gradle signingConfigs already exists. Review signing manually before release.',
+        'Gradle đã có signingConfigs. Hãy tự kiểm tra phần ký trước khi release.',
       );
       return null;
     }
     if (!source.contains(RegExp(r'^\s*android\s*\{', multiLine: true)) ||
         !source.contains(RegExp(r'^\s*buildTypes\s*\{', multiLine: true))) {
       warnings.add(
-        'Could not safely patch Kotlin Gradle signing. Add android/env.properties signing manually.',
+        'Không vá an toàn được phần ký trong Gradle Kotlin. Hãy tự thêm phần ký từ android/env.properties.',
       );
       return null;
     }
@@ -506,7 +506,7 @@ class AndroidCicdCloneService extends GetxService {
       final releasePattern = RegExp(r'^(\s*)release\s*\{\s*$', multiLine: true);
       if (!releasePattern.hasMatch(patched)) {
         warnings.add(
-          'Could not find release build type to attach env.properties signing.',
+          'Không tìm thấy build type release để gắn phần ký từ env.properties.',
         );
         return patched;
       }
@@ -2029,7 +2029,7 @@ void main() {
   final errors = <String>[
     ...validateNamedImage(
       imagesDir: imagesDir,
-      label: 'App logo',
+      label: 'Logo app',
       baseName: 'icon',
       folderName: 'icon',
       maxBytes: 1 * mb,
@@ -2038,7 +2038,7 @@ void main() {
     ),
     ...validateNamedImage(
       imagesDir: imagesDir,
-      label: 'Featured image',
+      label: 'Ảnh nổi bật',
       baseName: 'featureGraphic',
       folderName: 'featureGraphic',
       maxBytes: 15 * mb,
@@ -2047,7 +2047,7 @@ void main() {
     ),
     ...validateScreenshots(
       imagesDir: imagesDir,
-      label: 'Phone screenshots',
+      label: 'Ảnh chụp màn hình điện thoại',
       folderName: 'phoneScreenshots',
       minCount: 2,
       maxCount: 8,
@@ -2062,12 +2062,12 @@ void main() {
   ];
 
   if (errors.isEmpty) {
-    stdout.writeln('Google Play images look good.');
+    stdout.writeln('Bộ ảnh cho Google Play ổn.');
     exitCode = 0;
     return;
   }
 
-  stderr.writeln('Google Play image check failed:');
+  stderr.writeln('Kiểm tra ảnh Google Play không đạt:');
   for (final error in errors) {
     stderr.writeln('- $error');
   }

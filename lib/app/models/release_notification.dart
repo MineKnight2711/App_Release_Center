@@ -17,14 +17,15 @@ class LinkedNotificationDevice {
   final DateTime linkedAt;
   final DateTime? lastSeenAt;
 
-  String get label => displayName.trim().isEmpty ? 'Linked phone' : displayName;
+  String get label =>
+      displayName.trim().isEmpty ? 'Điện thoại đã liên kết' : displayName;
 
   String get detail {
     final parts = [
       if (platform.trim().isNotEmpty) platform.trim(),
       if (browser.trim().isNotEmpty) browser.trim(),
     ];
-    return parts.isEmpty ? 'Web Push device' : parts.join(' / ');
+    return parts.isEmpty ? 'Thiết bị Web Push' : parts.join(' / ');
   }
 
   Map<String, Object?> toJson() {

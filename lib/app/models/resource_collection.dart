@@ -197,9 +197,9 @@ class ResourceExportResult {
 extension ResourceCollectionPresetText on ResourceCollectionPreset {
   String get label {
     return switch (this) {
-      ResourceCollectionPreset.allRecommended => 'All',
+      ResourceCollectionPreset.allRecommended => 'Tất cả',
       ResourceCollectionPreset.envOnly => '.env',
-      ResourceCollectionPreset.custom => 'Custom',
+      ResourceCollectionPreset.custom => 'Tuỳ chọn',
     };
   }
 }
@@ -207,12 +207,12 @@ extension ResourceCollectionPresetText on ResourceCollectionPreset {
 extension ResourceTargetKindText on ResourceTargetKind {
   String get label {
     return switch (this) {
-      ResourceTargetKind.envFile => 'Env files',
-      ResourceTargetKind.properties => 'Properties',
+      ResourceTargetKind.envFile => 'File env',
+      ResourceTargetKind.properties => 'File properties',
       ResourceTargetKind.fastlaneServiceAccount => 'Service account',
-      ResourceTargetKind.firebaseConfig => 'Firebase config',
-      ResourceTargetKind.signingKey => 'Signing keys',
-      ResourceTargetKind.appStoreKey => 'App Store keys',
+      ResourceTargetKind.firebaseConfig => 'Cấu hình Firebase',
+      ResourceTargetKind.signingKey => 'Key ký',
+      ResourceTargetKind.appStoreKey => 'Key App Store',
     };
   }
 }
@@ -220,9 +220,9 @@ extension ResourceTargetKindText on ResourceTargetKind {
 extension SigningCredentialSourceText on SigningCredentialSource {
   String get label {
     return switch (this) {
-      SigningCredentialSource.secureStore => 'Secure store',
-      SigningCredentialSource.projectFile => 'Project file',
-      SigningCredentialSource.manual => 'Manual',
+      SigningCredentialSource.secureStore => 'Kho an toàn',
+      SigningCredentialSource.projectFile => 'File trong dự án',
+      SigningCredentialSource.manual => 'Nhập tay',
     };
   }
 }
@@ -230,9 +230,9 @@ extension SigningCredentialSourceText on SigningCredentialSource {
 extension SigningCredentialStatusText on SigningCredentialStatus {
   String get label {
     return switch (this) {
-      SigningCredentialStatus.resolved => 'Resolved',
-      SigningCredentialStatus.partial => 'Partial',
-      SigningCredentialStatus.missing => 'Missing',
+      SigningCredentialStatus.resolved => 'Đủ',
+      SigningCredentialStatus.partial => 'Thiếu một phần',
+      SigningCredentialStatus.missing => 'Thiếu',
     };
   }
 }

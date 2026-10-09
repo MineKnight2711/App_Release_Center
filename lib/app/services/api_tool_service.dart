@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:app_release_center/app/models/api_tool.dart';
+import 'package:app_management_center/app/models/api_tool.dart';
 import 'package:get/get.dart';
 import 'package:path/path.dart' as p;
 
@@ -117,7 +117,7 @@ class DartApiToolHttpClient implements ApiToolHttpClient {
 
       if (request.bodyMode == ApiToolBodyMode.multipart) {
         final boundary =
-            'app-release-center-${DateTime.now().microsecondsSinceEpoch}';
+            'app-management-center-${DateTime.now().microsecondsSinceEpoch}';
         ioRequest.headers.set(
           HttpHeaders.contentTypeHeader,
           'multipart/form-data; boundary=$boundary',

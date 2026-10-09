@@ -11,7 +11,7 @@ Future<void> showReleaseWorkflowDialog(BuildContext context) async {
     await showGeneralDialog<void>(
       context: context,
       barrierDismissible: false,
-      barrierLabel: 'Release workflow monitor',
+      barrierLabel: 'Bảng theo dõi luồng release',
       barrierColor: Colors.black.withValues(alpha: 0.66),
       transitionDuration: const Duration(milliseconds: 240),
       pageBuilder: (_, _, _) => const _ReleaseWorkflowDialog(),
@@ -39,7 +39,10 @@ Future<void> showReleaseWorkflowDialog(BuildContext context) async {
 }
 
 class _ReleaseWorkflowButton extends GetView<HomeController> {
-  const _ReleaseWorkflowButton();
+  const _ReleaseWorkflowButton({this.compact = false});
+
+  /// Drops the label when the header has no room for it.
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -53,16 +56,37 @@ class _ReleaseWorkflowButton extends GetView<HomeController> {
               !workflow.isPreparing.value);
       final running = workflow.isRunning || workflow.isPreparing.value;
       final reduceMotion = MediaQuery.of(context).disableAnimations;
+      final icon = running && !reduceMotion
+          ? const SizedBox.square(
+              dimension: 15,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : Icon(hasRun ? Icons.monitor_heart_outlined : Icons.rocket_launch);
+      final label = hasRun ? 'Theo dõi release' : 'Chạy release';
+      final onPressed = enabled
+          ? () => showReleaseWorkflowDialog(context)
+          : null;
+
+      if (compact) {
+        return Tooltip(
+          message: label,
+          child: FilledButton(
+            key: const Key('run-release-workflow'),
+            onPressed: onPressed,
+            style: FilledButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              minimumSize: const Size(36, 36),
+            ),
+            child: icon,
+          ),
+        );
+      }
+
       return FilledButton.icon(
         key: const Key('run-release-workflow'),
-        onPressed: enabled ? () => showReleaseWorkflowDialog(context) : null,
-        icon: running && !reduceMotion
-            ? const SizedBox.square(
-                dimension: 15,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
-            : Icon(hasRun ? Icons.monitor_heart_outlined : Icons.rocket_launch),
-        label: Text(hasRun ? 'Monitor Release' : 'Run Release'),
+        onPressed: onPressed,
+        icon: icon,
+        label: Text(label),
       );
     });
   }
@@ -144,15 +168,11 @@ class _ReleaseWorkflowDialogState extends State<_ReleaseWorkflowDialog> {
               ),
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
-                color: AppCyberTheme.isCyber
-                    ? AppCyberTheme.electricBlue.withValues(alpha: 0.58)
-                    : AppCyberTheme.lineBlue,
+                color: AppCyberTheme.palette.dialogBorder,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: AppCyberTheme.electricBlue.withValues(
-                    alpha: AppCyberTheme.isCyber ? 0.22 : 0.08,
-                  ),
+                  color: AppCyberTheme.palette.dialogGlowColor,
                   blurRadius: 38,
                   spreadRadius: -8,
                 ),
@@ -228,7 +248,7 @@ class _ReleaseWorkflowDialogState extends State<_ReleaseWorkflowDialog> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  run == null ? 'Android Release Pipeline' : run.projectName,
+                  run == null ? 'Luồng release Android' : run.projectName,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.titleLarge,
@@ -271,7 +291,7 @@ class _ReleaseWorkflowDialogState extends State<_ReleaseWorkflowDialog> {
           const SizedBox(width: 4),
           IconButton(
             key: const Key('hide-release-workflow'),
-            tooltip: workflow.isRunning ? 'Hide monitor' : 'Close',
+            tooltip: workflow.isRunning ? 'Ẩn bảng theo dõi' : 'Đóng',
             onPressed: () => Navigator.of(context).pop(),
             icon: const Icon(Icons.close),
           ),
@@ -293,32 +313,33 @@ class _ReleaseWorkflowDialogState extends State<_ReleaseWorkflowDialog> {
             children: [
               const _WorkflowSectionTitle(
                 icon: Icons.fact_check_outlined,
-                title: 'Prepare release',
+                title: 'Chuẩn bị release',
                 subtitle:
-                    'Choose the destination once. Every following step runs without terminal prompts.',
+                    'Chọn đích một lần. Mọi bước sau chạy thẳng, không hỏi lại trong terminal.',
               ),
               const SizedBox(height: 22),
               _WorkflowInfoCard(
                 children: [
                   _WorkflowInfoRow(
-                    label: 'Project',
-                    value: project?.name ?? 'No project selected',
+                    label: 'Dự án',
+                    value: project?.name ?? 'Chưa chọn dự án',
                   ),
                   _WorkflowInfoRow(
-                    label: 'Current version',
+                    label: 'Version hiện tại',
                     value: project?.pubspecVersion ?? '-',
                   ),
                   const _WorkflowInfoRow(
-                    label: 'Version strategy',
+                    label: 'Cách tăng version',
                     value: 'max(local, store) + 1 / auto patch bump',
                   ),
                   const _WorkflowInfoRow(
-                    label: 'Git strategy',
-                    value: 'Commit and push current branch - no PR',
+                    label: 'Cách xử lý Git',
+                    value: 'Commit và push branch hiện tại - không tạo PR',
                   ),
                   const _WorkflowInfoRow(
-                    label: 'Post upload',
-                    value: 'Verify CH Play, then run configured artifact sends',
+                    label: 'Sau khi upload',
+                    value:
+                        'Kiểm tra lại CH Play rồi gửi artifact theo cấu hình',
                   ),
                 ],
               ),
@@ -351,15 +372,16 @@ class _ReleaseWorkflowDialogState extends State<_ReleaseWorkflowDialog> {
                       controlAffinity: ListTileControlAffinity.leading,
                       contentPadding: EdgeInsets.zero,
                       title: const Text(
-                        'I understand this publishes to the production track.',
+                        'Tôi hiểu bản này lên thẳng track production.',
                       ),
                       subtitle: const Text(
-                        'The workflow will commit, push, build and upload without another confirmation.',
+                        'Luồng sẽ commit, push, build và upload mà không hỏi thêm lần nào.',
                       ),
                     ),
                   ),
                 ),
               ],
+              const _ShutdownAfterDeployOption(),
               if (_localError != null) ...[
                 const SizedBox(height: 14),
                 _WorkflowMessage(
@@ -386,7 +408,7 @@ class _ReleaseWorkflowDialogState extends State<_ReleaseWorkflowDialog> {
                         )
                       : const Icon(Icons.manage_search_outlined),
                   label: Text(
-                    isPreparing ? 'Running preflight...' : 'Review Release',
+                    isPreparing ? 'Đang chạy preflight...' : 'Xem lại release',
                   ),
                 ),
               ),
@@ -481,8 +503,8 @@ class _ReleaseWorkflowDialogState extends State<_ReleaseWorkflowDialog> {
                 ? Icons.call_split_outlined
                 : Icons.merge_type_outlined,
             label: run.supportsSplitBuildDeploy
-                ? 'Split build/deploy'
-                : 'Legacy compatibility',
+                ? 'Tách build/deploy'
+                : 'Chế độ tương thích cũ',
           ),
           if (run.artifactPath != null)
             _MetaChip(
@@ -542,13 +564,13 @@ class _ReleaseWorkflowDialogState extends State<_ReleaseWorkflowDialog> {
               children: [
                 _DetailMetric(
                   icon: Icons.timer_outlined,
-                  label: 'Duration',
+                  label: 'Thời gian',
                   value: _durationLabel(step.duration),
                 ),
                 if (step.exitCode != null)
                   _DetailMetric(
                     icon: Icons.numbers_outlined,
-                    label: 'Exit',
+                    label: 'Exit code',
                     value: '${step.exitCode}',
                   ),
                 if (step.artifactPath != null)
@@ -565,7 +587,7 @@ class _ReleaseWorkflowDialogState extends State<_ReleaseWorkflowDialog> {
                 icon: Icons.merge_type_outlined,
                 color: const Color(0xFFF79009),
                 child: Text(
-                  'Compatibility mode: this project does not expose separate build_aab and upload_to_chplay lanes, so build and upload run as one legacy step.',
+                  'Chế độ tương thích: dự án này không tách lane build_aab và upload_to_chplay, nên build và upload chạy gộp thành một bước cũ.',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ),
@@ -602,7 +624,9 @@ class _ReleaseWorkflowDialogState extends State<_ReleaseWorkflowDialog> {
     final stepLines = _stepLogLines(step);
     final allLines = _allLogLines(run);
     final lines = _logView == _ReleaseLogView.all ? allLines : stepLines;
-    final title = _logView == _ReleaseLogView.all ? 'All logs' : 'Step log';
+    final title = _logView == _ReleaseLogView.all
+        ? 'Toàn bộ log'
+        : 'Log của bước';
     return _HudCardShell(
       padding: EdgeInsets.zero,
       child: Column(
@@ -624,11 +648,11 @@ class _ReleaseWorkflowDialogState extends State<_ReleaseWorkflowDialog> {
                   segments: const [
                     ButtonSegment(
                       value: _ReleaseLogView.step,
-                      label: Text('Step'),
+                      label: Text('Bước'),
                     ),
                     ButtonSegment(
                       value: _ReleaseLogView.all,
-                      label: Text('All'),
+                      label: Text('Tất cả'),
                     ),
                   ],
                   selected: {_logView},
@@ -639,7 +663,7 @@ class _ReleaseWorkflowDialogState extends State<_ReleaseWorkflowDialog> {
                 const SizedBox(width: 4),
                 IconButton(
                   key: const Key('copy-release-workflow-log'),
-                  tooltip: 'Copy log',
+                  tooltip: 'Sao chép log',
                   visualDensity: VisualDensity.compact,
                   onPressed: lines.isEmpty
                       ? null
@@ -659,7 +683,7 @@ class _ReleaseWorkflowDialogState extends State<_ReleaseWorkflowDialog> {
               child: SizedBox(
                 width: double.infinity,
                 child: SelectableText(
-                  lines.isEmpty ? 'No output yet.' : lines.join('\n'),
+                  lines.isEmpty ? 'Chưa có output.' : lines.join('\n'),
                   style: AppCyberTheme.dataTextStyle(
                     size: 11.2,
                     color: AppCyberTheme.textPrimary,
@@ -689,7 +713,7 @@ class _ReleaseWorkflowDialogState extends State<_ReleaseWorkflowDialog> {
           ? controller.runner.logLines.toList()
           : step.logLines;
       if (lines.isEmpty) {
-        output.add('No output recorded.');
+        output.add('Không ghi được output.');
       } else {
         output.addAll(lines);
       }
@@ -713,7 +737,7 @@ class _ReleaseWorkflowDialogState extends State<_ReleaseWorkflowDialog> {
     final leading = TextButton.icon(
       onPressed: () => Navigator.of(context).pop(),
       icon: const Icon(Icons.visibility_off_outlined),
-      label: Text(workflow.isRunning ? 'Hide' : 'Close'),
+      label: Text(workflow.isRunning ? 'Ẩn' : 'Đóng'),
     );
     final trailing = <Widget>[
       if (!showPreparation && artifactPath != null)
@@ -721,21 +745,21 @@ class _ReleaseWorkflowDialogState extends State<_ReleaseWorkflowDialog> {
           key: const Key('open-release-artifact'),
           onPressed: () => controller.openReleaseArtifact(artifactPath),
           icon: const Icon(Icons.folder_open_outlined),
-          label: const Text('Open Artifact'),
+          label: const Text('Mở artifact'),
         ),
       if (workflow.isRunning)
         OutlinedButton.icon(
           key: const Key('stop-release-workflow'),
           onPressed: _confirmStop,
           icon: const Icon(Icons.stop_circle_outlined),
-          label: const Text('Stop'),
+          label: const Text('Dừng'),
         )
       else if (!showPreparation && workflow.canRetry)
         FilledButton.icon(
           key: const Key('retry-release-workflow'),
           onPressed: _retry,
           icon: const Icon(Icons.replay_outlined),
-          label: const Text('Retry Failed Step'),
+          label: const Text('Chạy lại bước lỗi'),
         )
       else if (!showPreparation && prepared)
         FilledButton.icon(
@@ -744,7 +768,7 @@ class _ReleaseWorkflowDialogState extends State<_ReleaseWorkflowDialog> {
               ? null
               : _start,
           icon: const Icon(Icons.rocket_launch),
-          label: const Text('Start Release'),
+          label: const Text('Bắt đầu release'),
         )
       else if (!showPreparation && run != null && run.isCompleted)
         OutlinedButton.icon(
@@ -755,7 +779,7 @@ class _ReleaseWorkflowDialogState extends State<_ReleaseWorkflowDialog> {
             _localError = null;
           }),
           icon: const Icon(Icons.add_rounded),
-          label: const Text('New Release'),
+          label: const Text('Release mới'),
         ),
     ];
     final compact = MediaQuery.sizeOf(context).width < 760;
@@ -854,18 +878,18 @@ class _ReleaseWorkflowDialogState extends State<_ReleaseWorkflowDialog> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Stop release workflow?'),
+        title: const Text('Dừng luồng release?'),
         content: const Text(
-          'The active process will stop. Completed version, Git or upload side effects will not be rolled back.',
+          'Tiến trình đang chạy sẽ dừng. Những thay đổi về version, Git hay upload đã xong sẽ không được hoàn tác.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Keep Running'),
+            child: const Text('Chạy tiếp'),
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Stop'),
+            child: const Text('Dừng'),
           ),
         ],
       ),
@@ -1319,7 +1343,7 @@ class _ReleaseProgressBar extends StatelessWidget {
       builder: (_, value, _) => DecoratedBox(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(99),
-          boxShadow: running && AppCyberTheme.isCyber
+          boxShadow: running && AppCyberTheme.palette.hasGlow
               ? [
                   BoxShadow(
                     color: AppCyberTheme.electricBlue.withValues(alpha: 0.22),
@@ -1365,7 +1389,7 @@ class _ReleaseHeaderMark extends StatelessWidget {
               color: color.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(9),
               border: Border.all(color: color.withValues(alpha: 0.48)),
-              boxShadow: AppCyberTheme.isCyber && running
+              boxShadow: AppCyberTheme.palette.hasGlow && running
                   ? [
                       BoxShadow(
                         color: color.withValues(alpha: 0.18),
@@ -1500,7 +1524,7 @@ class _TrackSelector extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Text(
-                'CH Play track',
+                'Track CH Play',
                 style: AppCyberTheme.dataTextStyle(
                   size: 11,
                   color: AppCyberTheme.textMuted,
@@ -1839,23 +1863,23 @@ IconData _trackIcon(String track) {
 String _stepDescription(ReleaseWorkflowStepKind kind) {
   return switch (kind) {
     ReleaseWorkflowStepKind.preflight =>
-      'Checks Git, credentials, version state and Fastlane capabilities.',
+      'Kiểm tra Git, thông tin đăng nhập, trạng thái version và khả năng của Fastlane.',
     ReleaseWorkflowStepKind.versionCode =>
-      'Sets the next monotonic code from local and store state.',
+      'Đặt version code kế tiếp dựa trên trạng thái ở máy và trên store.',
     ReleaseWorkflowStepKind.versionName =>
-      'Increments the final numeric segment of the version name.',
+      'Tăng nhóm số cuối của version name.',
     ReleaseWorkflowStepKind.releaseNotes =>
-      'Generates notes with Gemini or Git fallback and writes Play changelogs.',
+      'Tạo note bằng Gemini, không được thì lấy từ Git, rồi ghi changelog cho Play.',
     ReleaseWorkflowStepKind.commit =>
-      'Commits all release changes and pushes the current branch.',
+      'Commit toàn bộ thay đổi của bản release rồi push branch hiện tại.',
     ReleaseWorkflowStepKind.build =>
-      'Builds the signed release AAB as a reusable artifact.',
+      'Build AAB release đã ký thành artifact dùng lại được.',
     ReleaseWorkflowStepKind.deploy =>
-      'Uploads the existing AAB to the selected CH Play track.',
+      'Upload AAB đã có lên track CH Play đã chọn.',
     ReleaseWorkflowStepKind.legacyBuildDeploy =>
-      'Runs the legacy combined build/upload command for compatibility.',
+      'Chạy lệnh build/upload gộp kiểu cũ cho tương thích.',
     ReleaseWorkflowStepKind.release =>
-      'Verifies the store version and runs APK/notification post-processing.',
+      'Kiểm tra lại version trên store rồi chạy các bước hậu kỳ APK/thông báo.',
   };
 }
 

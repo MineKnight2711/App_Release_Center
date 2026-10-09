@@ -1,37 +1,67 @@
 import 'dart:io';
+import 'package:app_management_center/app/services/machine_power_service.dart';
 
 import 'package:archive/archive_io.dart';
-import 'package:app_release_center/app/controllers/home_controller.dart';
-import 'package:app_release_center/app/data/release_center_connect.dart';
-import 'package:app_release_center/app/models/ch_play_project.dart';
-import 'package:app_release_center/app/models/release_project.dart';
-import 'package:app_release_center/app/models/release_script.dart';
-import 'package:app_release_center/app/services/android_cicd_clone_service.dart';
-import 'package:app_release_center/app/services/android_keystore_generation_service.dart';
-import 'package:app_release_center/app/services/app_store_credential_store_service.dart';
-import 'package:app_release_center/app/services/app_store_project_inspector_service.dart';
-import 'package:app_release_center/app/services/app_store_version_check_service.dart';
-import 'package:app_release_center/app/services/ch_play_credential_store_service.dart';
-import 'package:app_release_center/app/services/ch_play_project_inspector_service.dart';
-import 'package:app_release_center/app/services/ch_play_version_check_service.dart';
-import 'package:app_release_center/app/services/command_notification_service.dart';
-import 'package:app_release_center/app/services/gemini_env_service.dart';
-import 'package:app_release_center/app/services/google_drive_credential_store_service.dart';
-import 'package:app_release_center/app/services/google_drive_release_upload_service.dart';
-import 'package:app_release_center/app/services/notification_credential_store_service.dart';
-import 'package:app_release_center/app/services/project_store_service.dart';
-import 'package:app_release_center/app/services/release_apk_artifact_service.dart';
-import 'package:app_release_center/app/services/release_installer_artifact_service.dart';
-import 'package:app_release_center/app/services/release_note_generation_service.dart';
-import 'package:app_release_center/app/services/release_runner_service.dart';
-import 'package:app_release_center/app/services/script_catalog_service.dart';
-import 'package:app_release_center/app/services/telegram_credential_store_service.dart';
-import 'package:app_release_center/app/services/telegram_release_notification_service.dart';
+import 'package:app_management_center/app/controllers/home_controller.dart';
+import 'package:app_management_center/app/data/release_center_connect.dart';
+import 'package:app_management_center/app/models/ch_play_project.dart';
+import 'package:app_management_center/app/models/release_project.dart';
+import 'package:app_management_center/app/models/release_script.dart';
+import 'package:app_management_center/app/services/android_cicd_clone_service.dart';
+import 'package:app_management_center/app/services/android_keystore_generation_service.dart';
+import 'package:app_management_center/app/services/app_store_credential_store_service.dart';
+import 'package:app_management_center/app/services/app_store_project_inspector_service.dart';
+import 'package:app_management_center/app/services/app_store_version_check_service.dart';
+import 'package:app_management_center/app/services/ch_play_credential_store_service.dart';
+import 'package:app_management_center/app/services/ch_play_project_inspector_service.dart';
+import 'package:app_management_center/app/services/ch_play_version_check_service.dart';
+import 'package:app_management_center/app/services/command_notification_service.dart';
+import 'package:app_management_center/app/services/gemini_env_service.dart';
+import 'package:app_management_center/app/services/google_drive_credential_store_service.dart';
+import 'package:app_management_center/app/services/google_drive_release_upload_service.dart';
+import 'package:app_management_center/app/services/notification_credential_store_service.dart';
+import 'package:app_management_center/app/services/project_store_service.dart';
+import 'package:app_management_center/app/services/release_apk_artifact_service.dart';
+import 'package:app_management_center/app/services/release_installer_artifact_service.dart';
+import 'package:app_management_center/app/services/release_note_generation_service.dart';
+import 'package:app_management_center/app/services/release_runner_service.dart';
+import 'package:app_management_center/app/services/script_catalog_service.dart';
+import 'package:app_management_center/app/services/telegram_credential_store_service.dart';
+import 'package:app_management_center/app/services/telegram_release_notification_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  for (final enabled in [false, true]) {
+    for (final exitCode in [0, 1]) {
+      test('shutdown enabled=$enabled deploy exit=$exitCode', () async {
+        final shutdown = _FakeMachineShutdownService();
+        final harness = await _ControllerHarness.create(
+          machineShutdown: shutdown,
+        );
+        addTearDown(harness.dispose);
+        final script = await harness.createDeployScript(exitCode: exitCode);
+        harness.controller.playUploadChoice.value = PlayUploadChoice.skip;
+        harness.controller.shutdownAfterDeploy.value = enabled;
+        await harness.controller.runScript(script);
+        expect(shutdown.calls, enabled && exitCode == 0 ? 1 : 0);
+        if (enabled && exitCode == 0) {
+          expect(harness.controller.shutdownAfterDeploy.value, isFalse);
+        }
+      });
+    }
+  }
+
+  test('stop disarms shutdown', () async {
+    final shutdown = _FakeMachineShutdownService();
+    final harness = await _ControllerHarness.create(machineShutdown: shutdown);
+    addTearDown(harness.dispose);
+    harness.controller.shutdownAfterDeploy.value = true;
+    await harness.controller.stopRun();
+    expect(harness.controller.shutdownAfterDeploy.value, isFalse);
+    expect(shutdown.calls, 0);
+  });
   test('auto sends only after successful generation when enabled', () async {
     final harness = await _ControllerHarness.create();
     addTearDown(harness.dispose);
@@ -50,7 +80,7 @@ void main() {
     );
     expect(
       harness.controller.telegramReleaseStatus.value,
-      'Release notes sent to Telegram.',
+      'Đã gửi release note qua Telegram.',
     );
   });
 
@@ -78,13 +108,10 @@ void main() {
     await harness.controller.generateReleaseNotes();
 
     expect(harness.controller.releaseNotesController.text, 'Nội dung mới.');
-    expect(
-      harness.controller.releaseNoteAiStatus.value,
-      startsWith('Generated from'),
-    );
+    expect(harness.controller.releaseNoteAiStatus.value, startsWith('Tạo từ'));
     expect(
       harness.controller.telegramReleaseStatus.value,
-      contains('Telegram send failed'),
+      contains('gửi Telegram lỗi'),
     );
   });
 
@@ -118,7 +145,7 @@ void main() {
       expect(harness.telegramClient.requests, hasLength(1));
       expect(
         harness.controller.telegramReleaseStatus.value,
-        contains('Generate release notes'),
+        contains('Tạo release note'),
       );
     },
   );
@@ -164,7 +191,7 @@ void main() {
       );
       expect(harness.controller.runner.workflowTotalSteps.value, 3);
       expect(harness.controller.runner.overallProgress.value, 1);
-      expect(harness.controller.runner.status.value, 'Completed');
+      expect(harness.controller.runner.status.value, 'Xong');
     },
   );
 
@@ -208,7 +235,7 @@ void main() {
       contains('https://drive.google.com/file/d/drive-file-id/view'),
     );
     expect(harness.controller.runner.workflowTotalSteps.value, 3);
-    expect(harness.controller.runner.status.value, 'Completed');
+    expect(harness.controller.runner.status.value, 'Xong');
   });
 
   test('manual Drive APK action builds when no release APK exists', () async {
@@ -234,10 +261,10 @@ void main() {
     expect(harness.telegramClient.requests, isEmpty);
     expect(harness.telegramClient.uploads, isEmpty);
     expect(harness.controller.runner.workflowTotalSteps.value, 2);
-    expect(harness.controller.runner.status.value, 'Completed');
+    expect(harness.controller.runner.status.value, 'Xong');
     expect(
       harness.controller.googleDriveReleaseStatus.value,
-      contains('Release APK uploaded to Google Drive'),
+      contains('Đã upload APK release lên Google Drive'),
     );
   });
 
@@ -278,7 +305,7 @@ void main() {
       expect(message, contains('Release notes:'));
       expect(message, contains('Fixed checkout crash.'));
       expect(harness.controller.runner.workflowTotalSteps.value, 3);
-      expect(harness.controller.runner.status.value, 'Completed');
+      expect(harness.controller.runner.status.value, 'Xong');
     },
   );
 
@@ -311,11 +338,11 @@ void main() {
       ]);
       expect(harness.googleDriveApiClient.sharedFileIds, ['drive-file-id']);
       expect(harness.controller.runner.workflowTotalSteps.value, 1);
-      expect(harness.controller.runner.status.value, 'Completed');
+      expect(harness.controller.runner.status.value, 'Xong');
       expect(
         harness.controller.runner.logLines,
         contains(
-          'Existing release APK found: '
+          'Đã có sẵn APK release: '
           '${p.join(output.path, 'FizaHUB_v2.0.1_21_07_2026.apk')}',
         ),
       );
@@ -336,7 +363,7 @@ void main() {
       expect(harness.telegramClient.uploads, isEmpty);
       expect(
         harness.controller.installerDeliveryStatus.value,
-        contains('Telegram bot token is required'),
+        contains('Phải có Telegram bot token'),
       );
     },
   );
@@ -357,17 +384,17 @@ void main() {
     expect(harness.telegramClient.uploads, hasLength(1));
     expect(
       harness.telegramClient.uploads.single.fileName,
-      'AppReleaseCenter_Setup_v2.0.1.exe',
+      'AppManagementCenter_Setup_v2.0.1.exe',
     );
     expect(
       harness.telegramClient.uploads.single.contentType,
       windowsInstallerContentType,
     );
     expect(harness.controller.runner.workflowTotalSteps.value, 3);
-    expect(harness.controller.runner.status.value, 'Completed');
+    expect(harness.controller.runner.status.value, 'Xong');
     expect(
       harness.controller.installerDeliveryStatus.value,
-      'Windows installer sent to Telegram.',
+      'Đã gửi bộ cài Windows qua Telegram.',
     );
   });
 
@@ -388,20 +415,20 @@ void main() {
       expect(harness.installerExecutor.buildCallCount, 1);
       expect(harness.telegramClient.uploads, isEmpty);
       expect(harness.googleDriveApiClient.uploads, [
-        'AppReleaseCenter_Setup_v2.0.1.exe',
+        'AppManagementCenter_Setup_v2.0.1.exe',
       ]);
       expect(harness.googleDriveApiClient.uploadContentTypes, [
         windowsInstallerContentType,
       ]);
       final message = harness.telegramClient.requests.single.body['text'];
       expect(message, contains('Installer is over Telegram 50 MB limit'));
-      expect(message, contains('App Release Center'));
+      expect(message, contains('App Management Center'));
       expect(message, contains('2.0.1+45'));
       expect(
         message,
         contains('https://drive.google.com/file/d/drive-file-id/view'),
       );
-      expect(harness.controller.runner.status.value, 'Completed');
+      expect(harness.controller.runner.status.value, 'Xong');
     },
   );
 
@@ -420,7 +447,7 @@ void main() {
           harness.root.path,
           'build',
           'installer',
-          'AppReleaseCenter_Setup_v2.0.1.exe',
+          'AppManagementCenter_Setup_v2.0.1.exe',
         ),
       );
       expect(installer.existsSync(), isTrue);
@@ -429,9 +456,9 @@ void main() {
       expect(harness.googleDriveApiClient.uploads, isEmpty);
       expect(
         harness.controller.installerDeliveryStatus.value,
-        contains('Installer kept at'),
+        contains('Bộ cài giữ ở'),
       );
-      expect(harness.controller.runner.status.value, 'Failed');
+      expect(harness.controller.runner.status.value, 'Lỗi');
     },
   );
 
@@ -451,7 +478,7 @@ void main() {
       harness.controller.runner.overallProgress.value,
       closeTo(1 / 3, 0.001),
     );
-    expect(harness.controller.runner.status.value, 'Failed');
+    expect(harness.controller.runner.status.value, 'Lỗi');
   });
 
   test(
@@ -467,10 +494,10 @@ void main() {
       expect(harness.apkExecutor.callCount, 1);
       expect(harness.telegramClient.uploads, isEmpty);
       expect(harness.controller.runner.workflowTotalSteps.value, 2);
-      expect(harness.controller.runner.status.value, 'Completed');
+      expect(harness.controller.runner.status.value, 'Xong');
       expect(
         harness.controller.runner.logLines,
-        contains('Telegram auto send is disabled; APK was kept locally.'),
+        contains('Tự động gửi Telegram đang tắt; APK giữ lại ở máy.'),
       );
     },
   );
@@ -498,9 +525,9 @@ void main() {
     expect(harness.telegramClient.uploads, hasLength(1));
     expect(
       harness.controller.telegramReleaseStatus.value,
-      contains('Telegram APK upload failed'),
+      contains('lỗi khi gửi APK qua Telegram'),
     );
-    expect(harness.controller.runner.status.value, 'Failed');
+    expect(harness.controller.runner.status.value, 'Lỗi');
   });
 
   test('keeps the built APK when Drive fallback delivery fails', () async {
@@ -525,10 +552,20 @@ void main() {
     expect(harness.telegramClient.requests, isEmpty);
     expect(
       harness.controller.telegramReleaseStatus.value,
-      contains('Google Drive APK delivery failed'),
+      contains('lỗi khi gửi APK qua Google Drive'),
     );
-    expect(harness.controller.runner.status.value, 'Failed');
+    expect(harness.controller.runner.status.value, 'Lỗi');
   });
+}
+
+class _FakeMachineShutdownService extends MachinePowerService {
+  int calls = 0;
+  @override
+  bool get isSupported => true;
+  @override
+  Future<void> shutdown() async {
+    calls++;
+  }
 }
 
 class _ControllerHarness {
@@ -550,13 +587,15 @@ class _ControllerHarness {
   final GoogleDriveCredentialStoreService googleDriveCredentials;
   final _FakeGoogleDriveApiClient googleDriveApiClient;
 
-  static Future<_ControllerHarness> create() async {
+  static Future<_ControllerHarness> create({
+    MachinePowerService? machineShutdown,
+  }) async {
     SharedPreferences.setMockInitialValues({});
     final root = await Directory.systemTemp.createTemp(
-      'app_release_center_telegram_controller_',
+      'app_management_center_telegram_controller_',
     );
     await File(p.join(root.path, 'pubspec.yaml')).writeAsString(
-      'name: app_release_center\n'
+      'name: app_management_center\n'
       'version: 2.0.1+45\n',
     );
     final installerScriptDirectory = await Directory(
@@ -595,6 +634,7 @@ class _ControllerHarness {
       secureStore: _MemorySecureKeyValueStore(),
     );
     final controller = HomeController(
+      machineShutdown: machineShutdown ?? _FakeMachineShutdownService(),
       store: store,
       catalog: ScriptCatalogService(),
       androidCicdCloner: AndroidCicdCloneService(),
@@ -822,7 +862,7 @@ class _FakeReleaseInstallerBuildExecutor
       p.join(project.path, 'build', 'installer'),
     ).create(recursive: true);
     final installer = File(
-      p.join(output.path, 'AppReleaseCenter_Setup_v$versionName.exe'),
+      p.join(output.path, 'AppManagementCenter_Setup_v$versionName.exe'),
     );
     if (installerSizeBytes <= 3) {
       await installer.writeAsBytes(List<int>.filled(installerSizeBytes, 1));
@@ -858,7 +898,7 @@ class _FakeReleaseInstallerBuildExecutor
 }
 
 const _requiredInstallerPayloadFiles = [
-  'app_release_center.exe',
+  'app_management_center.exe',
   'flutter_windows.dll',
   'data/app.so',
   'data/icudtl.dat',

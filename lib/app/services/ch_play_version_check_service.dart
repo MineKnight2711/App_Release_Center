@@ -1,10 +1,10 @@
 import 'dart:io';
 
-import 'package:app_release_center/app/models/ch_play_credentials.dart';
-import 'package:app_release_center/app/models/ch_play_project.dart';
-import 'package:app_release_center/app/models/ch_play_version_snapshot.dart';
-import 'package:app_release_center/app/services/ch_play_project_inspector_service.dart';
-import 'package:app_release_center/app/services/release_runner_service.dart';
+import 'package:app_management_center/app/models/ch_play_credentials.dart';
+import 'package:app_management_center/app/models/ch_play_project.dart';
+import 'package:app_management_center/app/models/ch_play_version_snapshot.dart';
+import 'package:app_management_center/app/services/ch_play_project_inspector_service.dart';
+import 'package:app_management_center/app/services/release_runner_service.dart';
 import 'package:get/get.dart';
 import 'package:path/path.dart' as p;
 
@@ -48,7 +48,7 @@ class ChPlayVersionCheckService extends GetxService {
       return ChPlayVersionSnapshot(
         localVersion: localVersion,
         status: ChPlayComparisonStatus.missingCredentials,
-        message: 'Import a Google Play service-account JSON key.',
+        message: 'Hãy nhập file JSON service-account của Google Play.',
         lastCheckedAt: checkedAt,
       );
     }
@@ -57,7 +57,7 @@ class ChPlayVersionCheckService extends GetxService {
       return ChPlayVersionSnapshot(
         localVersion: localVersion,
         status: ChPlayComparisonStatus.failed,
-        message: 'Application ID is required.',
+        message: 'Phải có Application ID.',
         lastCheckedAt: checkedAt,
       );
     }
@@ -67,13 +67,13 @@ class ChPlayVersionCheckService extends GetxService {
       return ChPlayVersionSnapshot(
         localVersion: localVersion,
         status: ChPlayComparisonStatus.failed,
-        message: 'Project does not contain an android folder.',
+        message: 'Dự án không có thư mục android.',
         lastCheckedAt: checkedAt,
       );
     }
 
     final tempDirectory = await Directory.systemTemp.createTemp(
-      'app_release_center_play_',
+      'app_management_center_play_',
     );
     try {
       final jsonFile = File(p.join(tempDirectory.path, 'google-play-key.json'));
@@ -102,7 +102,7 @@ class ChPlayVersionCheckService extends GetxService {
         return ChPlayVersionSnapshot(
           localVersion: localVersion,
           status: ChPlayComparisonStatus.failed,
-          message: 'Fastlane failed with exit code ${result.exitCode}.',
+          message: 'Fastlane lỗi, exit code ${result.exitCode}.',
           lastCheckedAt: checkedAt,
         );
       }
@@ -112,7 +112,7 @@ class ChPlayVersionCheckService extends GetxService {
         return ChPlayVersionSnapshot(
           localVersion: localVersion,
           status: ChPlayComparisonStatus.failed,
-          message: 'Fastlane output did not include STORE_CODE_ONLY.',
+          message: 'Output của Fastlane không có STORE_CODE_ONLY.',
           lastCheckedAt: checkedAt,
         );
       }
@@ -121,7 +121,7 @@ class ChPlayVersionCheckService extends GetxService {
         localVersion: localVersion,
         storeVersionCode: storeCode,
         status: compare(localVersion.code, storeCode),
-        message: 'Checked ${project.track}.',
+        message: 'Đã kiểm tra ${project.track}.',
         lastCheckedAt: checkedAt,
       );
     } finally {

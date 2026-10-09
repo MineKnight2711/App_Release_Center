@@ -1,5 +1,5 @@
-import 'package:app_release_center/app/models/ch_play_version_snapshot.dart';
-import 'package:app_release_center/app/services/ch_play_version_check_service.dart';
+import 'package:app_management_center/app/models/ch_play_version_snapshot.dart';
+import 'package:app_management_center/app/services/ch_play_version_check_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

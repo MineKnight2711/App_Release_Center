@@ -29,345 +29,496 @@ class _PullRemoteBranchInput {
   final String branch;
 }
 
-class _FlowPanel extends GetView<HomeController> {
+class _FlowPanel extends StatefulWidget {
   const _FlowPanel();
 
   @override
+  State<_FlowPanel> createState() => _FlowPanelState();
+}
+
+class _FlowPanelState extends State<_FlowPanel>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabs;
+  late final Worker _shellTabWorker;
+
+  AppShellController get shell => Get.find<AppShellController>();
+
+  @override
+  void initState() {
+    super.initState();
+    _tabs = TabController(
+      length: ShellFlowTab.values.length,
+      vsync: this,
+      initialIndex: shell.flowTab.value.index,
+    );
+    _tabs.addListener(_publishTabToShell);
+    _shellTabWorker = ever<ShellFlowTab>(shell.flowTab, _adoptTabFromShell);
+  }
+
+  @override
+  void dispose() {
+    _shellTabWorker.dispose();
+    _tabs.removeListener(_publishTabToShell);
+    _tabs.dispose();
+    super.dispose();
+  }
+
+  /// Keeps the shell in step when the user clicks the tab bar directly, so the
+  /// palette's "Go to" entries and the tab bar never disagree.
+  void _publishTabToShell() {
+    if (_tabs.indexIsChanging) return;
+    shell.showFlowTab(ShellFlowTab.values[_tabs.index]);
+  }
+
+  void _adoptTabFromShell(ShellFlowTab tab) {
+    if (!mounted || _tabs.index == tab.index) return;
+    _tabs.animateTo(tab.index);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 3,
-      child: _Panel(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _FlowPanelHeader(
-              onExtendedActionSelected: _onExtendedActionSelected,
-            ),
-            const SizedBox(height: 8),
-            const TabBar(
-              tabs: [
-                Tab(
-                  icon: Icon(Icons.shop_two_outlined),
-                  text: 'Store Versions',
-                ),
-                Tab(icon: Icon(Icons.schema_outlined), text: 'Fastlane Flow'),
-                Tab(
-                  icon: Icon(Icons.alt_route_outlined),
-                  text: 'Fastlane Command',
-                ),
+    return _Panel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _FlowPanelHeader(),
+          const SizedBox(height: 8),
+          TabBar(
+            controller: _tabs,
+            tabs: const [
+              Tab(icon: Icon(Icons.shop_two_outlined), text: 'Bản trên store'),
+              Tab(icon: Icon(Icons.schema_outlined), text: 'Luồng Fastlane'),
+              Tab(icon: Icon(Icons.alt_route_outlined), text: 'Lệnh Fastlane'),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Expanded(
+            child: TabBarView(
+              controller: _tabs,
+              children: const [
+                _StoreVersionsPanel(),
+                _CicdFlowGrid(),
+                _FastlanePanel(),
               ],
             ),
-            const SizedBox(height: 10),
-            const Expanded(
-              child: TabBarView(
-                children: [
-                  _StoreVersionsPanel(),
-                  _CicdFlowGrid(),
-                  _FastlanePanel(),
-                ],
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
+}
 
-  Future<void> _onExtendedActionSelected(
-    BuildContext context,
-    _ExtendedAction action,
-  ) async {
-    switch (action) {
-      case _ExtendedAction.cloneAndroidCicd:
-        await _runAndroidCicdClone(context, AndroidCicdCloneMode.adaptive);
-        break;
-      case _ExtendedAction.cloneAndroidCicdFallback:
-        await _runAndroidCicdClone(context, AndroidCicdCloneMode.fallback);
-        break;
-      case _ExtendedAction.generateAndroidJks:
-        final input = await _showAndroidKeystoreGenerationDialog(context);
-        if (input == null) return;
-        await controller.generateAndroidKeystore(
-          keyAlias: input.keyAlias,
-          storePassword: input.storePassword,
-          forceRecreate: input.forceRecreate,
-        );
-        break;
-      case _ExtendedAction.pullRemoteBranch:
-        final payload = await _showPullRemoteBranchDialog(context);
-        if (payload == null) return;
-        await controller.pullBranchFromRemote(
-          remote: payload.remote,
-          branch: payload.branch,
-        );
-        break;
-      case _ExtendedAction.updateFastlaneWithGem:
-        await controller.checkFastlaneVersionAndUpdate();
-        break;
-      case _ExtendedAction.flutterClean:
-        await controller.runFlutterClean();
-        break;
-      case _ExtendedAction.flutterPubGet:
-        await controller.runFlutterPubGet();
-        break;
+Future<void> _runExtendedAction(
+  BuildContext context,
+  _ExtendedAction action,
+) async {
+  switch (action) {
+    case _ExtendedAction.cloneAndroidCicd:
+      await _runAndroidCicdClone(context, AndroidCicdCloneMode.adaptive);
+      break;
+    case _ExtendedAction.cloneAndroidCicdFallback:
+      await _runAndroidCicdClone(context, AndroidCicdCloneMode.fallback);
+      break;
+    case _ExtendedAction.generateAndroidJks:
+      final input = await _showAndroidKeystoreGenerationDialog(context);
+      if (input == null) return;
+      await Get.find<HomeController>().generateAndroidKeystore(
+        keyAlias: input.keyAlias,
+        storePassword: input.storePassword,
+        forceRecreate: input.forceRecreate,
+      );
+      break;
+    case _ExtendedAction.pullRemoteBranch:
+      final payload = await _showPullRemoteBranchDialog(context);
+      if (payload == null) return;
+      await Get.find<HomeController>().pullBranchFromRemote(
+        remote: payload.remote,
+        branch: payload.branch,
+      );
+      break;
+    case _ExtendedAction.updateFastlaneWithGem:
+      await Get.find<HomeController>().checkFastlaneVersionAndUpdate();
+      break;
+    case _ExtendedAction.flutterClean:
+      await Get.find<HomeController>().runFlutterClean();
+      break;
+    case _ExtendedAction.flutterPubGet:
+      await Get.find<HomeController>().runFlutterPubGet();
+      break;
+  }
+}
+
+Future<void> _runAndroidCicdClone(
+  BuildContext context,
+  AndroidCicdCloneMode mode,
+) async {
+  final preview = await Get.find<HomeController>().previewAndroidCicdClone(
+    mode: mode,
+  );
+  if (preview == null || !context.mounted) return;
+  final confirmed = await _showAndroidCicdCloneDialog(context, preview);
+  if (confirmed != true) return;
+  await Get.find<HomeController>().applyAndroidCicdClone(preview);
+}
+
+Future<_AndroidKeystoreGenerationInput?> _showAndroidKeystoreGenerationDialog(
+  BuildContext context,
+) {
+  return showDialog<_AndroidKeystoreGenerationInput>(
+    context: context,
+    builder: (_) => const _AndroidKeystoreGenerationDialog(),
+  );
+}
+
+/// Asks which branch to pull, having already read the answer from the repo.
+///
+/// The old prompt was two empty text fields, so every pull cost typing a remote
+/// and a branch name exactly right. Now the repository's own remotes and
+/// branches are the choices, preselected at the current branch's upstream; the
+/// common case is Enter. Free text stays as the fallback for a repo git cannot
+/// describe.
+Future<_PullRemoteBranchInput?> _showPullRemoteBranchDialog(
+  BuildContext context,
+) async {
+  final projectPath = Get.find<HomeController>().project.value?.path;
+  final options = projectPath == null
+      ? const GitBranchOptions()
+      : await Get.find<GitInspectorService>().readBranchOptions(projectPath);
+  if (!context.mounted) return null;
+
+  return showDialog<_PullRemoteBranchInput>(
+    context: context,
+    builder: (_) => _PullRemoteBranchDialog(options: options),
+  );
+}
+
+class _PullRemoteBranchDialog extends StatefulWidget {
+  const _PullRemoteBranchDialog({required this.options});
+
+  final GitBranchOptions options;
+
+  @override
+  State<_PullRemoteBranchDialog> createState() =>
+      _PullRemoteBranchDialogState();
+}
+
+class _PullRemoteBranchDialogState extends State<_PullRemoteBranchDialog> {
+  late final TextEditingController _remoteController;
+  late final TextEditingController _branchController;
+
+  String? _remote;
+  String? _branch;
+  String? _validationError;
+
+  bool get _hasChoices => !widget.options.isEmpty;
+
+  @override
+  void initState() {
+    super.initState();
+    _remote = widget.options.suggestedRemote;
+    _branch = widget.options.suggestedBranch;
+    _remoteController = TextEditingController(text: _remote ?? 'origin');
+    _branchController = TextEditingController(
+      text: _branch ?? widget.options.currentBranch ?? '',
+    );
+  }
+
+  @override
+  void dispose() {
+    _remoteController.dispose();
+    _branchController.dispose();
+    super.dispose();
+  }
+
+  void _selectRemote(String? remote) {
+    if (remote == null) return;
+    setState(() {
+      _remote = remote;
+      final branches = widget.options.branchesFor(remote);
+      // The previous branch may not exist on the newly picked remote.
+      if (_branch == null || !branches.contains(_branch)) {
+        final current = widget.options.currentBranch;
+        _branch = branches.contains(current)
+            ? current
+            : (branches.isEmpty ? null : branches.first);
+      }
+      _validationError = null;
+    });
+  }
+
+  void _submit() {
+    final remote = _hasChoices
+        ? (_remote ?? '')
+        : _remoteController.text.trim();
+    final branch = _hasChoices
+        ? (_branch ?? '')
+        : _branchController.text.trim();
+    if (remote.isEmpty || branch.isEmpty) {
+      setState(() {
+        _validationError = 'Phải chọn remote và branch.';
+      });
+      return;
     }
+    Navigator.of(
+      context,
+    ).pop(_PullRemoteBranchInput(remote: remote, branch: branch));
   }
 
-  Future<void> _runAndroidCicdClone(
-    BuildContext context,
-    AndroidCicdCloneMode mode,
-  ) async {
-    final preview = await controller.previewAndroidCicdClone(mode: mode);
-    if (preview == null || !context.mounted) return;
-    final confirmed = await _showAndroidCicdCloneDialog(context, preview);
-    if (confirmed != true) return;
-    await controller.applyAndroidCicdClone(preview);
-  }
+  @override
+  Widget build(BuildContext context) {
+    final branches = _remote == null
+        ? const <String>[]
+        : widget.options.branchesFor(_remote!);
 
-  Future<_AndroidKeystoreGenerationInput?> _showAndroidKeystoreGenerationDialog(
-    BuildContext context,
-  ) {
-    return showDialog<_AndroidKeystoreGenerationInput>(
-      context: context,
-      builder: (_) => const _AndroidKeystoreGenerationDialog(),
-    );
-  }
-
-  Future<_PullRemoteBranchInput?> _showPullRemoteBranchDialog(
-    BuildContext context,
-  ) async {
-    final remoteController = TextEditingController(text: 'origin');
-    final branchController = TextEditingController();
-    String? validationError;
-
-    final result = await showDialog<_PullRemoteBranchInput>(
-      context: context,
-      builder: (dialogContext) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return AlertDialog(
-              backgroundColor: AppCyberTheme.panelBackgroundStrong,
-              surfaceTintColor: Colors.transparent,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-                side: BorderSide(
-                  color: AppCyberTheme.isCyber
-                      ? AppCyberTheme.electricBlue.withValues(alpha: 0.4)
-                      : AppCyberTheme.lineBlue,
+    return AlertDialog(
+      backgroundColor: AppCyberTheme.panelBackgroundStrong,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: BorderSide(color: AppCyberTheme.palette.cardBorder),
+      ),
+      titlePadding: const EdgeInsets.fromLTRB(20, 16, 20, 6),
+      contentPadding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
+      actionsPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+      title: const _PanelTitle(
+        icon: Icons.call_received_outlined,
+        title: 'Pull branch',
+      ),
+      content: SizedBox(
+        width: 380,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (_hasChoices) ...[
+              DropdownButtonFormField<String>(
+                key: const Key('pull-branch-remote'),
+                initialValue: _remote,
+                isExpanded: true,
+                decoration: const InputDecoration(
+                  labelText: 'Remote',
+                  prefixIcon: Icon(Icons.hub_outlined),
                 ),
-              ),
-              titlePadding: const EdgeInsets.fromLTRB(20, 16, 20, 6),
-              contentPadding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
-              actionsPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-              title: const _PanelTitle(
-                icon: Icons.call_received_outlined,
-                title: 'Pull Branch',
-              ),
-              content: SizedBox(
-                width: 360,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    TextField(
-                      controller: remoteController,
-                      decoration: const InputDecoration(
-                        labelText: 'Remote name',
-                        hintText: 'origin',
-                        prefixIcon: Icon(Icons.hub_outlined),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: branchController,
-                      decoration: const InputDecoration(
-                        labelText: 'Branch name',
-                        hintText: 'develop',
-                        prefixIcon: Icon(Icons.alt_route_outlined),
-                      ),
-                    ),
-                    if (validationError != null) ...[
-                      const SizedBox(height: 10),
-                      Text(
-                        validationError!,
-                        style: AppCyberTheme.dataTextStyle(
-                          size: 11,
-                          color: Theme.of(context).colorScheme.error,
-                          weight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              actions: [
-                OutlinedButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(),
-                  child: const Text('Cancel'),
-                ),
-                FilledButton.icon(
-                  onPressed: () {
-                    final remote = remoteController.text.trim();
-                    final branch = branchController.text.trim();
-                    if (remote.isEmpty || branch.isEmpty) {
-                      setState(() {
-                        validationError = 'Remote and branch are required.';
-                      });
-                      return;
-                    }
-
-                    Navigator.of(dialogContext).pop(
-                      _PullRemoteBranchInput(remote: remote, branch: branch),
-                    );
-                  },
-                  icon: const Icon(Icons.sync_alt_outlined),
-                  label: const Text('Pull'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-
-    remoteController.dispose();
-    branchController.dispose();
-    return result;
-  }
-
-  Future<bool?> _showAndroidCicdCloneDialog(
-    BuildContext context,
-    AndroidCicdClonePreview preview,
-  ) {
-    final flavorLabel = preview.hasFlavors
-        ? 'Flavor ${preview.selectedFlavor ?? '-'}'
-        : 'No flavor';
-    final modeLabel = preview.isFallback ? 'Fallback mode' : 'Adaptive mode';
-
-    return showDialog<bool>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          backgroundColor: AppCyberTheme.panelBackgroundStrong,
-          surfaceTintColor: Colors.transparent,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-            side: BorderSide(
-              color: AppCyberTheme.isCyber
-                  ? AppCyberTheme.electricBlue.withValues(alpha: 0.4)
-                  : AppCyberTheme.lineBlue,
-            ),
-          ),
-          titlePadding: const EdgeInsets.fromLTRB(20, 16, 20, 6),
-          contentPadding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
-          actionsPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-          title: const _PanelTitle(
-            icon: Icons.android_outlined,
-            title: 'Clone Android CI/CD',
-          ),
-          content: SizedBox(
-            width: 620,
-            height: 500,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    _MetaChip(
-                      icon: Icons.badge_outlined,
-                      label: preview.applicationId ?? 'No app ID',
-                      highlighted: preview.applicationId != null,
-                    ),
-                    _MetaChip(
-                      icon: preview.isFallback
-                          ? Icons.low_priority_outlined
-                          : Icons.auto_awesome_motion_outlined,
-                      label: modeLabel,
-                      highlighted: preview.isFallback,
-                    ),
-                    _MetaChip(icon: Icons.layers_outlined, label: flavorLabel),
-                    _MetaChip(
-                      icon: Icons.description_outlined,
-                      label: preview.gradleFilePath,
-                    ),
-                    _MetaChip(
-                      icon: Icons.add_circle_outline,
-                      label: '${preview.count(AndroidCicdFileAction.add)} add',
-                    ),
-                    _MetaChip(
-                      icon: Icons.edit_outlined,
-                      label:
-                          '${preview.count(AndroidCicdFileAction.overwrite)} overwrite',
-                    ),
-                    _MetaChip(
-                      icon: Icons.remove_circle_outline,
-                      label:
-                          '${preview.count(AndroidCicdFileAction.skip)} skip',
-                    ),
-                  ],
-                ),
-                if (preview.warnings.isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  _AndroidCicdWarningList(warnings: preview.warnings),
+                items: [
+                  for (final remote in widget.options.remotes)
+                    DropdownMenuItem(value: remote, child: Text(remote)),
                 ],
-                const SizedBox(height: 12),
-                Text(
-                  'Files',
-                  style: AppCyberTheme.dataTextStyle(
-                    size: 11.8,
-                    color: AppCyberTheme.textPrimary,
-                    weight: FontWeight.w800,
-                  ),
+                onChanged: _selectRemote,
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                key: const Key('pull-branch-branch'),
+                initialValue: _branch,
+                isExpanded: true,
+                decoration: InputDecoration(
+                  labelText: 'Branch',
+                  prefixIcon: const Icon(Icons.alt_route_outlined),
+                  helperText: branches.isEmpty
+                      ? 'Remote này chưa có branch nào'
+                      : null,
                 ),
-                const SizedBox(height: 8),
-                Expanded(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: AppCyberTheme.isCyber
-                          ? AppCyberTheme.panelBackgroundStrong.withValues(
-                              alpha: 0.7,
-                            )
-                          : const Color(0xFFFAFBFC),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: AppCyberTheme.isCyber
-                            ? AppCyberTheme.electricBlue.withValues(alpha: 0.28)
-                            : AppCyberTheme.lineBlue,
-                      ),
-                    ),
-                    child: ListView.separated(
-                      padding: const EdgeInsets.all(8),
-                      itemCount: preview.changes.length,
-                      separatorBuilder: (context, index) =>
-                          const Divider(height: 10),
-                      itemBuilder: (context, index) {
-                        return _AndroidCicdChangeRow(
-                          change: preview.changes[index],
-                        );
-                      },
-                    ),
-                  ),
+                items: [
+                  for (final branch in branches)
+                    DropdownMenuItem(value: branch, child: Text(branch)),
+                ],
+                onChanged: (value) => setState(() {
+                  _branch = value;
+                  _validationError = null;
+                }),
+              ),
+            ] else ...[
+              TextField(
+                key: const Key('pull-branch-remote-text'),
+                controller: _remoteController,
+                decoration: const InputDecoration(
+                  labelText: 'Tên remote',
+                  hintText: 'origin',
+                  prefixIcon: Icon(Icons.hub_outlined),
                 ),
-              ],
-            ),
-          ),
-          actions: [
-            OutlinedButton(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton.icon(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              icon: const Icon(Icons.content_copy_outlined),
-              label: const Text('Clone'),
-            ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                key: const Key('pull-branch-branch-text'),
+                controller: _branchController,
+                decoration: const InputDecoration(
+                  labelText: 'Tên branch',
+                  hintText: 'develop',
+                  prefixIcon: Icon(Icons.alt_route_outlined),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Không đọc được remote từ dự án này, hãy nhập tay.',
+                style: AppCyberTheme.dataTextStyle(
+                  size: 11,
+                  color: AppCyberTheme.textMuted,
+                ),
+              ),
+            ],
+            if (widget.options.currentBranch != null) ...[
+              const SizedBox(height: 10),
+              Text(
+                'Đang ở branch ${widget.options.currentBranch}',
+                style: AppCyberTheme.dataTextStyle(
+                  size: 11,
+                  color: AppCyberTheme.textMuted,
+                ),
+              ),
+            ],
+            if (_validationError != null) ...[
+              const SizedBox(height: 10),
+              Text(
+                _validationError!,
+                style: AppCyberTheme.dataTextStyle(
+                  size: 11,
+                  color: Theme.of(context).colorScheme.error,
+                  weight: FontWeight.w600,
+                ),
+              ),
+            ],
           ],
-        );
-      },
+        ),
+      ),
+      actions: [
+        OutlinedButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Huỷ'),
+        ),
+        FilledButton.icon(
+          key: const Key('pull-branch-confirm'),
+          onPressed: _submit,
+          icon: const Icon(Icons.sync_alt_outlined),
+          label: const Text('Pull'),
+        ),
+      ],
     );
   }
+}
+
+Future<bool?> _showAndroidCicdCloneDialog(
+  BuildContext context,
+  AndroidCicdClonePreview preview,
+) {
+  final flavorLabel = preview.hasFlavors
+      ? 'Flavor ${preview.selectedFlavor ?? '-'}'
+      : 'Không flavor';
+  final modeLabel = preview.isFallback ? 'Chế độ fallback' : 'Chế độ adaptive';
+
+  return showDialog<bool>(
+    context: context,
+    builder: (dialogContext) {
+      return AlertDialog(
+        backgroundColor: AppCyberTheme.panelBackgroundStrong,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+          side: BorderSide(color: AppCyberTheme.palette.cardBorder),
+        ),
+        titlePadding: const EdgeInsets.fromLTRB(20, 16, 20, 6),
+        contentPadding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
+        actionsPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+        title: const _PanelTitle(
+          icon: Icons.android_outlined,
+          title: 'Clone Android CI/CD',
+        ),
+        content: SizedBox(
+          width: 620,
+          height: 500,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _MetaChip(
+                    icon: Icons.badge_outlined,
+                    label: preview.applicationId ?? 'Chưa có app ID',
+                    highlighted: preview.applicationId != null,
+                  ),
+                  _MetaChip(
+                    icon: preview.isFallback
+                        ? Icons.low_priority_outlined
+                        : Icons.auto_awesome_motion_outlined,
+                    label: modeLabel,
+                    highlighted: preview.isFallback,
+                  ),
+                  _MetaChip(icon: Icons.layers_outlined, label: flavorLabel),
+                  _MetaChip(
+                    icon: Icons.description_outlined,
+                    label: preview.gradleFilePath,
+                  ),
+                  _MetaChip(
+                    icon: Icons.add_circle_outline,
+                    label: 'thêm ${preview.count(AndroidCicdFileAction.add)}',
+                  ),
+                  _MetaChip(
+                    icon: Icons.edit_outlined,
+                    label:
+                        'ghi đè ${preview.count(AndroidCicdFileAction.overwrite)}',
+                  ),
+                  _MetaChip(
+                    icon: Icons.remove_circle_outline,
+                    label:
+                        'bỏ qua ${preview.count(AndroidCicdFileAction.skip)}',
+                  ),
+                ],
+              ),
+              if (preview.warnings.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                _AndroidCicdWarningList(warnings: preview.warnings),
+              ],
+              const SizedBox(height: 12),
+              Text(
+                'Danh sách file',
+                style: AppCyberTheme.dataTextStyle(
+                  size: 11.8,
+                  color: AppCyberTheme.textPrimary,
+                  weight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Expanded(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: AppCyberTheme.palette.isDark
+                        ? AppCyberTheme.palette.panelStrong.withValues(
+                            alpha: AppCyberTheme.palette.hasGlow ? 0.7 : 0.9,
+                          )
+                        : const Color(0xFFFAFBFC),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppCyberTheme.palette.cardBorder),
+                  ),
+                  child: ListView.separated(
+                    padding: const EdgeInsets.all(8),
+                    itemCount: preview.changes.length,
+                    separatorBuilder: (context, index) =>
+                        const Divider(height: 10),
+                    itemBuilder: (context, index) {
+                      return _AndroidCicdChangeRow(
+                        change: preview.changes[index],
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          OutlinedButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Huỷ'),
+          ),
+          FilledButton.icon(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            icon: const Icon(Icons.content_copy_outlined),
+            label: const Text('Clone'),
+          ),
+        ],
+      );
+    },
+  );
 }
 
 class _AndroidKeystoreGenerationDialog extends StatefulWidget {
@@ -400,18 +551,14 @@ class _AndroidKeystoreGenerationDialogState
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(10),
-        side: BorderSide(
-          color: AppCyberTheme.isCyber
-              ? AppCyberTheme.electricBlue.withValues(alpha: 0.4)
-              : AppCyberTheme.lineBlue,
-        ),
+        side: BorderSide(color: AppCyberTheme.palette.cardBorder),
       ),
       titlePadding: const EdgeInsets.fromLTRB(20, 16, 20, 6),
       contentPadding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
       actionsPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
       title: const _PanelTitle(
         icon: Icons.vpn_key_outlined,
-        title: 'Generate Android JKS',
+        title: 'Tạo Android JKS',
       ),
       content: SizedBox(
         width: 420,
@@ -429,12 +576,16 @@ class _AndroidKeystoreGenerationDialogState
               ),
               const SizedBox(height: 12),
               TextField(
+                key: const Key('android-jks-password'),
                 controller: _storePasswordController,
                 obscureText: true,
                 enableSuggestions: false,
                 autocorrect: false,
                 decoration: const InputDecoration(
-                  labelText: 'JKS password',
+                  labelText: 'Mật khẩu JKS',
+                  // The service already generates a strong password when this
+                  // is blank; saying so is what stops people typing one.
+                  helperText: 'Để trống thì app tự tạo mật khẩu mạnh',
                   prefixIcon: Icon(Icons.password_outlined),
                 ),
               ),
@@ -445,7 +596,7 @@ class _AndroidKeystoreGenerationDialogState
                   setState(() => _forceRecreate = value ?? false);
                 },
                 contentPadding: EdgeInsets.zero,
-                title: const Text('Force recreate existing JKS'),
+                title: const Text('Tạo lại JKS dù đã có'),
                 controlAffinity: ListTileControlAffinity.leading,
               ),
               if (_validationError != null) ...[
@@ -466,12 +617,12 @@ class _AndroidKeystoreGenerationDialogState
       actions: [
         OutlinedButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: const Text('Huỷ'),
         ),
         FilledButton.icon(
           onPressed: _submit,
           icon: const Icon(Icons.vpn_key_outlined),
-          label: const Text('Generate'),
+          label: const Text('Tạo'),
         ),
       ],
     );
@@ -482,13 +633,13 @@ class _AndroidKeystoreGenerationDialogState
     final storePassword = _storePasswordController.text.trim();
     if (alias.isEmpty) {
       setState(() {
-        _validationError = 'Key alias is required.';
+        _validationError = 'Phải nhập key alias.';
       });
       return;
     }
     if (storePassword.isNotEmpty && storePassword.length < 6) {
       setState(() {
-        _validationError = 'JKS password must be at least 6 characters.';
+        _validationError = 'Mật khẩu JKS phải từ 6 ký tự.';
       });
       return;
     }
@@ -503,302 +654,302 @@ class _AndroidKeystoreGenerationDialogState
   }
 }
 
-class _ApiMonitorButton extends StatelessWidget {
-  const _ApiMonitorButton({this.compact = false});
-
-  final bool compact;
-
-  @override
-  Widget build(BuildContext context) {
-    final monitorService = Get.isRegistered<ApiMonitorService>()
-        ? Get.find<ApiMonitorService>()
-        : Get.put<ApiMonitorService>(ApiMonitorService());
-
-    return Tooltip(
-      message: 'Open API Monitor (Right-click for options)',
-      child: GestureDetector(
-        onSecondaryTapUp: (details) => _showContextMenu(context, details.globalPosition, monitorService),
-        child: compact
-            ? OutlinedButton(
-                key: const Key('open-api-monitor'),
-                onPressed: () => showApiMonitorDialog(context),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                  minimumSize: const Size(36, 36),
-                ),
-                child: const Icon(Icons.query_stats_outlined, size: 18),
-              )
-            : OutlinedButton.icon(
-                key: const Key('open-api-monitor'),
-                onPressed: () => showApiMonitorDialog(context),
-                icon: const Icon(Icons.query_stats_outlined, size: 18),
-                label: const Text('API Monitor'),
-              ),
-      ),
-    );
-  }
-
-  void _showContextMenu(BuildContext context, Offset position, ApiMonitorService monitorService) {
-    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox?;
-    if (overlay == null) return;
-    showMenu<String>(
-      context: context,
-      position: RelativeRect.fromRect(
-        position & const Size(40, 40),
-        Offset.zero & overlay.size,
-      ),
-      items: const [
-        PopupMenuItem(
-          value: 'open_dialog',
-          child: ListTile(
-            leading: Icon(Icons.web_asset_outlined),
-            title: Text('Open In-App Dialog'),
-            contentPadding: EdgeInsets.zero,
-          ),
-        ),
-        PopupMenuItem(
-          value: 'open_window',
-          child: ListTile(
-            leading: Icon(Icons.open_in_new_outlined),
-            title: Text('Open in Separate Window'),
-            contentPadding: EdgeInsets.zero,
-          ),
-        ),
-        PopupMenuItem(
-          value: 'open_browser',
-          child: ListTile(
-            leading: Icon(Icons.public_outlined),
-            title: Text('Open in Browser'),
-            contentPadding: EdgeInsets.zero,
-          ),
-        ),
-        PopupMenuItem(
-          value: 'copy_url',
-          child: ListTile(
-            leading: Icon(Icons.copy_outlined),
-            title: Text('Copy Dashboard URL'),
-            contentPadding: EdgeInsets.zero,
-          ),
-        ),
-      ],
-    ).then((value) async {
-      if (value == 'open_dialog') {
-        if (context.mounted) {
-          await showApiMonitorDialog(context);
-        }
-      } else if (value == 'open_window') {
-        await monitorService.openStandaloneWindow();
-      } else if (value == 'open_browser') {
-        await monitorService.openInBrowser();
-      } else if (value == 'copy_url') {
-        await monitorService.copyDashboardUrl();
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Copied API Monitor dashboard URL'),
-              duration: Duration(seconds: 2),
-            ),
-          );
-        }
-      }
-    });
-  }
-}
-
 class _FlowPanelHeader extends GetView<HomeController> {
-  const _FlowPanelHeader({required this.onExtendedActionSelected});
-
-  final Future<void> Function(BuildContext context, _ExtendedAction action)
-  onExtendedActionSelected;
+  const _FlowPanelHeader();
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final compact = constraints.maxWidth < 620;
+        final width = constraints.maxWidth;
+        // Two thresholds, dropping the least load-bearing things first: the
+        // panel title and the search bar's label (both icons still say what
+        // they are), then the status pill, which the bottom progress dock
+        // repeats anyway, and the release button's label.
+        final compact = width < 700;
+        final tight = width < 470;
+
         return Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            const _PanelTitle(
-              icon: Icons.account_tree_outlined,
-              title: 'Automation',
-            ),
+            if (compact)
+              const Icon(Icons.account_tree_outlined, size: 17)
+            else
+              const _PanelTitle(
+                icon: Icons.account_tree_outlined,
+                title: 'Tự động hoá',
+              ),
+            const SizedBox(width: 10),
+            Expanded(child: _CommandPaletteBar(compact: compact)),
             const SizedBox(width: 8),
-            Expanded(
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  alignment: WrapAlignment.end,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    _ApiMonitorButton(compact: compact),
-                    const _ApiToolButton(),
-                    const _ReleaseWorkflowButton(),
-                const _ThemeSwitchMenu(),
-                Obx(
+            _ReleaseWorkflowButton(compact: tight),
+            const SizedBox(width: 8),
+            if (!tight)
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 150),
+                child: Obx(
                   () => _StatusPill(
                     label: controller.runner.status.value,
                     running: controller.runner.isBusy,
                   ),
                 ),
-                _ExtendedActionsButton(
-                  onSelected: (action) =>
-                      onExtendedActionSelected(context, action),
-                ),
-              ],
+              ),
+            const SizedBox(width: 4),
+            _AutomationMenuButton(
+              onSelected: (action) => _runAutomationMenuAction(context, action),
             ),
-          ),
-        ),
-      ],
-    );
+          ],
+        );
       },
     );
   }
 }
 
-class _ExtendedActionsButton extends GetView<HomeController> {
-  const _ExtendedActionsButton({required this.onSelected});
+/// Everything the header used to spell out as its own button.
+///
+/// They all stayed one click away, but they no longer each cost a slot in a
+/// header that had run out of room; the palette reaches every one of them by
+/// name.
+enum _AutomationMenuAction {
+  apiTool,
+  apiMonitor,
+  flowFin,
+  mailCleaner,
+  bundleCheck,
+  qaDesk,
+  themeConsole,
+  themeCyber,
+  themeDefault,
+  cloneAndroidCicd,
+  cloneAndroidCicdFallback,
+  generateAndroidJks,
+  pullRemoteBranch,
+  updateFastlaneWithGem,
+  flutterClean,
+  flutterPubGet,
+}
 
-  final ValueChanged<_ExtendedAction> onSelected;
+Future<void> _runAutomationMenuAction(
+  BuildContext context,
+  _AutomationMenuAction action,
+) async {
+  switch (action) {
+    case _AutomationMenuAction.apiTool:
+      await showApiToolDialog(context);
+    case _AutomationMenuAction.apiMonitor:
+      await showApiMonitorDialog(context);
+    case _AutomationMenuAction.flowFin:
+      await showFlowFinDialog(context);
+    case _AutomationMenuAction.mailCleaner:
+      await showMailCleaner(context);
+    case _AutomationMenuAction.bundleCheck:
+      await showBundleCheck(context);
+    case _AutomationMenuAction.qaDesk:
+      await showQaDesk(
+        context,
+        projectPath: Get.find<HomeController>().project.value?.path,
+      );
+    case _AutomationMenuAction.themeConsole:
+      Get.find<ThemeService>().setChoice(AppThemeChoice.console);
+    case _AutomationMenuAction.themeCyber:
+      Get.find<ThemeService>().setChoice(AppThemeChoice.cyber);
+    case _AutomationMenuAction.themeDefault:
+      Get.find<ThemeService>().setChoice(AppThemeChoice.defaultTheme);
+    case _AutomationMenuAction.cloneAndroidCicd:
+      await _runExtendedAction(context, _ExtendedAction.cloneAndroidCicd);
+    case _AutomationMenuAction.cloneAndroidCicdFallback:
+      await _runExtendedAction(
+        context,
+        _ExtendedAction.cloneAndroidCicdFallback,
+      );
+    case _AutomationMenuAction.generateAndroidJks:
+      await _runExtendedAction(context, _ExtendedAction.generateAndroidJks);
+    case _AutomationMenuAction.pullRemoteBranch:
+      await _runExtendedAction(context, _ExtendedAction.pullRemoteBranch);
+    case _AutomationMenuAction.updateFastlaneWithGem:
+      await _runExtendedAction(context, _ExtendedAction.updateFastlaneWithGem);
+    case _AutomationMenuAction.flutterClean:
+      await _runExtendedAction(context, _ExtendedAction.flutterClean);
+    case _AutomationMenuAction.flutterPubGet:
+      await _runExtendedAction(context, _ExtendedAction.flutterPubGet);
+  }
+}
+
+/// The header's single overflow menu: tools, theme, and the project actions
+/// that need a project open.
+class _AutomationMenuButton extends GetView<HomeController> {
+  const _AutomationMenuButton({required this.onSelected});
+
+  final ValueChanged<_AutomationMenuAction> onSelected;
 
   @override
   Widget build(BuildContext context) {
+    final themeService = Get.find<ThemeService>();
+
     return Obx(() {
-      final isEnabled =
+      final theme = themeService.choice.value;
+      // Project actions run commands in the checked-out repo; the tools above
+      // them do not, so only the lower half is gated.
+      final projectActionsEnabled =
           controller.project.value != null &&
           !controller.runner.isBusy &&
           !controller.isGeneratingAndroidKeystore.value;
 
-      return PopupMenuButton<_ExtendedAction>(
-        enabled: isEnabled,
-        tooltip: isEnabled ? 'Extended actions' : 'Choose a project first',
+      return PopupMenuButton<_AutomationMenuAction>(
+        key: const Key('automation-menu'),
+        tooltip: 'Thêm thao tác',
         onSelected: onSelected,
         position: PopupMenuPosition.under,
         offset: const Offset(0, 8),
         color: AppCyberTheme.panelBackgroundStrong.withValues(alpha: 0.96),
         surfaceTintColor: Colors.transparent,
-        constraints: const BoxConstraints(minWidth: 260, maxWidth: 340),
+        constraints: const BoxConstraints(minWidth: 280, maxWidth: 360),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
-          side: BorderSide(
-            color: AppCyberTheme.isCyber
-                ? AppCyberTheme.electricBlue.withValues(alpha: 0.42)
-                : AppCyberTheme.lineBlue,
-          ),
+          side: BorderSide(color: AppCyberTheme.palette.cardBorder),
         ),
-        itemBuilder: (context) => const [
-          PopupMenuItem(
-            value: _ExtendedAction.cloneAndroidCicd,
+        itemBuilder: (context) => [
+          const PopupMenuItem(
+            value: _AutomationMenuAction.apiTool,
             child: _ExtendedMenuItem(
+              icon: Icons.api_outlined,
+              title: 'API Tool',
+              subtitle: 'Gửi và lưu request HTTP.',
+            ),
+          ),
+          const PopupMenuItem(
+            value: _AutomationMenuAction.apiMonitor,
+            child: _ExtendedMenuItem(
+              icon: Icons.query_stats_outlined,
+              title: 'API Monitor',
+              subtitle: 'Mở dashboard giám sát.',
+            ),
+          ),
+          const PopupMenuItem(
+            value: _AutomationMenuAction.flowFin,
+            child: _ExtendedMenuItem(
+              icon: Icons.account_balance_wallet_outlined,
+              title: 'FlowFin',
+              subtitle: 'Ví, ngân sách và giao dịch.',
+            ),
+          ),
+          const PopupMenuItem(
+            value: _AutomationMenuAction.mailCleaner,
+            child: _ExtendedMenuItem(
+              icon: Icons.mark_email_unread_outlined,
+              title: 'Dọn hộp thư',
+              subtitle: 'Quét IMAP và xoá thư rác theo nhóm tiêu đề.',
+            ),
+          ),
+          const PopupMenuItem(
+            value: _AutomationMenuAction.bundleCheck,
+            child: _ExtendedMenuItem(
+              icon: Icons.fact_check_outlined,
+              title: 'Kiểm tra AAB',
+              subtitle: 'Build đúng không, đủ env không.',
+            ),
+          ),
+          const PopupMenuItem(
+            value: _AutomationMenuAction.qaDesk,
+            child: _ExtendedMenuItem(
+              icon: Icons.science_outlined,
+              title: 'QA Desk · Kiểm thử',
+              subtitle: 'Chạy suite test của nhiều dự án.',
+            ),
+          ),
+          const PopupMenuDivider(),
+          for (final choice in AppThemeChoice.values)
+            PopupMenuItem(
+              value: switch (choice) {
+                AppThemeChoice.console => _AutomationMenuAction.themeConsole,
+                AppThemeChoice.cyber => _AutomationMenuAction.themeCyber,
+                AppThemeChoice.defaultTheme =>
+                  _AutomationMenuAction.themeDefault,
+              },
+              child: _ExtendedMenuItem(
+                icon: choice.icon,
+                title: 'Đổi sang giao diện ${choice.label}',
+                subtitle: theme == choice
+                    ? 'Đang dùng ${theme.label}.'
+                    : 'Chuyển sang ${choice.label}.',
+              ),
+            ),
+          const PopupMenuDivider(),
+          PopupMenuItem(
+            value: _AutomationMenuAction.cloneAndroidCicd,
+            enabled: projectActionsEnabled,
+            child: const _ExtendedMenuItem(
               icon: Icons.android_outlined,
               title: 'Clone Android CI/CD',
-              subtitle: 'Preview and scaffold Fastlane plus auto tools.',
+              subtitle: 'Xem trước rồi dựng Fastlane và bộ auto tool.',
             ),
           ),
           PopupMenuItem(
-            value: _ExtendedAction.cloneAndroidCicdFallback,
-            child: _ExtendedMenuItem(
+            value: _AutomationMenuAction.cloneAndroidCicdFallback,
+            enabled: projectActionsEnabled,
+            child: const _ExtendedMenuItem(
               icon: Icons.low_priority_outlined,
               title: 'Clone Android CI/CD fallback',
-              subtitle: 'Use generic no-flavor CI/CD without Gradle patching.',
+              subtitle: 'Dùng CI/CD không flavor, không vá Gradle.',
             ),
           ),
           PopupMenuItem(
-            value: _ExtendedAction.generateAndroidJks,
-            child: _ExtendedMenuItem(
+            value: _AutomationMenuAction.generateAndroidJks,
+            enabled: projectActionsEnabled,
+            child: const _ExtendedMenuItem(
               icon: Icons.vpn_key_outlined,
-              title: 'Generate Android JKS',
-              subtitle: 'Create local upload keystore and signing configs.',
+              title: 'Tạo Android JKS',
+              subtitle: 'Tạo upload keystore và cấu hình ký ngay tại máy.',
             ),
           ),
           PopupMenuItem(
-            value: _ExtendedAction.pullRemoteBranch,
-            child: _ExtendedMenuItem(
+            value: _AutomationMenuAction.pullRemoteBranch,
+            enabled: projectActionsEnabled,
+            child: const _ExtendedMenuItem(
               icon: Icons.call_received_outlined,
-              title: 'Pull branch from remote',
-              subtitle: 'Input remote and branch, then run git pull.',
+              title: 'Pull branch từ remote',
+              subtitle: 'Chọn remote và branch rồi chạy git pull.',
             ),
           ),
           PopupMenuItem(
-            value: _ExtendedAction.updateFastlaneWithGem,
-            child: _ExtendedMenuItem(
+            value: _AutomationMenuAction.updateFastlaneWithGem,
+            enabled: projectActionsEnabled,
+            child: const _ExtendedMenuItem(
               icon: Icons.system_update_alt_outlined,
-              title: 'Check and update Fastlane',
-              subtitle: 'Run fastlane --version then a user-scoped gem update.',
+              title: 'Kiểm tra và cập nhật Fastlane',
+              subtitle: 'Chạy fastlane --version rồi gem update cho user.',
             ),
           ),
           PopupMenuItem(
-            value: _ExtendedAction.flutterClean,
-            child: _ExtendedMenuItem(
+            value: _AutomationMenuAction.flutterClean,
+            enabled: projectActionsEnabled,
+            child: const _ExtendedMenuItem(
               icon: Icons.cleaning_services_outlined,
               title: 'Flutter clean',
-              subtitle: 'Clear Flutter build artifacts in this project.',
+              subtitle: 'Xoá artifact build của Flutter trong dự án này.',
             ),
           ),
           PopupMenuItem(
-            value: _ExtendedAction.flutterPubGet,
-            child: _ExtendedMenuItem(
+            value: _AutomationMenuAction.flutterPubGet,
+            enabled: projectActionsEnabled,
+            child: const _ExtendedMenuItem(
               icon: Icons.download_for_offline_outlined,
               title: 'Flutter pub get',
-              subtitle: 'Fetch Dart and Flutter dependencies.',
+              subtitle: 'Tải dependency của Dart và Flutter.',
             ),
           ),
         ],
-        child: AnimatedOpacity(
-          duration: const Duration(milliseconds: 140),
-          opacity: isEnabled ? 1 : 0.55,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(
-                color: AppCyberTheme.isCyber
-                    ? AppCyberTheme.electricBlue.withValues(alpha: 0.44)
-                    : AppCyberTheme.lineBlue,
-              ),
-              gradient: LinearGradient(
-                colors: AppCyberTheme.isCyber
-                    ? [
-                        AppCyberTheme.electricBlue.withValues(alpha: 0.2),
-                        AppCyberTheme.electricBlue.withValues(alpha: 0.08),
-                      ]
-                    : const [Colors.white, Color(0xFFFAFBFC)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.extension_outlined,
-                    size: 16,
-                    color: AppCyberTheme.isCyber
-                        ? AppCyberTheme.electricBlue.withValues(alpha: 0.95)
-                        : AppCyberTheme.textMuted,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Extend',
-                    style: AppCyberTheme.dataTextStyle(
-                      size: 11.5,
-                      color: AppCyberTheme.textPrimary,
-                      weight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Icon(
-                    Icons.expand_more_outlined,
-                    size: 15,
-                    color: AppCyberTheme.textMuted,
-                  ),
-                ],
-              ),
+        child: Container(
+          height: 36,
+          width: 36,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: AppCyberTheme.lineBlue.withValues(alpha: 0.5),
             ),
           ),
+          child: const Icon(Icons.more_horiz, size: 18),
         ),
       );
     });
@@ -900,14 +1051,8 @@ class _AndroidCicdChangeRow extends StatelessWidget {
 
   Color _actionColor(BuildContext context, AndroidCicdFileAction action) {
     return switch (action) {
-      AndroidCicdFileAction.add =>
-        AppCyberTheme.isCyber
-            ? AppCyberTheme.neonGreen
-            : const Color(0xFF039855),
-      AndroidCicdFileAction.overwrite =>
-        AppCyberTheme.isCyber
-            ? AppCyberTheme.electricBlue
-            : const Color(0xFF1570EF),
+      AndroidCicdFileAction.add => AppCyberTheme.palette.success,
+      AndroidCicdFileAction.overwrite => AppCyberTheme.palette.info,
       AndroidCicdFileAction.skip => Theme.of(context).colorScheme.error,
     };
   }
@@ -971,11 +1116,11 @@ class _CicdFlowGrid extends GetView<HomeController> {
     return Obx(() {
       final project = controller.project.value;
       if (project == null) {
-        return const Center(child: Text('Choose a project'));
+        return const Center(child: Text('Chọn một dự án'));
       }
 
       if (project.scripts.isEmpty) {
-        return const Center(child: Text('No auto tools found'));
+        return const Center(child: Text('Không tìm thấy auto tool nào'));
       }
 
       return GridView.builder(
@@ -1049,7 +1194,7 @@ class _ScriptCard extends GetView<HomeController> {
                 ),
                 const SizedBox(width: 8),
                 IconButton.filledTonal(
-                  tooltip: 'Run ${script.label}',
+                  tooltip: 'Chạy ${script.label}',
                   visualDensity: VisualDensity.compact,
                   onPressed: isRunning
                       ? null

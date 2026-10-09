@@ -39,7 +39,8 @@ class _GlobalCommandProgressState extends State<GlobalCommandProgress>
       final isRunning =
           runner.isWorkflowRunning.value || runner.isRunning.value;
       final isCompleted = !isRunning && progress >= 1;
-      final isFailed = !isRunning && runner.status.value == 'Failed';
+      final isFailed =
+          !isRunning && runner.runState.value == ReleaseRunnerState.failed;
       final accentColor = isFailed
           ? Theme.of(context).colorScheme.error
           : isCompleted
@@ -48,8 +49,8 @@ class _GlobalCommandProgressState extends State<GlobalCommandProgress>
           ? AppCyberTheme.electricBlue
           : AppCyberTheme.textMuted;
       final stepText = totalSteps > 0
-          ? 'STEP $currentStep/$totalSteps'
-          : 'READY';
+          ? 'BƯỚC $currentStep/$totalSteps'
+          : 'SẴN SÀNG';
       final percent = '${(progress * 100).round()}%';
       _syncChargeAnimation(isRunning);
 
@@ -66,11 +67,11 @@ class _GlobalCommandProgressState extends State<GlobalCommandProgress>
             border: Border(
               top: BorderSide(
                 color: accentColor.withValues(
-                  alpha: AppCyberTheme.isCyber ? 0.5 : 0.28,
+                  alpha: AppCyberTheme.palette.hasGlow ? 0.5 : 0.28,
                 ),
               ),
             ),
-            boxShadow: AppCyberTheme.isCyber && isRunning
+            boxShadow: AppCyberTheme.palette.hasGlow && isRunning
                 ? [
                     BoxShadow(
                       color: accentColor.withValues(alpha: 0.16),
@@ -94,7 +95,7 @@ class _GlobalCommandProgressState extends State<GlobalCommandProgress>
                     child: DecoratedBox(
                       decoration: BoxDecoration(
                         color: accentColor.withValues(
-                          alpha: AppCyberTheme.isCyber ? 0.12 : 0.08,
+                          alpha: AppCyberTheme.palette.hasGlow ? 0.12 : 0.08,
                         ),
                         borderRadius: BorderRadius.circular(6),
                         border: Border.all(
@@ -167,11 +168,11 @@ class _GlobalCommandProgressState extends State<GlobalCommandProgress>
                               progress: animatedProgress,
                               phase: _chargeController.value,
                               accentColor: accentColor,
-                              trackColor: AppCyberTheme.isCyber
-                                  ? AppCyberTheme.electricBlue.withValues(
+                              trackColor: AppCyberTheme.palette.hasGlow
+                                  ? AppCyberTheme.palette.accent.withValues(
                                       alpha: 0.09,
                                     )
-                                  : AppCyberTheme.lineBlue.withValues(
+                                  : AppCyberTheme.palette.line.withValues(
                                       alpha: 0.35,
                                     ),
                               isCharging: isRunning,
@@ -186,6 +187,11 @@ class _GlobalCommandProgressState extends State<GlobalCommandProgress>
                     ),
                   ],
                 ),
+              ),
+              // A QA run outlives its page; this keeps it in sight from here.
+              const Padding(
+                padding: EdgeInsets.only(left: 12),
+                child: QaShellStatus(),
               ),
             ],
           ),
@@ -331,7 +337,8 @@ class _Panel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (!AppCyberTheme.isCyber) {
+    final palette = AppCyberTheme.palette;
+    if (palette.backdropBlurSigma <= 0) {
       return Container(
         padding: padding,
         decoration: AppCyberTheme.panelDecoration(),
@@ -342,37 +349,42 @@ class _Panel extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(8),
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+        filter: ImageFilter.blur(
+          sigmaX: palette.backdropBlurSigma,
+          sigmaY: palette.backdropBlurSigma,
+        ),
         child: DecoratedBox(
           decoration: AppCyberTheme.panelDecoration(),
           child: Stack(
             children: [
-              Positioned.fill(
-                child: IgnorePointer(
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: CustomPaint(
-                      painter: _ScanlinePainter(
-                        color: AppCyberTheme.electricBlue.withValues(
-                          alpha: 0.08,
+              if (palette.hasScanlines)
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: CustomPaint(
+                        painter: _ScanlinePainter(
+                          color: palette.accent.withValues(
+                            alpha: 0.08,
+                          ),
+                          spacing: 12,
                         ),
-                        spacing: 12,
                       ),
                     ),
                   ),
                 ),
-              ),
-              Positioned.fill(
-                child: IgnorePointer(
-                  child: CustomPaint(
-                    painter: _CornerBracketPainter(
-                      color: AppCyberTheme.electricBlue.withValues(alpha: 0.55),
-                      inset: 5,
-                      bracketLength: 10,
+              if (palette.hasCornerBrackets)
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: CustomPaint(
+                      painter: _CornerBracketPainter(
+                        color: palette.accent.withValues(alpha: 0.55),
+                        inset: 5,
+                        bracketLength: 10,
+                      ),
                     ),
                   ),
                 ),
-              ),
               Padding(padding: padding, child: child),
             ],
           ),
@@ -397,8 +409,9 @@ class _HudCardShell extends StatelessWidget {
   Widget build(BuildContext context) {
     final reduceMotion =
         MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    final palette = AppCyberTheme.palette;
     return _PulseGlow(
-      enabled: active && AppCyberTheme.isCyber && !reduceMotion,
+      enabled: active && palette.pulseOnActive && !reduceMotion,
       child: AnimatedContainer(
         duration: reduceMotion
             ? Duration.zero
@@ -407,14 +420,14 @@ class _HudCardShell extends StatelessWidget {
         decoration: AppCyberTheme.gridShellDecoration(active: active),
         child: Stack(
           children: [
-            if (AppCyberTheme.isCyber) ...[
+            if (palette.hasScanlines)
               Positioned.fill(
                 child: IgnorePointer(
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(8),
                     child: CustomPaint(
                       painter: _ScanlinePainter(
-                        color: AppCyberTheme.electricBlue.withValues(
+                        color: palette.accent.withValues(
                           alpha: 0.1,
                         ),
                         spacing: 11,
@@ -423,18 +436,18 @@ class _HudCardShell extends StatelessWidget {
                   ),
                 ),
               ),
+            if (palette.hasCornerBrackets)
               Positioned.fill(
                 child: IgnorePointer(
                   child: CustomPaint(
                     painter: _CornerBracketPainter(
-                      color: AppCyberTheme.electricBlue.withValues(alpha: 0.75),
+                      color: palette.accent.withValues(alpha: 0.75),
                       inset: 4,
                       bracketLength: 8,
                     ),
                   ),
                 ),
               ),
-            ],
             Padding(padding: padding, child: child),
           ],
         ),
@@ -456,13 +469,19 @@ class _PanelTitle extends StatelessWidget {
       children: [
         Icon(icon, size: 17),
         const SizedBox(width: 8),
-        Text(
-          title.toUpperCase(),
-          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-            letterSpacing: 0.8,
-            color: AppCyberTheme.isCyber
-                ? AppCyberTheme.electricBlue.withValues(alpha: 0.95)
-                : AppCyberTheme.textPrimary,
+        // Titles are translated, so their width is not fixed; let a long one
+        // ellipsize rather than overflow its panel.
+        Flexible(
+          child: Text(
+            title.toUpperCase(),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              letterSpacing: 0.8,
+              color: AppCyberTheme.palette.hasGlow
+                  ? AppCyberTheme.palette.accent.withValues(alpha: 0.95)
+                  : AppCyberTheme.palette.textPrimary,
+            ),
           ),
         ),
       ],
@@ -478,34 +497,35 @@ class _StatusPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final borderColor = AppCyberTheme.isCyber
+    final palette = AppCyberTheme.palette;
+    final borderColor = palette.hasGlow
         ? (running
-              ? AppCyberTheme.neonGreen.withValues(alpha: 0.72)
-              : AppCyberTheme.electricBlue.withValues(alpha: 0.45))
-        : AppCyberTheme.lineBlue;
-    final backgroundColor = AppCyberTheme.isCyber
+              ? palette.accentAlt.withValues(alpha: 0.72)
+              : palette.accent.withValues(alpha: 0.45))
+        : (running ? palette.success : palette.line);
+    final backgroundColor = palette.hasGlow
         ? (running
-              ? AppCyberTheme.neonGreen.withValues(alpha: 0.14)
-              : AppCyberTheme.panelBackgroundStrong.withValues(alpha: 0.85))
-        : AppCyberTheme.panelBackgroundStrong;
+              ? palette.accentAlt.withValues(alpha: 0.14)
+              : palette.panelStrong.withValues(alpha: 0.85))
+        : (running ? palette.successSoft : palette.panelStrong);
     final signalColor = running
-        ? AppCyberTheme.neonGreen
-        : AppCyberTheme.isCyber
-        ? AppCyberTheme.electricBlue.withValues(alpha: 0.9)
-        : AppCyberTheme.textMuted;
+        ? palette.success
+        : (palette.hasGlow
+              ? palette.accent.withValues(alpha: 0.9)
+              : palette.textMuted);
 
     return DecoratedBox(
       decoration: BoxDecoration(
         color: backgroundColor,
         borderRadius: BorderRadius.circular(6),
         border: Border.all(color: borderColor),
-        boxShadow: AppCyberTheme.isCyber
+        boxShadow: palette.hasGlow
             ? [
                 BoxShadow(
                   color:
                       (running
-                              ? AppCyberTheme.neonGreen
-                              : AppCyberTheme.electricBlue)
+                              ? palette.accentAlt
+                              : palette.accent)
                           .withValues(alpha: 0.22),
                   blurRadius: 12,
                   spreadRadius: -4,
@@ -551,64 +571,6 @@ class _StatusPill extends StatelessWidget {
   }
 }
 
-class _ThemeSwitchMenu extends StatelessWidget {
-  const _ThemeSwitchMenu();
-
-  @override
-  Widget build(BuildContext context) {
-    final themeService = Get.find<ThemeService>();
-
-    return Obx(() {
-      final selected = themeService.choice.value;
-
-      return PopupMenuButton<AppThemeChoice>(
-        tooltip: 'Switch theme',
-        initialValue: selected,
-        onSelected: themeService.setChoice,
-        position: PopupMenuPosition.under,
-        offset: const Offset(0, 8),
-        color: AppCyberTheme.panelBackgroundStrong,
-        surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-          side: BorderSide(
-            color: AppCyberTheme.isCyber
-                ? AppCyberTheme.electricBlue.withValues(alpha: 0.35)
-                : AppCyberTheme.lineBlue,
-          ),
-        ),
-        itemBuilder: (context) => AppThemeChoice.values.map((choice) {
-          return PopupMenuItem<AppThemeChoice>(
-            value: choice,
-            child: Row(
-              children: [
-                Icon(
-                  choice == selected
-                      ? Icons.radio_button_checked
-                      : Icons.radio_button_unchecked,
-                  size: 17,
-                ),
-                const SizedBox(width: 10),
-                Icon(choice.icon, size: 18),
-                const SizedBox(width: 8),
-                Text(
-                  choice.label,
-                  style: AppCyberTheme.dataTextStyle(
-                    size: 11.6,
-                    color: AppCyberTheme.textPrimary,
-                    weight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-          );
-        }).toList(),
-        child: _StatusPill(label: selected.label, running: false),
-      );
-    });
-  }
-}
-
 class _MetaChip extends StatelessWidget {
   const _MetaChip({
     required this.icon,
@@ -622,30 +584,29 @@ class _MetaChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = AppCyberTheme.palette;
     final backgroundColor = highlighted
-        ? (AppCyberTheme.isCyber
-              ? AppCyberTheme.electricBlue.withValues(alpha: 0.16)
-              : const Color(0xFFEFF8FF))
-        : (AppCyberTheme.isCyber
-              ? AppCyberTheme.panelBackgroundStrong.withValues(alpha: 0.86)
-              : const Color(0xFFFAFBFC));
+        ? (palette.hasGlow
+              ? palette.accent.withValues(alpha: 0.16)
+              : palette.accentSoft)
+        : (palette.hasGlow
+              ? palette.panelStrong.withValues(alpha: 0.86)
+              : (palette.isDark
+                    ? palette.panelStrong
+                    : const Color(0xFFFAFBFC)));
     final borderColor = highlighted
-        ? (AppCyberTheme.isCyber
-              ? AppCyberTheme.electricBlue.withValues(alpha: 0.9)
-              : const Color(0xFF1570EF))
-        : (AppCyberTheme.isCyber
-              ? AppCyberTheme.electricBlue.withValues(alpha: 0.35)
-              : AppCyberTheme.lineBlue);
+        ? (palette.hasGlow
+              ? palette.accent.withValues(alpha: 0.9)
+              : palette.accentBorder)
+        : (palette.hasGlow
+              ? palette.accent.withValues(alpha: 0.35)
+              : palette.line);
     final iconColor = highlighted
-        ? (AppCyberTheme.isCyber
-              ? AppCyberTheme.neonGreen
-              : const Color(0xFF1570EF))
-        : (AppCyberTheme.isCyber
-              ? AppCyberTheme.electricBlue
-              : AppCyberTheme.textMuted);
+        ? (palette.hasGlow ? palette.accentAlt : palette.accentBorder)
+        : (palette.hasGlow ? palette.accent : palette.textMuted);
     final textColor = highlighted
-        ? AppCyberTheme.textPrimary
-        : AppCyberTheme.textMuted;
+        ? palette.textPrimary
+        : palette.textMuted;
 
     return Container(
       padding: EdgeInsets.symmetric(
@@ -656,12 +617,12 @@ class _MetaChip extends StatelessWidget {
         color: backgroundColor,
         borderRadius: BorderRadius.circular(6),
         border: Border.all(color: borderColor),
-        boxShadow: highlighted && AppCyberTheme.isCyber
+        boxShadow: highlighted && palette.hasGlow
             ? [
                 BoxShadow(
-                  color: AppCyberTheme.electricBlue.withValues(alpha: 0.3),
+                  color: palette.accent.withValues(alpha: 0.3),
                   blurRadius: 14,
-                  spreadRadius: -4,
+                  spreadRadius: -3,
                 ),
               ]
             : const [],
@@ -719,13 +680,13 @@ class _PanelSplitter extends StatelessWidget {
             child: Container(
               width: isHorizontal ? 2 : 44,
               height: isHorizontal ? 44 : 2,
-              decoration: AppCyberTheme.isCyber
+              decoration: AppCyberTheme.palette.hasGlow
                   ? BoxDecoration(
                       gradient: LinearGradient(
                         colors: [
-                          AppCyberTheme.electricBlue.withValues(alpha: 0.05),
-                          AppCyberTheme.electricBlue.withValues(alpha: 0.82),
-                          AppCyberTheme.electricBlue.withValues(alpha: 0.05),
+                          AppCyberTheme.palette.accent.withValues(alpha: 0.05),
+                          AppCyberTheme.palette.accent.withValues(alpha: 0.82),
+                          AppCyberTheme.palette.accent.withValues(alpha: 0.05),
                         ],
                         begin: isHorizontal
                             ? Alignment.topCenter
@@ -737,7 +698,7 @@ class _PanelSplitter extends StatelessWidget {
                       borderRadius: BorderRadius.circular(999),
                       boxShadow: [
                         BoxShadow(
-                          color: AppCyberTheme.electricBlue.withValues(
+                          color: AppCyberTheme.palette.accent.withValues(
                             alpha: 0.28,
                           ),
                           blurRadius: 12,
@@ -746,7 +707,7 @@ class _PanelSplitter extends StatelessWidget {
                       ],
                     )
                   : BoxDecoration(
-                      color: AppCyberTheme.lineBlue,
+                      color: AppCyberTheme.palette.line,
                       borderRadius: BorderRadius.circular(999),
                     ),
             ),
@@ -762,9 +723,22 @@ class _HudBackdrop extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final gradientColors = AppCyberTheme.backdropGradientColors;
+    final palette = AppCyberTheme.palette;
+    final gradientColors = palette.backdropGradient;
 
-    if (!AppCyberTheme.isCyber) {
+    if (!palette.hasGlow) {
+      if (gradientColors.length > 1 &&
+          gradientColors.first != gradientColors.last) {
+        return Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: gradientColors,
+            ),
+          ),
+        );
+      }
       return ColoredBox(color: gradientColors.first);
     }
 
@@ -784,7 +758,7 @@ class _HudBackdrop extends StatelessWidget {
           top: -140,
           child: _GlowOrb(
             size: 320,
-            color: AppCyberTheme.electricBlue.withValues(alpha: 0.18),
+            color: palette.accent.withValues(alpha: 0.18),
           ),
         ),
         Positioned(
@@ -792,14 +766,14 @@ class _HudBackdrop extends StatelessWidget {
           bottom: -160,
           child: _GlowOrb(
             size: 340,
-            color: AppCyberTheme.neonGreen.withValues(alpha: 0.11),
+            color: palette.accentAlt.withValues(alpha: 0.11),
           ),
         ),
         Positioned.fill(
           child: IgnorePointer(
             child: CustomPaint(
               painter: _HudGridPainter(
-                color: AppCyberTheme.electricBlue.withValues(alpha: 0.06),
+                color: palette.accent.withValues(alpha: 0.06),
               ),
             ),
           ),

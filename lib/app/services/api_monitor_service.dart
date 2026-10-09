@@ -33,7 +33,8 @@ class ApiMonitorService extends GetxService {
       }
     }
 
-    if (!kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {
+    if (!kIsWeb &&
+        (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {
       try {
         final isAvailable = await WebviewWindow.isWebviewAvailable();
         if (isAvailable) {

@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:app_release_center/app/models/api_tool.dart';
+import 'package:app_management_center/app/models/api_tool.dart';
 import 'package:path/path.dart' as p;
 
 class ApiToolPostmanImportException implements Exception {
@@ -18,11 +18,16 @@ class ApiToolPostmanImportResult {
     required this.collection,
     this.folders = const [],
     this.requests = const [],
+    this.warnings = const [],
   });
 
   final ApiToolCollectionRoot collection;
   final List<ApiToolCollectionFolder> folders;
   final List<ApiToolRequest> requests;
+
+  /// One line per value Postman inlined that was too large to store, so the
+  /// caller can tell the user exactly what was left behind.
+  final List<String> warnings;
 
   int get folderCount => folders.length;
   int get requestCount => requests.length;
@@ -39,7 +44,7 @@ class ApiToolPostmanEnvironmentImportService {
     final file = File(filePath);
     if (!file.existsSync()) {
       throw const ApiToolPostmanImportException(
-        'Postman environment file was not found.',
+        'Không tìm thấy file môi trường Postman.',
       );
     }
     final text = await file.readAsString();
@@ -54,12 +59,12 @@ class ApiToolPostmanEnvironmentImportService {
     final name = _firstNonEmpty([
       _string(decoded['name']),
       fallbackName,
-      'Imported Postman Environment',
+      'Môi trường nhập từ Postman',
     ]);
     final variables = _importValues(decoded['values']);
     if (variables.isEmpty) {
       throw const ApiToolPostmanImportException(
-        'No variables were found in this Postman environment.',
+        'Môi trường Postman này không có biến nào.',
       );
     }
 
@@ -77,11 +82,11 @@ class ApiToolPostmanEnvironmentImportService {
       if (decoded is Map) return decoded.cast<String, Object?>();
     } on FormatException catch (error) {
       throw ApiToolPostmanImportException(
-        'Postman environment JSON is invalid: ${error.message}',
+        'JSON môi trường Postman không hợp lệ: ${error.message}',
       );
     }
     throw const ApiToolPostmanImportException(
-      'Postman environment must be a JSON object.',
+      'Môi trường Postman phải là một object JSON.',
     );
   }
 
@@ -166,14 +171,21 @@ class ApiToolPostmanCollectionImportService {
   ApiToolPostmanCollectionImportService({DateTime Function()? now})
     : _now = now ?? DateTime.now;
 
+  /// Postman inlines an uploaded file as base64 into the `formdata` entry that
+  /// sits beside the real `src` reference, and one of those alone can push a
+  /// request past the 1 MiB Firestore document limit. Values larger than this
+  /// are dropped instead of failing the whole import.
+  static const int maxImportedValueBytes = 256 * 1024;
+
   final DateTime Function() _now;
+  final _warnings = <String>[];
   var _serial = 0;
 
   Future<ApiToolPostmanImportResult> importFile(String filePath) async {
     final file = File(filePath);
     if (!file.existsSync()) {
       throw ApiToolPostmanImportException(
-        'Postman collection file was not found.',
+        'Không tìm thấy file collection Postman.',
       );
     }
     final text = await file.readAsString();
@@ -187,12 +199,13 @@ class ApiToolPostmanCollectionImportService {
     String text, {
     String fallbackName = '',
   }) {
+    _warnings.clear();
     final decoded = _decodeCollection(text);
     final info = _map(decoded['info']);
     final collectionName = _firstNonEmpty([
       _string(info['name']),
       fallbackName,
-      'Imported Postman Collection',
+      'Collection nhập từ Postman',
     ]);
     final collectionId = _newId('api_collection');
     final now = _now();
@@ -217,7 +230,7 @@ class ApiToolPostmanCollectionImportService {
 
     if (requests.isEmpty) {
       throw const ApiToolPostmanImportException(
-        'No requests were found in this Postman collection.',
+        'Collection Postman này không có request nào.',
       );
     }
 
@@ -225,6 +238,7 @@ class ApiToolPostmanCollectionImportService {
       collection: collection,
       folders: folders,
       requests: requests,
+      warnings: _warnings.toList(growable: false),
     );
   }
 
@@ -234,11 +248,11 @@ class ApiToolPostmanCollectionImportService {
       if (decoded is Map) return decoded.cast<String, Object?>();
     } on FormatException catch (error) {
       throw ApiToolPostmanImportException(
-        'Postman collection JSON is invalid: ${error.message}',
+        'JSON collection Postman không hợp lệ: ${error.message}',
       );
     }
     throw const ApiToolPostmanImportException(
-      'Postman collection must be a JSON object.',
+      'Collection Postman phải là một object JSON.',
     );
   }
 
@@ -292,16 +306,20 @@ class ApiToolPostmanCollectionImportService {
     required String collectionId,
     required String folderId,
   }) {
-    final headers = _importHeaders(request['header']).toList();
-    final body = _importBody(request['body'], headers);
     final method = _methodFromPostman(request['method']);
+    final name = _firstNonEmpty([
+      _string(item['name']),
+      '${method.label} request',
+    ]);
+    final headers = _importHeaders(request['header'], name).toList();
+    final body = _importBody(request['body'], headers, name);
     final url = _urlFromPostman(request['url']);
     final authorization = _importAuthorization(request['auth']);
     final now = _now();
 
     return ApiToolRequest(
       id: _newId('api_request'),
-      name: _firstNonEmpty([_string(item['name']), '${method.label} request']),
+      name: name,
       method: method,
       url: url,
       collectionId: collectionId,
@@ -346,7 +364,10 @@ class ApiToolPostmanCollectionImportService {
     ];
   }
 
-  Iterable<ApiToolHeader> _importHeaders(Object? rawHeaders) sync* {
+  Iterable<ApiToolHeader> _importHeaders(
+    Object? rawHeaders,
+    String requestName,
+  ) sync* {
     for (final rawHeader in _list(rawHeaders)) {
       final header = _map(rawHeader);
       final name = _firstNonEmpty([
@@ -358,7 +379,7 @@ class ApiToolPostmanCollectionImportService {
       yield ApiToolHeader(
         id: _newId('api_header'),
         name: name,
-        value: value,
+        value: _capValue(value, requestName, 'header "$name"'),
         enabled: !_isDisabled(header),
       );
     }
@@ -399,21 +420,25 @@ class ApiToolPostmanCollectionImportService {
   _ImportedPostmanBody _importBody(
     Object? rawBody,
     List<ApiToolHeader> headers,
+    String requestName,
   ) {
     final body = _mapOrNull(rawBody);
     if (body == null) return const _ImportedPostmanBody();
 
     final mode = _string(body['mode']).trim().toLowerCase();
     return switch (mode) {
-      'formdata' => _importFormDataBody(body),
-      'urlencoded' => _importUrlEncodedBody(body, headers),
-      'raw' => _importRawBody(body, headers),
-      'graphql' => _importGraphqlBody(body, headers),
+      'formdata' => _importFormDataBody(body, requestName),
+      'urlencoded' => _importUrlEncodedBody(body, headers, requestName),
+      'raw' => _importRawBody(body, headers, requestName),
+      'graphql' => _importGraphqlBody(body, headers, requestName),
       _ => const _ImportedPostmanBody(),
     };
   }
 
-  _ImportedPostmanBody _importFormDataBody(Map<String, Object?> body) {
+  _ImportedPostmanBody _importFormDataBody(
+    Map<String, Object?> body,
+    String requestName,
+  ) {
     final fields = <ApiToolMultipartEntry>[];
     for (final rawField in _list(body['formdata'])) {
       final field = _map(rawField);
@@ -434,7 +459,7 @@ class ApiToolPostmanCollectionImportService {
               ? ApiToolMultipartKind.file
               : ApiToolMultipartKind.text,
           name: name,
-          value: value,
+          value: _capValue(value, requestName, _fieldLabel('form-data', name)),
           contentType: _string(field['contentType']),
           enabled: !_isDisabled(field),
         ),
@@ -450,6 +475,7 @@ class ApiToolPostmanCollectionImportService {
   _ImportedPostmanBody _importUrlEncodedBody(
     Map<String, Object?> body,
     List<ApiToolHeader> headers,
+    String requestName,
   ) {
     final fields = <ApiToolHeader>[];
     for (final rawField in _list(body['urlencoded'])) {
@@ -464,7 +490,7 @@ class ApiToolPostmanCollectionImportService {
         ApiToolHeader(
           id: _newId('api_urlencoded'),
           name: name,
-          value: value,
+          value: _capValue(value, requestName, _fieldLabel('urlencoded', name)),
           enabled: !_isDisabled(field),
         ),
       );
@@ -480,6 +506,7 @@ class ApiToolPostmanCollectionImportService {
   _ImportedPostmanBody _importRawBody(
     Map<String, Object?> body,
     List<ApiToolHeader> headers,
+    String requestName,
   ) {
     final raw = _string(body['raw']);
     final options = _map(_map(body['options'])['raw']);
@@ -487,12 +514,15 @@ class ApiToolPostmanCollectionImportService {
     if (language == 'json') {
       _ensureContentType(headers, 'application/json');
     }
-    return _ImportedPostmanBody(rawBody: raw);
+    return _ImportedPostmanBody(
+      rawBody: _capValue(raw, requestName, 'request body'),
+    );
   }
 
   _ImportedPostmanBody _importGraphqlBody(
     Map<String, Object?> body,
     List<ApiToolHeader> headers,
+    String requestName,
   ) {
     final graphql = _map(body['graphql']);
     final query = _string(graphql['query']);
@@ -500,10 +530,14 @@ class ApiToolPostmanCollectionImportService {
     _ensureContentType(headers, 'application/json');
 
     return _ImportedPostmanBody(
-      rawBody: const JsonEncoder.withIndent('  ').convert({
-        'query': query,
-        if (variables.trim().isNotEmpty) 'variables': variables,
-      }),
+      rawBody: _capValue(
+        const JsonEncoder.withIndent('  ').convert({
+          'query': query,
+          if (variables.trim().isNotEmpty) 'variables': variables,
+        }),
+        requestName,
+        'GraphQL body',
+      ),
     );
   }
 
@@ -606,6 +640,34 @@ class ApiToolPostmanCollectionImportService {
       );
     }
     return encoded;
+  }
+
+  /// Keeps a single field value inside [maxImportedValueBytes]. Postman stores
+  /// an uploaded file both as a `src` reference and as inline base64; the
+  /// inline copy is unusable here and is what blows the Firestore document
+  /// limit, so it is dropped and reported rather than aborting the import.
+  String _capValue(String value, String requestName, String field) {
+    // UTF-8 never costs more than three bytes per UTF-16 code unit, so short
+    // values skip the encode entirely.
+    if (value.length <= maxImportedValueBytes ~/ 3) return value;
+    final bytes = utf8.encode(value).length;
+    if (bytes <= maxImportedValueBytes) return value;
+    _warnings.add(
+      '$requestName — $field (${_formatBytes(bytes)}, limit '
+      '${_formatBytes(maxImportedValueBytes)})',
+    );
+    return '';
+  }
+
+  String _fieldLabel(String kind, String name) {
+    return name.trim().isEmpty ? '$kind field' : '$kind field "$name"';
+  }
+
+  String _formatBytes(int bytes) {
+    if (bytes >= 1024 * 1024) {
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    }
+    return '${(bytes / 1024).round()} KB';
   }
 
   bool _isDisabled(Map<String, Object?> json) {

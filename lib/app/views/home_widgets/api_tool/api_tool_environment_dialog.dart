@@ -50,12 +50,12 @@ class _ApiToolTextPromptDialogState extends State<_ApiToolTextPromptDialog> {
         OutlinedButton.icon(
           onPressed: () => Navigator.of(context).pop(),
           icon: const Icon(Icons.close_outlined),
-          label: const Text('Cancel'),
+          label: const Text('Huỷ'),
         ),
         FilledButton.icon(
           onPressed: _submit,
           icon: const Icon(Icons.check_outlined),
-          label: const Text('Create'),
+          label: const Text('Tạo'),
         ),
       ],
     );
@@ -123,7 +123,7 @@ class _ApiToolEnvironmentDialogState extends State<_ApiToolEnvironmentDialog> {
       surfaceTintColor: Colors.transparent,
       title: const _PanelTitle(
         icon: Icons.public_outlined,
-        title: 'Environments',
+        title: 'Môi trường',
       ),
       content: SizedBox(
         width: 680,
@@ -141,14 +141,14 @@ class _ApiToolEnvironmentDialogState extends State<_ApiToolEnvironmentDialog> {
                     initialValue: _selectedEnvironmentId,
                     isExpanded: true,
                     decoration: const InputDecoration(
-                      labelText: 'Active environment',
+                      labelText: 'Môi trường đang dùng',
                       prefixIcon: Icon(Icons.tune_outlined),
                     ),
                     items: [
                       if (_environments.isEmpty)
                         const DropdownMenuItem(
                           value: '',
-                          child: Text('No environment'),
+                          child: Text('Không dùng môi trường'),
                         )
                       else
                         for (final environment in _environments)
@@ -171,12 +171,12 @@ class _ApiToolEnvironmentDialogState extends State<_ApiToolEnvironmentDialog> {
                   key: const Key('api-tool-add-environment'),
                   onPressed: _addEnvironment,
                   icon: const Icon(Icons.add_outlined),
-                  label: const Text('Add'),
+                  label: const Text('Thêm'),
                 ),
                 const SizedBox(width: 8),
                 IconButton(
                   key: const Key('api-tool-delete-environment'),
-                  tooltip: 'Delete environment',
+                  tooltip: 'Xoá môi trường',
                   onPressed: selected == null ? null : _deleteEnvironment,
                   icon: const Icon(Icons.delete_outline),
                 ),
@@ -187,7 +187,7 @@ class _ApiToolEnvironmentDialogState extends State<_ApiToolEnvironmentDialog> {
               Expanded(
                 child: Center(
                   child: Text(
-                    'Create an environment for this collection.',
+                    'Tạo một môi trường cho collection này.',
                     style: AppCyberTheme.dataTextStyle(
                       size: 11.4,
                       color: AppCyberTheme.textMuted,
@@ -200,7 +200,7 @@ class _ApiToolEnvironmentDialogState extends State<_ApiToolEnvironmentDialog> {
                 key: const Key('api-tool-environment-name'),
                 controller: _nameController,
                 decoration: const InputDecoration(
-                  labelText: 'Environment name',
+                  labelText: 'Tên môi trường',
                   prefixIcon: Icon(Icons.label_outline),
                 ),
               ),
@@ -220,7 +220,7 @@ class _ApiToolEnvironmentDialogState extends State<_ApiToolEnvironmentDialog> {
                         key: const Key('api-tool-add-env-variable'),
                         onPressed: _addVariable,
                         icon: const Icon(Icons.add_outlined),
-                        label: const Text('Add variable'),
+                        label: const Text('Thêm biến'),
                       ),
                     ),
                   ],
@@ -234,13 +234,13 @@ class _ApiToolEnvironmentDialogState extends State<_ApiToolEnvironmentDialog> {
         OutlinedButton.icon(
           onPressed: () => Navigator.of(context).pop(),
           icon: const Icon(Icons.close_outlined),
-          label: const Text('Cancel'),
+          label: const Text('Huỷ'),
         ),
         FilledButton.icon(
           key: const Key('api-tool-save-environments'),
           onPressed: _save,
           icon: const Icon(Icons.save_outlined),
-          label: const Text('Save'),
+          label: const Text('Lưu'),
         ),
       ],
     );
@@ -268,12 +268,12 @@ class _ApiToolEnvironmentDialogState extends State<_ApiToolEnvironmentDialog> {
             key: Key('api-tool-env-var-value-$index'),
             controller: row.valueController,
             enabled: row.enabled,
-            decoration: const InputDecoration(labelText: 'Value'),
+            decoration: const InputDecoration(labelText: 'Giá trị'),
           ),
         ),
         const SizedBox(width: 6),
         IconButton(
-          tooltip: 'Remove variable',
+          tooltip: 'Bỏ biến',
           onPressed: _variableRows.length == 1
               ? null
               : () => _removeVariable(index),
@@ -287,7 +287,7 @@ class _ApiToolEnvironmentDialogState extends State<_ApiToolEnvironmentDialog> {
     _commitSelectedEnvironment();
     final environment = ApiToolEnvironment(
       id: _newEnvironmentId(),
-      name: 'Environment ${_environments.length + 1}',
+      name: 'Môi trường ${_environments.length + 1}',
       variables: [ApiToolEnvironmentVariable(id: _newVariableId())],
       updatedAt: DateTime.now(),
     );

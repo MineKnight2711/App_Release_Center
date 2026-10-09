@@ -24,7 +24,7 @@ mixin _ApiToolResponseSection on _ApiToolDialogCore {
               const Spacer(),
               IconButton(
                 key: const Key('api-tool-expand-response'),
-                tooltip: 'Focus mode',
+                tooltip: 'Chế độ tập trung',
                 visualDensity: VisualDensity.compact,
                 onPressed: response != null
                     ? () => unawaited(_showResponseFocusMode(response))
@@ -33,7 +33,7 @@ mixin _ApiToolResponseSection on _ApiToolDialogCore {
               ),
               IconButton(
                 key: const Key('api-tool-copy-response'),
-                tooltip: 'Copy response',
+                tooltip: 'Sao chép response',
                 visualDensity: VisualDensity.compact,
                 onPressed: hasPayload ? _copyResponse : null,
                 icon: const Icon(Icons.copy_all_outlined, size: 19),
@@ -64,6 +64,19 @@ mixin _ApiToolResponseSection on _ApiToolDialogCore {
       );
     }
 
+    final notice = _notice;
+    if (response == null && notice != null) {
+      return SingleChildScrollView(
+        controller: _responseScrollController,
+        padding: const EdgeInsets.only(right: 8, bottom: 4),
+        child: _ApiToolMessage(
+          icon: Icons.warning_amber_outlined,
+          color: AppCyberTheme.amber,
+          message: notice,
+        ),
+      );
+    }
+
     if (response == null) {
       return Center(
         child: Column(
@@ -76,7 +89,7 @@ mixin _ApiToolResponseSection on _ApiToolDialogCore {
             ),
             const SizedBox(height: 10),
             Text(
-              'Send a request to inspect the response.',
+              'Gửi một request để xem response.',
               style: AppCyberTheme.dataTextStyle(
                 size: 11.4,
                 color: AppCyberTheme.textMuted,
@@ -84,7 +97,7 @@ mixin _ApiToolResponseSection on _ApiToolDialogCore {
             ),
             const SizedBox(height: 4),
             Text(
-              '${_apiToolSendShortcutLabel()} works from any field.',
+              '${_apiToolSendShortcutLabel()} bấm được từ bất kỳ ô nào.',
               style: AppCyberTheme.dataTextStyle(
                 size: 10.4,
                 color: AppCyberTheme.textMuted.withValues(alpha: 0.8),
@@ -136,7 +149,7 @@ mixin _ApiToolResponseSection on _ApiToolDialogCore {
                 key: Key('api-tool-response-request-tab'),
                 child: _ApiToolTabLabel(
                   icon: Icons.outbound_outlined,
-                  label: 'Sent Request',
+                  label: 'Request đã gửi',
                 ),
               ),
             ],
@@ -200,7 +213,7 @@ mixin _ApiToolResponseSection on _ApiToolDialogCore {
       return _ApiToolMessage(
         icon: Icons.info_outline,
         color: AppCyberTheme.textMuted,
-        message: 'The resolved request will show up here after the next send.',
+        message: 'Request sau khi thay biến sẽ hiện ở đây sau lần gửi tới.',
       );
     }
 
@@ -261,12 +274,12 @@ mixin _ApiToolResponseSection on _ApiToolDialogCore {
                 children: [
                   const _PanelTitle(
                     icon: Icons.open_in_full_outlined,
-                    title: 'Response body',
+                    title: 'Body của response',
                   ),
                   const Spacer(),
                   IconButton(
                     key: const Key('api-tool-close-response-focus'),
-                    tooltip: 'Close',
+                    tooltip: 'Đóng',
                     onPressed: () => Navigator.of(dialogContext).pop(),
                     icon: const Icon(Icons.close),
                   ),

@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:app_release_center/app/services/ch_play_project_inspector_service.dart';
+import 'package:app_management_center/app/services/ch_play_project_inspector_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -66,7 +66,7 @@ android {
 
     test('inspect tolerates malformed project metadata files', () async {
       final directory = await Directory.systemTemp.createTemp(
-        'app_release_center_ch_play_inspector_',
+        'app_management_center_ch_play_inspector_',
       );
       addTearDown(() async {
         if (directory.existsSync()) {
@@ -96,7 +96,7 @@ android {
 
     test('detectApplicationId skips malformed Gradle candidates', () async {
       final directory = await Directory.systemTemp.createTemp(
-        'app_release_center_ch_play_inspector_',
+        'app_management_center_ch_play_inspector_',
       );
       addTearDown(() async {
         if (directory.existsSync()) {

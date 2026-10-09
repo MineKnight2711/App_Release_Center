@@ -2,9 +2,9 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:archive/archive.dart';
-import 'package:app_release_center/app/models/resource_catalog.dart';
-import 'package:app_release_center/app/services/resource_catalog_crypto_service.dart';
-import 'package:app_release_center/app/services/resource_catalog_password_store_service.dart';
+import 'package:app_management_center/app/models/resource_catalog.dart';
+import 'package:app_management_center/app/services/resource_catalog_crypto_service.dart';
+import 'package:app_management_center/app/services/resource_catalog_password_store_service.dart';
 import 'package:get/get.dart';
 import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
@@ -87,7 +87,7 @@ class ResourceCatalogExcelService extends GetxService {
   }) async {
     final source = File(p.normalize(inputPath));
     if (!source.existsSync()) {
-      throw const ResourceCatalogExcelException('Excel file does not exist.');
+      throw const ResourceCatalogExcelException('File Excel không tồn tại.');
     }
 
     final archive = ZipDecoder().decodeBytes(await source.readAsBytes());
@@ -167,7 +167,7 @@ class ResourceCatalogExcelService extends GetxService {
       if (encryptedPassword.isNotEmpty) {
         if (!_crypto.isEncryptedPayload(encryptedPassword)) {
           throw const ResourceCatalogExcelException(
-            'Password imports must use encrypted arcenc:v1 payloads.',
+            'Nhập mật khẩu phải dùng dữ liệu mã hoá arcenc:v1.',
           );
         }
         await _passwordStore.save(
@@ -218,7 +218,7 @@ class ResourceCatalogExcelService extends GetxService {
     final entry = archive.findFile(path);
     final bytes = entry?.readBytes();
     if (bytes == null) {
-      throw ResourceCatalogExcelException('Missing worksheet: $path');
+      throw ResourceCatalogExcelException('Thiếu worksheet: $path');
     }
     return utf8.decode(bytes);
   }

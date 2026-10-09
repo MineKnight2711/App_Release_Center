@@ -1,7 +1,7 @@
 import 'dart:io';
 
-import 'package:app_release_center/app/models/cicd_dependency.dart';
-import 'package:app_release_center/app/services/release_runner_service.dart';
+import 'package:app_management_center/app/models/cicd_dependency.dart';
+import 'package:app_management_center/app/services/release_runner_service.dart';
 import 'package:path/path.dart' as p;
 
 class CiCdDependencyInstallerService {
@@ -36,7 +36,7 @@ class CiCdDependencyInstallerService {
       runner.appendSystemLog(
         step.fallbackUrl.isEmpty
             ? '${step.label}: manual action required.'
-            : '${step.label}: open ${step.fallbackUrl}',
+            : '${step.label}: mở ${step.fallbackUrl}',
       );
       return Future.value(0);
     }
@@ -97,7 +97,7 @@ class CiCdDependencyInstallerService {
                 : _manualStep(
                     check.copyWith(
                       detail:
-                          'Install winget/App Installer first, then retry setup.',
+                          'Cài winget/App Installer trước rồi thiết lập lại.',
                       fallbackUrl:
                           'https://learn.microsoft.com/windows/package-manager/',
                     ),
@@ -110,18 +110,18 @@ class CiCdDependencyInstallerService {
     return switch (group) {
       CiCdSetupGroup.core => [
         if (_needs(checks, 'git') || _needs(checks, 'git-bash'))
-          _winget('install-git', 'Install Git', group, 'Git.Git'),
+          _winget('install-git', 'Cài Git', group, 'Git.Git'),
         if (_needs(checks, 'flutter'))
           _winget(
             'install-flutter',
-            'Install Flutter SDK',
+            'Cài Flutter SDK',
             group,
             'Google.Flutter',
           ),
         if (_needs(checks, 'dart'))
           _winget(
             'install-dart',
-            'Install Dart SDK',
+            'Cài Dart SDK',
             group,
             'Dart.DartSDK',
             fallbackUrl: 'https://dart.dev/get-dart',
@@ -131,14 +131,14 @@ class CiCdDependencyInstallerService {
         if (_needs(checks, 'jdk'))
           _winget(
             'install-jdk17',
-            'Install JDK 17',
+            'Cài JDK 17',
             group,
             'EclipseAdoptium.Temurin.17.JDK',
           ),
         if (_needs(checks, 'android-sdkmanager'))
           _winget(
             'install-android-studio',
-            'Install Android Studio / SDK tools',
+            'Cài Android Studio / bộ SDK tools',
             group,
             'Google.AndroidStudio',
             fallbackUrl: 'https://developer.android.com/studio',
@@ -147,7 +147,7 @@ class CiCdDependencyInstallerService {
             _needs(checks, 'android-platform-tools'))
           _windowsAndroidSdkPackage(
             id: 'install-android-platform-tools',
-            label: 'Install Android platform-tools',
+            label: 'Cài Android platform-tools',
             group: group,
             packageId: 'platform-tools',
             expectedCheckId: 'android-platform-tools',
@@ -156,7 +156,7 @@ class CiCdDependencyInstallerService {
             _needs(checks, 'android-build-tools'))
           _windowsAndroidSdkPackage(
             id: 'install-android-build-tools',
-            label: 'Install Android build-tools',
+            label: 'Cài Android build-tools',
             group: group,
             packageId: 'build-tools;35.0.0',
             expectedCheckId: 'android-build-tools',
@@ -165,7 +165,7 @@ class CiCdDependencyInstallerService {
             _needs(checks, 'android-platforms'))
           _windowsAndroidSdkPackage(
             id: 'install-android-platform',
-            label: 'Install Android SDK platform',
+            label: 'Cài Android SDK platform',
             group: group,
             packageId: 'platforms;android-35',
             expectedCheckId: 'android-platforms',
@@ -173,7 +173,7 @@ class CiCdDependencyInstallerService {
         if (_needs(checks, 'android-licenses'))
           CiCdInstallStep(
             id: 'accept-android-licenses',
-            label: 'Accept Android SDK licenses',
+            label: 'Chấp nhận license Android SDK',
             group: group,
             platform: CiCdSetupPlatform.windows,
             executable: 'cmd',
@@ -181,14 +181,15 @@ class CiCdDependencyInstallerService {
             requiresConfirmation: true,
             fallbackUrl: 'https://developer.android.com/studio/intro/update',
             expectedCheckId: 'android-licenses',
-            description: 'Interactive license prompt may ask for confirmation.',
+            description:
+                'Bước này có thể hỏi xác nhận license, phải trả lời tay.',
           ),
       ],
       CiCdSetupGroup.rubyFastlane => [
         if (_needs(checks, 'ruby') || _needs(checks, 'gem'))
           _winget(
             'install-ruby',
-            'Install Ruby',
+            'Cài Ruby',
             group,
             'RubyInstallerTeam.Ruby.3.3',
             fallbackUrl: 'https://rubyinstaller.org/downloads/',
@@ -196,7 +197,7 @@ class CiCdDependencyInstallerService {
         if (_needs(checks, 'bundler'))
           _gem(
             'install-bundler',
-            'Install Bundler',
+            'Cài Bundler',
             group,
             snapshot.platform,
             const ['install', 'bundler', '--user-install'],
@@ -204,7 +205,7 @@ class CiCdDependencyInstallerService {
         if (_needs(checks, 'fastlane'))
           _gem(
             'install-fastlane',
-            'Install Fastlane',
+            'Cài Fastlane',
             group,
             snapshot.platform,
             const ['install', 'fastlane', '--user-install'],
@@ -216,18 +217,13 @@ class CiCdDependencyInstallerService {
         if (_needs(checks, 'firebase-cli'))
           _winget(
             'install-firebase-cli',
-            'Install Firebase CLI',
+            'Cài Firebase CLI',
             group,
             'Google.FirebaseCLI',
             fallbackUrl: 'https://firebase.google.com/docs/cli',
           ),
         if (_needs(checks, 'github-cli'))
-          _winget(
-            'install-github-cli',
-            'Install GitHub CLI',
-            group,
-            'GitHub.cli',
-          ),
+          _winget('install-github-cli', 'Cài GitHub CLI', group, 'GitHub.cli'),
         for (final check in checks)
           if (check.id == 'google-play-service-account')
             _manualStep(check, snapshot.platform),
@@ -261,11 +257,11 @@ class CiCdDependencyInstallerService {
     return switch (group) {
       CiCdSetupGroup.core => [
         if (_needs(checks, 'git'))
-          _brew('install-git', 'Install Git', group, 'git'),
+          _brew('install-git', 'Cài Git', group, 'git'),
         if (_needs(checks, 'flutter'))
           _brew(
             'install-flutter',
-            'Install Flutter SDK',
+            'Cài Flutter SDK',
             group,
             'flutter',
             arguments: const ['install', '--cask', 'flutter'],
@@ -273,7 +269,7 @@ class CiCdDependencyInstallerService {
         if (_needs(checks, 'dart'))
           _brew(
             'install-dart',
-            'Install Dart SDK',
+            'Cài Dart SDK',
             group,
             'dart',
             fallbackUrl: 'https://dart.dev/get-dart',
@@ -281,11 +277,11 @@ class CiCdDependencyInstallerService {
       ],
       CiCdSetupGroup.android => [
         if (_needs(checks, 'jdk'))
-          _brew('install-jdk17', 'Install JDK 17', group, 'openjdk@17'),
+          _brew('install-jdk17', 'Cài JDK 17', group, 'openjdk@17'),
         if (_needs(checks, 'android-sdkmanager'))
           _brew(
             'install-android-tools',
-            'Install Android command line tools',
+            'Cài Android command line tools',
             group,
             'android-commandlinetools',
           ),
@@ -293,7 +289,7 @@ class CiCdDependencyInstallerService {
             _needs(checks, 'android-platform-tools'))
           _macosAndroidSdkPackage(
             id: 'install-android-platform-tools',
-            label: 'Install Android platform-tools',
+            label: 'Cài Android platform-tools',
             group: group,
             packageId: 'platform-tools',
             expectedCheckId: 'android-platform-tools',
@@ -302,7 +298,7 @@ class CiCdDependencyInstallerService {
             _needs(checks, 'android-build-tools'))
           _macosAndroidSdkPackage(
             id: 'install-android-build-tools',
-            label: 'Install Android build-tools',
+            label: 'Cài Android build-tools',
             group: group,
             packageId: 'build-tools;35.0.0',
             expectedCheckId: 'android-build-tools',
@@ -311,7 +307,7 @@ class CiCdDependencyInstallerService {
             _needs(checks, 'android-platforms'))
           _macosAndroidSdkPackage(
             id: 'install-android-platform',
-            label: 'Install Android SDK platform',
+            label: 'Cài Android SDK platform',
             group: group,
             packageId: 'platforms;android-35',
             expectedCheckId: 'android-platforms',
@@ -319,7 +315,7 @@ class CiCdDependencyInstallerService {
         if (_needs(checks, 'android-licenses'))
           CiCdInstallStep(
             id: 'accept-android-licenses',
-            label: 'Accept Android SDK licenses',
+            label: 'Chấp nhận license Android SDK',
             group: group,
             platform: CiCdSetupPlatform.macos,
             executable: 'sdkmanager',
@@ -327,16 +323,17 @@ class CiCdDependencyInstallerService {
             requiresConfirmation: true,
             fallbackUrl: 'https://developer.android.com/studio/intro/update',
             expectedCheckId: 'android-licenses',
-            description: 'Interactive license prompt may ask for confirmation.',
+            description:
+                'Bước này có thể hỏi xác nhận license, phải trả lời tay.',
           ),
       ],
       CiCdSetupGroup.rubyFastlane => [
         if (_needs(checks, 'ruby') || _needs(checks, 'gem'))
-          _brew('install-ruby', 'Install Ruby', group, 'ruby'),
+          _brew('install-ruby', 'Cài Ruby', group, 'ruby'),
         if (_needs(checks, 'bundler'))
           _gem(
             'install-bundler',
-            'Install Bundler',
+            'Cài Bundler',
             group,
             snapshot.platform,
             const ['install', 'bundler', '--user-install'],
@@ -344,7 +341,7 @@ class CiCdDependencyInstallerService {
         if (_needs(checks, 'fastlane'))
           _gem(
             'install-fastlane',
-            'Install Fastlane',
+            'Cài Fastlane',
             group,
             snapshot.platform,
             const ['install', 'fastlane', '--user-install'],
@@ -356,12 +353,12 @@ class CiCdDependencyInstallerService {
         if (_needs(checks, 'firebase-cli'))
           _brew(
             'install-firebase-cli',
-            'Install Firebase CLI',
+            'Cài Firebase CLI',
             group,
             'firebase-cli',
           ),
         if (_needs(checks, 'github-cli'))
-          _brew('install-github-cli', 'Install GitHub CLI', group, 'gh'),
+          _brew('install-github-cli', 'Cài GitHub CLI', group, 'gh'),
         for (final check in checks)
           if (check.id == 'google-play-service-account')
             _manualStep(check, snapshot.platform),
@@ -482,7 +479,7 @@ class CiCdDependencyInstallerService {
   ) {
     return CiCdInstallStep(
       id: 'bundle-install-project',
-      label: 'Install project gems',
+      label: 'Cài các gem của dự án',
       group: CiCdSetupGroup.rubyFastlane,
       platform: platform,
       executable: 'bundle',

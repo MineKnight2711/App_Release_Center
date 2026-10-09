@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:app_release_center/app/services/gemini_env_service.dart';
-import 'package:app_release_center/app/services/resource_catalog_crypto_service.dart';
+import 'package:app_management_center/app/services/gemini_env_service.dart';
+import 'package:app_management_center/app/services/resource_catalog_crypto_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

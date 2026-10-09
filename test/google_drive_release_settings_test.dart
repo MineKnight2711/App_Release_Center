@@ -1,5 +1,5 @@
-import 'package:app_release_center/app/models/google_drive_release_settings.dart';
-import 'package:app_release_center/app/services/project_store_service.dart';
+import 'package:app_management_center/app/models/google_drive_release_settings.dart';
+import 'package:app_management_center/app/services/project_store_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 

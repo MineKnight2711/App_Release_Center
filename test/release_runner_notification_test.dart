@@ -1,8 +1,8 @@
 import 'dart:io';
 
-import 'package:app_release_center/app/models/release_notification.dart';
-import 'package:app_release_center/app/services/command_notification_service.dart';
-import 'package:app_release_center/app/services/release_runner_service.dart';
+import 'package:app_management_center/app/models/release_notification.dart';
+import 'package:app_management_center/app/services/command_notification_service.dart';
+import 'package:app_management_center/app/services/release_runner_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -25,9 +25,9 @@ void main() {
     await Future<void>.delayed(const Duration(milliseconds: 20));
 
     expect(code, 0);
-    expect(runner.status.value, 'Completed');
+    expect(runner.status.value, 'Xong');
     expect(
-      runner.logLines.any((line) => line.startsWith('Notification failed:')),
+      runner.logLines.any((line) => line.startsWith('Gửi thông báo lỗi:')),
       isTrue,
     );
   });
@@ -81,7 +81,7 @@ void main() {
     expect(runner.workflowStep.value, 1);
     expect(runner.workflowTotalSteps.value, 1);
     expect(runner.overallProgress.value, 1);
-    expect(runner.overallProgressLabel.value, contains('completed'));
+    expect(runner.overallProgressLabel.value, contains('xong'));
     expect(runner.isWorkflowRunning.value, isFalse);
   });
 
@@ -118,7 +118,7 @@ void main() {
     expect(runner.workflowStep.value, 2);
     expect(runner.workflowTotalSteps.value, 2);
     expect(runner.overallProgress.value, 1);
-    expect(runner.overallProgressLabel.value, 'Deploy Demo — completed');
+    expect(runner.overallProgressLabel.value, 'Deploy Demo — xong');
     expect(runner.isBusy, isFalse);
   });
 }

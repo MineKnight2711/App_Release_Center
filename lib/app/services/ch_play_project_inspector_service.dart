@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:app_release_center/app/models/ch_play_version_snapshot.dart';
+import 'package:app_management_center/app/models/ch_play_version_snapshot.dart';
 import 'package:get/get.dart';
 import 'package:path/path.dart' as p;
 

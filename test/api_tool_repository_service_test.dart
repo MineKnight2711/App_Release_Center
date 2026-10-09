@@ -1,10 +1,10 @@
 import 'dart:async';
 
-import 'package:app_release_center/app/models/api_tool.dart';
-import 'package:app_release_center/app/models/auth_models.dart';
-import 'package:app_release_center/app/services/api_tool_repository_service.dart';
-import 'package:app_release_center/app/services/auth_service.dart';
-import 'package:app_release_center/app/services/project_store_service.dart';
+import 'package:app_management_center/app/models/api_tool.dart';
+import 'package:app_management_center/app/models/auth_models.dart';
+import 'package:app_management_center/app/services/api_tool_repository_service.dart';
+import 'package:app_management_center/app/services/auth_service.dart';
+import 'package:app_management_center/app/services/project_store_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -17,7 +17,7 @@ void main() {
     ).init(firebaseEnabled: false);
     final request = ApiToolRequest(
       id: 'request-1',
-      name: 'Local',
+      name: 'Ở máy',
       method: ApiToolMethod.get,
       url: 'https://example.com',
       updatedAt: DateTime(2026, 8, 4),
@@ -25,9 +25,9 @@ void main() {
 
     await repository.saveApiToolRequests([request]);
 
-    expect(repository.workspaceLabel.value, 'Local workspace');
+    expect(repository.workspaceLabel.value, 'Workspace ở máy');
     expect(localStore.apiToolRequests.single.id, 'request-1');
-    expect(repository.apiToolRequests.single.name, 'Local');
+    expect(repository.apiToolRequests.single.name, 'Ở máy');
   });
 
   test('stores Quick Requests in the active local workspace', () async {
@@ -145,7 +145,7 @@ void main() {
 
     await repository.saveApiToolCollections([collection]);
 
-    expect(repository.workspaceLabel.value, 'Team: Release Team');
+    expect(repository.workspaceLabel.value, 'Nhóm: Nhóm release');
     expect(teamData.savedCollections.single.id, 'collection-1');
     expect(localStore.apiToolCollections, isEmpty);
   });
@@ -300,7 +300,7 @@ void main() {
     );
     final request = ApiToolRequest(
       id: 'postman-request',
-      name: 'Login',
+      name: 'Đăng nhập',
       method: ApiToolMethod.post,
       url: 'https://example.com/login',
       collectionId: collection.id,
@@ -317,7 +317,7 @@ void main() {
     expect(localStore.apiToolCollections.single.id, collection.id);
     expect(localStore.apiToolFolders.single.id, folder.id);
     expect(localStore.apiToolRequests.single.id, request.id);
-    expect(repository.apiToolRequests.single.name, 'Login');
+    expect(repository.apiToolRequests.single.name, 'Đăng nhập');
   });
 
   test('imports HTTP Tools into team workspace', () async {
@@ -339,7 +339,7 @@ void main() {
     );
     final request = ApiToolRequest(
       id: 'postman-request',
-      name: 'Login',
+      name: 'Đăng nhập',
       method: ApiToolMethod.post,
       url: 'https://example.com/login',
       collectionId: collection.id,
@@ -355,7 +355,7 @@ void main() {
     expect(teamData.savedCollections.single.id, collection.id);
     expect(teamData.savedRequests.single.id, request.id);
     expect(localStore.apiToolCollections, isEmpty);
-    expect(repository.apiToolRequests.single.name, 'Login');
+    expect(repository.apiToolRequests.single.name, 'Đăng nhập');
   });
 
   test('imports local Quick Requests into the team workspace', () async {
@@ -391,6 +391,23 @@ void main() {
     expect(teamData.savedQuickRequests.single.id, 'quick-local');
     expect(repository.apiToolQuickRequests.single.name, 'Local reset');
   });
+
+  test('estimates the Firestore size of a document', () {
+    final small = estimateFirestoreDocumentBytes({
+      'name': 'ok',
+      'enabled': true,
+      'headers': const <Object?>[],
+    });
+    final oversized = estimateFirestoreDocumentBytes({
+      'name': 'Upload',
+      'multipartFields': [
+        {'value': 'x' * (1024 * 1024)},
+      ],
+    });
+
+    expect(small, lessThan(100));
+    expect(oversized, greaterThan(1024 * 1024));
+  });
 }
 
 AuthService _teamAuthService() {
@@ -406,7 +423,7 @@ AuthService _teamAuthService() {
     teamDataSource: _FakeTeamDataSource(
       const TeamMembership(
         teamId: 'team-1',
-        teamName: 'Release Team',
+        teamName: 'Nhóm release',
         role: TeamRole.dev,
       ),
     ),

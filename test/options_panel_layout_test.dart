@@ -1,45 +1,49 @@
 import 'dart:io';
 
-import 'package:app_release_center/app/controllers/home_controller.dart';
-import 'package:app_release_center/app/data/release_center_connect.dart';
-import 'package:app_release_center/app/models/api_tool.dart';
-import 'package:app_release_center/app/models/app_store_project.dart';
-import 'package:app_release_center/app/models/ch_play_project.dart';
-import 'package:app_release_center/app/models/cicd_dependency.dart';
-import 'package:app_release_center/app/models/release_project.dart';
-import 'package:app_release_center/app/models/release_workflow.dart';
-import 'package:app_release_center/app/models/resource_catalog.dart';
-import 'package:app_release_center/app/models/resource_collection.dart';
-import 'package:app_release_center/app/services/android_cicd_clone_service.dart';
-import 'package:app_release_center/app/services/android_keystore_generation_service.dart';
-import 'package:app_release_center/app/services/api_tool_service.dart';
-import 'package:app_release_center/app/services/app_store_credential_store_service.dart';
-import 'package:app_release_center/app/services/app_store_project_inspector_service.dart';
-import 'package:app_release_center/app/services/app_store_version_check_service.dart';
-import 'package:app_release_center/app/services/ch_play_credential_store_service.dart';
-import 'package:app_release_center/app/services/ch_play_project_inspector_service.dart';
-import 'package:app_release_center/app/services/ch_play_version_check_service.dart';
-import 'package:app_release_center/app/services/cicd_dependency_doctor_service.dart';
-import 'package:app_release_center/app/services/cicd_dependency_installer_service.dart';
-import 'package:app_release_center/app/services/command_notification_service.dart';
-import 'package:app_release_center/app/services/gemini_env_service.dart';
-import 'package:app_release_center/app/services/google_drive_credential_store_service.dart';
-import 'package:app_release_center/app/services/google_drive_release_upload_service.dart';
-import 'package:app_release_center/app/services/notification_credential_store_service.dart';
-import 'package:app_release_center/app/services/project_store_service.dart';
-import 'package:app_release_center/app/services/release_apk_artifact_service.dart';
-import 'package:app_release_center/app/services/release_installer_artifact_service.dart';
-import 'package:app_release_center/app/services/release_note_generation_service.dart';
-import 'package:app_release_center/app/services/release_runner_service.dart';
-import 'package:app_release_center/app/services/resource_catalog_crypto_service.dart';
-import 'package:app_release_center/app/services/resource_catalog_excel_service.dart';
-import 'package:app_release_center/app/services/resource_catalog_password_store_service.dart';
-import 'package:app_release_center/app/services/remote_control_service.dart';
-import 'package:app_release_center/app/services/script_catalog_service.dart';
-import 'package:app_release_center/app/services/telegram_credential_store_service.dart';
-import 'package:app_release_center/app/services/telegram_release_notification_service.dart';
-import 'package:app_release_center/app/services/theme_service.dart';
-import 'package:app_release_center/app/views/home_view.dart';
+import 'package:app_management_center/app/controllers/app_shell_controller.dart';
+import 'package:app_management_center/app/controllers/home_controller.dart';
+import 'package:app_management_center/app/data/release_center_connect.dart';
+import 'package:app_management_center/app/models/api_tool.dart';
+import 'package:app_management_center/app/models/app_store_project.dart';
+import 'package:app_management_center/app/models/ch_play_project.dart';
+import 'package:app_management_center/app/models/cicd_dependency.dart';
+import 'package:app_management_center/app/models/release_fastlane_lane.dart';
+import 'package:app_management_center/app/models/release_project.dart';
+import 'package:app_management_center/app/models/release_workflow.dart';
+import 'package:app_management_center/app/models/resource_catalog.dart';
+import 'package:app_management_center/app/models/resource_collection.dart';
+import 'package:app_management_center/app/services/android_cicd_clone_service.dart';
+import 'package:app_management_center/app/services/android_keystore_generation_service.dart';
+import 'package:app_management_center/app/services/api_tool_service.dart';
+import 'package:app_management_center/app/services/app_store_credential_store_service.dart';
+import 'package:app_management_center/app/services/app_store_project_inspector_service.dart';
+import 'package:app_management_center/app/services/app_store_version_check_service.dart';
+import 'package:app_management_center/app/services/ch_play_credential_store_service.dart';
+import 'package:app_management_center/app/services/ch_play_project_inspector_service.dart';
+import 'package:app_management_center/app/services/ch_play_version_check_service.dart';
+import 'package:app_management_center/app/services/cicd_dependency_doctor_service.dart';
+import 'package:app_management_center/app/services/cicd_dependency_installer_service.dart';
+import 'package:app_management_center/app/services/command_notification_service.dart';
+import 'package:app_management_center/app/services/gemini_env_service.dart';
+import 'package:app_management_center/app/services/git_inspector_service.dart';
+import 'package:app_management_center/app/services/google_drive_credential_store_service.dart';
+import 'package:app_management_center/app/services/google_drive_release_upload_service.dart';
+import 'package:app_management_center/app/services/mobile_control_credential_store_service.dart';
+import 'package:app_management_center/app/services/notification_credential_store_service.dart';
+import 'package:app_management_center/app/services/project_store_service.dart';
+import 'package:app_management_center/app/services/release_apk_artifact_service.dart';
+import 'package:app_management_center/app/services/release_installer_artifact_service.dart';
+import 'package:app_management_center/app/services/release_note_generation_service.dart';
+import 'package:app_management_center/app/services/release_runner_service.dart';
+import 'package:app_management_center/app/services/resource_catalog_crypto_service.dart';
+import 'package:app_management_center/app/services/resource_catalog_excel_service.dart';
+import 'package:app_management_center/app/services/resource_catalog_password_store_service.dart';
+import 'package:app_management_center/app/services/remote_control_service.dart';
+import 'package:app_management_center/app/services/script_catalog_service.dart';
+import 'package:app_management_center/app/services/telegram_credential_store_service.dart';
+import 'package:app_management_center/app/services/telegram_release_notification_service.dart';
+import 'package:app_management_center/app/services/theme_service.dart';
+import 'package:app_management_center/app/views/home_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -70,9 +74,9 @@ void main() {
   testWidgets('keeps command input dock visible on desktop', (tester) async {
     await _pumpHome(tester, harness);
 
-    expect(find.text('Send to script'), findsOneWidget);
-    expect(find.text('Clear log'), findsOneWidget);
-    expect(find.text('Stop'), findsOneWidget);
+    expect(find.text('Gửi cho script'), findsOneWidget);
+    expect(find.text('Xoá log'), findsOneWidget);
+    expect(find.text('Dừng'), findsOneWidget);
   });
 
   testWidgets('keeps global command progress dock visible', (tester) async {
@@ -83,8 +87,8 @@ void main() {
       find.byKey(const Key('global-command-battery-track')),
       findsOneWidget,
     );
-    expect(find.text('Ready'), findsOneWidget);
-    expect(find.text('READY  |  0%'), findsOneWidget);
+    expect(find.text('Sẵn sàng'), findsOneWidget);
+    expect(find.text('SẴN SÀNG  |  0%'), findsOneWidget);
   });
 
   testWidgets('updates charging progress during a workflow', (tester) async {
@@ -103,36 +107,235 @@ void main() {
           .data,
       contains('Build release APK'),
     );
-    expect(find.text('STEP 1/3  |  0%'), findsOneWidget);
+    expect(find.text('BƯỚC 1/3  |  0%'), findsOneWidget);
 
     harness.controller.runner.completeWorkflowStep(success: true);
-    harness.controller.runner.beginWorkflowStep('Upload APK to Drive');
+    harness.controller.runner.beginWorkflowStep('Upload APK lên Drive');
     await tester.pump(const Duration(milliseconds: 400));
 
     expect(
       tester
           .widget<Text>(find.byKey(const Key('global-command-progress-label')))
           .data,
-      contains('Upload APK to Drive'),
+      contains('Upload APK lên Drive'),
     );
-    expect(find.text('STEP 2/3  |  33%'), findsOneWidget);
+    expect(find.text('BƯỚC 2/3  |  33%'), findsOneWidget);
 
     harness.controller.runner.finishWorkflow(success: true);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
 
-    expect(find.text('STEP 3/3  |  100%'), findsOneWidget);
+    expect(find.text('BƯỚC 3/3  |  100%'), findsOneWidget);
   });
 
-  testWidgets('moves app controls into automation header', (tester) async {
+  testWidgets('keeps the automation header to search, release and status', (
+    tester,
+  ) async {
     await _pumpHome(tester, harness);
 
-    expect(find.text('App Release Center'), findsNothing);
-    expect(find.text('AUTOMATION'), findsOneWidget);
-    expect(find.byKey(const Key('open-api-tool')), findsOneWidget);
-    expect(find.text('Cyber'), findsOneWidget);
-    expect(find.text('Idle'), findsOneWidget);
-    expect(find.text('Extend'), findsOneWidget);
+    expect(find.text('App Management Center'), findsNothing);
+    // At this window width the panel title collapses to its icon so the search
+    // bar keeps room; the four controls below are what the header is for.
+    expect(find.text('AUTOMATION'), findsNothing);
+    expect(find.byKey(const Key('open-command-palette')), findsOneWidget);
+    expect(find.byKey(const Key('run-release-workflow')), findsOneWidget);
+    expect(find.text('Chờ'), findsOneWidget);
+    expect(find.byKey(const Key('automation-menu')), findsOneWidget);
+  });
+
+  testWidgets('moves the tools and theme switch into the automation menu', (
+    tester,
+  ) async {
+    await _pumpHome(tester, harness);
+
+    await tester.tap(find.byKey(const Key('automation-menu')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('API Tool'), findsOneWidget);
+    expect(find.text('API Monitor'), findsOneWidget);
+    expect(find.text('FlowFin'), findsOneWidget);
+    expect(find.text('Đổi sang giao diện Default'), findsOneWidget);
+    expect(find.text('Tạo Android JKS'), findsOneWidget);
+  });
+
+  testWidgets('opens the command palette with Ctrl+K and closes it with Esc', (
+    tester,
+  ) async {
+    await _pumpHome(tester, harness);
+
+    expect(find.byKey(const Key('command-palette')), findsNothing);
+
+    await _pressPaletteShortcut(tester);
+    expect(find.byKey(const Key('command-palette')), findsOneWidget);
+    expect(find.byKey(const Key('command-palette-query')), findsOneWidget);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('command-palette')), findsNothing);
+  });
+
+  testWidgets('opens the command palette from the header search bar', (
+    tester,
+  ) async {
+    await _pumpHome(tester, harness);
+
+    await tester.tap(find.byKey(const Key('open-command-palette')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('command-palette')), findsOneWidget);
+  });
+
+  testWidgets('filters commands and runs the highlighted one with Enter', (
+    tester,
+  ) async {
+    await _pumpHome(tester, harness);
+    final shell = Get.find<AppShellController>();
+    expect(shell.optionsTab.value, ShellOptionsTab.release);
+
+    await _pressPaletteShortcut(tester);
+    await tester.enterText(
+      find.byKey(const Key('command-palette-query')),
+      'tuy chon tai nguyen',
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('command-palette-item-goto.options:resources')),
+      findsOneWidget,
+    );
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('command-palette')), findsNothing);
+    expect(shell.optionsTab.value, ShellOptionsTab.resources);
+  });
+
+  testWidgets('matches palette commands typed without diacritics', (
+    tester,
+  ) async {
+    await _pumpHome(tester, harness);
+
+    await _pressPaletteShortcut(tester);
+    // "Tài nguyên" typed the way a Vietnamese keyboard-less search actually
+    // arrives.
+    await tester.enterText(
+      find.byKey(const Key('command-palette-query')),
+      'tai nguyen',
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('command-palette-item-goto.options:resources')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('reaches QA Desk from the project panel, menu and palette', (
+    tester,
+  ) async {
+    await _pumpHome(tester, harness);
+
+    // Plan Studio and QA Desk sit together as the project's own tools.
+    expect(find.byKey(const Key('project-tool-plan-studio')), findsOneWidget);
+    expect(find.byKey(const Key('project-tool-qa-desk')), findsOneWidget);
+
+    await _pressPaletteShortcut(tester);
+    await tester.enterText(
+      find.byKey(const Key('command-palette-query')),
+      'QA:',
+    );
+    await tester.pumpAndSettle();
+    for (final id in const ['qa.run', 'qa.rerunFailed', 'qa.lastReport']) {
+      expect(find.byKey(Key('command-palette-item-$id')), findsOneWidget);
+    }
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('automation-menu')));
+    await tester.pumpAndSettle();
+    expect(find.text('Chạy suite test của nhiều dự án.'), findsOneWidget);
+  });
+
+  testWidgets('lists project-scoped Fastlane lanes as commands', (
+    tester,
+  ) async {
+    await _pumpHome(tester, harness);
+    harness.controller.project.value = ReleaseProject(
+      path: harness.projectDirectory.path,
+      scripts: const [],
+      fastlaneLanes: const [
+        ReleaseFastlaneLane(name: 'deploy_internal', platform: 'android'),
+      ],
+      hasFirebaseDeployTools: true,
+      hasPlayReleaseTools: true,
+      pubspecVersion: '1.0.0+1',
+    );
+    await tester.pump();
+
+    await _pressPaletteShortcut(tester);
+    await tester.enterText(
+      find.byKey(const Key('command-palette-query')),
+      'deploy internal',
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Fastlane: Deploy Internal'), findsOneWidget);
+    expect(find.text('fastlane android deploy_internal'), findsOneWidget);
+  });
+
+  testWidgets('greys out commands that cannot run and says why', (
+    tester,
+  ) async {
+    await _pumpHome(tester, harness);
+
+    await _pressPaletteShortcut(tester);
+    await tester.enterText(
+      find.byKey(const Key('command-palette-query')),
+      'dung lenh dang chay',
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Dừng lệnh đang chạy'), findsOneWidget);
+    expect(find.text('Không có lệnh nào đang chạy'), findsOneWidget);
+  });
+
+  testWidgets('opens on the commands used most recently', (tester) async {
+    await _pumpHome(tester, harness);
+    final shell = Get.find<AppShellController>();
+
+    await _pressPaletteShortcut(tester);
+    await tester.enterText(
+      find.byKey(const Key('command-palette-query')),
+      'di toi lenh fastlane',
+    );
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+
+    expect(shell.flowTab.value, ShellFlowTab.fastlaneCommand);
+    expect(shell.recentCommandIds.first, 'goto.flow:fastlaneCommand');
+    expect(
+      harness.controller.store.recentCommandIds.first,
+      'goto.flow:fastlaneCommand',
+    );
+
+    // Reopening with an empty query puts it above the entry that normally
+    // leads the list.
+    await _pressPaletteShortcut(tester);
+    final recentTop = tester
+        .getTopLeft(
+          find.byKey(
+            const Key('command-palette-item-goto.flow:fastlaneCommand'),
+          ),
+        )
+        .dy;
+    final defaultFirstTop = tester
+        .getTopLeft(
+          find.byKey(const Key('command-palette-item-project.choose')),
+        )
+        .dy;
+    expect(recentTop, lessThan(defaultFirstTop));
   });
 
   testWidgets('opens project setup wizard from project summary', (
@@ -152,7 +355,7 @@ void main() {
     );
     expect(find.byKey(const Key('project-setup-start')), findsOneWidget);
 
-    await tester.tap(find.widgetWithText(OutlinedButton, 'Skip'));
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Bỏ qua'));
     await tester.pumpAndSettle();
   });
 
@@ -197,16 +400,13 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
 
-    expect(find.text('Add CH Play'), findsNothing);
-    expect(find.text('Add App Store'), findsNothing);
+    expect(find.text('Thêm CH Play'), findsNothing);
+    expect(find.text('Thêm App Store'), findsNothing);
     expect(
       find.byKey(const Key('store-version-chplay-selected-play')),
       findsOneWidget,
     );
-    expect(
-      find.byKey(const Key('store-version-appstore-selected-ios')),
-      findsOneWidget,
-    );
+    expect(find.text('com.example.selected.play'), findsOneWidget);
     expect(
       find.byKey(const Key('store-version-chplay-other-play')),
       findsNothing,
@@ -215,9 +415,25 @@ void main() {
       find.byKey(const Key('store-version-appstore-other-ios')),
       findsNothing,
     );
-    expect(find.text('com.example.selected.play'), findsOneWidget);
-    expect(find.text('com.example.selected.ios'), findsOneWidget);
     expect(find.text('com.example.other.play'), findsNothing);
+    expect(find.text('com.example.other.ios'), findsNothing);
+
+    // The cards list scrolls, so the App Store card is built only once the
+    // list reaches it.
+    await tester.drag(
+      find.byKey(const Key('store-version-chplay-selected-play')),
+      const Offset(0, -260),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('store-version-appstore-selected-ios')),
+      findsOneWidget,
+    );
+    expect(find.text('com.example.selected.ios'), findsOneWidget);
+    expect(
+      find.byKey(const Key('store-version-appstore-other-ios')),
+      findsNothing,
+    );
     expect(find.text('com.example.other.ios'), findsNothing);
   });
 
@@ -257,12 +473,12 @@ void main() {
     await tester.ensureVisible(find.byKey(const Key('cicd-run-install-git')));
     await tester.tap(find.byKey(const Key('cicd-run-install-git')));
     await tester.pumpAndSettle();
-    expect(find.text('Preview command'), findsOneWidget);
+    expect(find.text('Xem trước lệnh'), findsOneWidget);
 
     await tester.tap(
       find.descendant(
         of: find.byType(AlertDialog),
-        matching: find.widgetWithText(FilledButton, 'Run'),
+        matching: find.widgetWithText(FilledButton, 'Chạy'),
       ),
     );
     await tester.pumpAndSettle();
@@ -277,7 +493,7 @@ void main() {
     Get.put<ApiToolService>(apiTool);
     await _pumpHome(tester, harness);
 
-    await tester.tap(find.byKey(const Key('open-api-tool')));
+    await _openAutomationMenuItem(tester, 'API Tool');
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('api-tool-dialog')), findsOneWidget);
@@ -329,7 +545,7 @@ void main() {
     Get.put<ApiToolService>(apiTool);
     await _pumpHome(tester, harness);
 
-    await tester.tap(find.byKey(const Key('open-api-tool')));
+    await _openAutomationMenuItem(tester, 'API Tool');
     await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const Key('api-tool-name')),
@@ -396,7 +612,7 @@ void main() {
     Get.put<ApiToolService>(apiTool);
     await _pumpHome(tester, harness);
 
-    await tester.tap(find.byKey(const Key('open-api-tool')));
+    await _openAutomationMenuItem(tester, 'API Tool');
     await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const Key('api-tool-url')),
@@ -437,7 +653,7 @@ void main() {
     Get.put<ApiToolService>(apiTool);
     await _pumpHome(tester, harness);
 
-    await tester.tap(find.byKey(const Key('open-api-tool')));
+    await _openAutomationMenuItem(tester, 'API Tool');
     await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const Key('api-tool-url')),
@@ -487,7 +703,7 @@ void main() {
           environments: [
             ApiToolEnvironment(
               id: 'environment-quick',
-              name: 'Local',
+              name: 'Ở máy',
               variables: const [
                 ApiToolEnvironmentVariable(
                   id: 'variable-url',
@@ -529,7 +745,7 @@ void main() {
       ]);
       await _pumpHome(tester, harness);
 
-      await tester.tap(find.byKey(const Key('open-api-tool')));
+      await _openAutomationMenuItem(tester, 'API Tool');
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('api-tool-quick-requests-tab')));
       await tester.pumpAndSettle();
@@ -569,7 +785,7 @@ void main() {
       Get.put<ApiToolService>(_FakeApiToolService());
       await _pumpHome(tester, harness);
 
-      await tester.tap(find.byKey(const Key('open-api-tool')));
+      await _openAutomationMenuItem(tester, 'API Tool');
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('api-tool-quick-requests-tab')));
       await tester.pumpAndSettle();
@@ -591,7 +807,7 @@ void main() {
 
       await tester.tap(find.byKey(Key('api-tool-quick-request-menu-$quickId')));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Edit').last);
+      await tester.tap(find.text('Sửa').last);
       await tester.pumpAndSettle();
       await tester.enterText(
         find.byKey(const Key('api-tool-quick-name')),
@@ -606,15 +822,15 @@ void main() {
 
       await tester.tap(find.byKey(Key('api-tool-quick-request-menu-$quickId')));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Duplicate').last);
+      await tester.tap(find.text('Nhân bản').last);
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('api-tool-save-quick-request')));
       await tester.pump(const Duration(milliseconds: 400));
       expect(harness.controller.store.apiToolQuickRequests, hasLength(2));
 
-      await tester.tap(find.byTooltip('Manage Quick Request').last);
+      await tester.tap(find.byTooltip('Quản lý Quick Request').last);
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Delete').last);
+      await tester.tap(find.text('Xoá').last);
       await tester.pumpAndSettle();
       await tester.tap(
         find.byKey(const Key('api-tool-confirm-delete-quick-request')),
@@ -633,7 +849,7 @@ void main() {
     Get.put<ApiToolService>(_FakeApiToolService());
     await _pumpHome(tester, harness);
 
-    await tester.tap(find.byKey(const Key('open-api-tool')));
+    await _openAutomationMenuItem(tester, 'API Tool');
     await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const Key('api-tool-name')),
@@ -713,7 +929,7 @@ void main() {
     ]);
     await _pumpHome(tester, harness);
 
-    await tester.tap(find.byKey(const Key('open-api-tool')));
+    await _openAutomationMenuItem(tester, 'API Tool');
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('api-tool-quick-requests-tab')));
     await tester.pumpAndSettle();
@@ -737,37 +953,52 @@ void main() {
     Get.put<ApiToolService>(_FakeApiToolService());
     await _pumpHome(tester, harness);
 
-    await tester.tap(find.byKey(const Key('open-api-tool')));
+    await _openAutomationMenuItem(tester, 'API Tool');
     await tester.pumpAndSettle();
 
     await _openApiToolMenu(tester, 'api-tool-new-menu');
     await tester.tap(find.byKey(const Key('api-tool-add-collection')));
     await tester.pumpAndSettle();
     await tester.enterText(
-      find.widgetWithText(TextField, 'Collection name'),
+      find.widgetWithText(TextField, 'Tên collection'),
       'CRM',
     );
-    await tester.tap(find.widgetWithText(FilledButton, 'Create'));
+    await tester.tap(
+      find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.widgetWithText(FilledButton, 'Tạo'),
+      ),
+    );
     await tester.pump(const Duration(milliseconds: 300));
 
     await _openApiToolMenu(tester, 'api-tool-new-menu');
     await tester.tap(find.byKey(const Key('api-tool-add-folder')));
     await tester.pumpAndSettle();
     await tester.enterText(
-      find.widgetWithText(TextField, 'Folder name'),
+      find.widgetWithText(TextField, 'Tên folder'),
       'Auth',
     );
-    await tester.tap(find.widgetWithText(FilledButton, 'Create'));
+    await tester.tap(
+      find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.widgetWithText(FilledButton, 'Tạo'),
+      ),
+    );
     await tester.pump(const Duration(milliseconds: 300));
 
     await _openApiToolMenu(tester, 'api-tool-new-menu');
     await tester.tap(find.byKey(const Key('api-tool-add-subfolder')));
     await tester.pumpAndSettle();
     await tester.enterText(
-      find.widgetWithText(TextField, 'Folder name'),
+      find.widgetWithText(TextField, 'Tên folder'),
       'OAuth',
     );
-    await tester.tap(find.widgetWithText(FilledButton, 'Create'));
+    await tester.tap(
+      find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.widgetWithText(FilledButton, 'Tạo'),
+      ),
+    );
     await tester.pump(const Duration(milliseconds: 300));
 
     await tester.enterText(
@@ -814,7 +1045,7 @@ void main() {
     Get.put<ApiToolService>(_FakeApiToolService());
     await _pumpHome(tester, harness);
 
-    await tester.tap(find.byKey(const Key('open-api-tool')));
+    await _openAutomationMenuItem(tester, 'API Tool');
     await tester.pumpAndSettle();
 
     final toolbar = find.byKey(const Key('api-tool-collection-toolbar'));
@@ -896,7 +1127,7 @@ void main() {
     ]);
     await _pumpHome(tester, harness);
 
-    await tester.tap(find.byKey(const Key('open-api-tool')));
+    await _openAutomationMenuItem(tester, 'API Tool');
     await tester.pumpAndSettle();
 
     final collection = find.byKey(
@@ -977,16 +1208,16 @@ void main() {
     ]);
     await _pumpHome(tester, harness);
 
-    await tester.tap(find.byKey(const Key('open-api-tool')));
+    await _openAutomationMenuItem(tester, 'API Tool');
     await tester.pumpAndSettle();
     await _openApiToolMenu(tester, 'api-tool-more-menu');
     await tester.tap(find.byKey(const Key('api-tool-delete-collection')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Delete Collection?'), findsOneWidget);
+    expect(find.text('Xoá collection?'), findsOneWidget);
     expect(
       find.textContaining(
-        '1 folder(s), 1 saved request(s), and 1 Quick Request(s)',
+        '1 folder, 1 request đã lưu và 1 Quick Request sẽ bị xoá',
       ),
       findsOneWidget,
     );
@@ -998,12 +1229,15 @@ void main() {
 
     expect(
       harness.controller.store.apiToolCollections.single.displayName,
-      'Default Collection',
+      'Collection mặc định',
     );
     expect(harness.controller.store.apiToolFolders, isEmpty);
     expect(harness.controller.store.apiToolRequests, isEmpty);
     expect(harness.controller.store.apiToolQuickRequests, isEmpty);
-    expect(find.textContaining('Temporary API" was deleted'), findsOneWidget);
+    expect(
+      find.textContaining('Đã xoá collection "Temporary API"'),
+      findsOneWidget,
+    );
 
     await tester.tap(find.byKey(const Key('close-api-tool')));
     await tester.pumpAndSettle();
@@ -1016,7 +1250,7 @@ void main() {
     Get.put<ApiToolService>(apiTool);
     await _pumpHome(tester, harness);
 
-    await tester.tap(find.byKey(const Key('open-api-tool')));
+    await _openAutomationMenuItem(tester, 'API Tool');
     await tester.pumpAndSettle();
 
     await _openApiToolMenu(tester, 'api-tool-more-menu');
@@ -1026,7 +1260,7 @@ void main() {
     await tester.pump();
     await tester.enterText(
       find.byKey(const Key('api-tool-environment-name')),
-      'Local',
+      'Ở máy',
     );
     await tester.enterText(
       find.byKey(const Key('api-tool-env-var-name-0')),
@@ -1078,7 +1312,7 @@ void main() {
         environments: [
           ApiToolEnvironment(
             id: 'env-1',
-            name: 'Local',
+            name: 'Ở máy',
             updatedAt: now,
             variables: const [
               ApiToolEnvironmentVariable(
@@ -1104,7 +1338,7 @@ void main() {
     ]);
     await _pumpHome(tester, harness);
 
-    await tester.tap(find.byKey(const Key('open-api-tool')));
+    await _openAutomationMenuItem(tester, 'API Tool');
     await tester.pumpAndSettle();
 
     await _dragEnvToken(tester, 'Base Url', const Key('api-tool-url'));
@@ -1188,7 +1422,7 @@ void main() {
     Get.put<ApiToolService>(apiTool);
     await _pumpHome(tester, harness);
 
-    await tester.tap(find.byKey(const Key('open-api-tool')));
+    await _openAutomationMenuItem(tester, 'API Tool');
     await tester.pumpAndSettle();
 
     await tester.enterText(
@@ -1201,7 +1435,7 @@ void main() {
 
     expect(apiTool.requests, isEmpty);
     expect(
-      find.textContaining('Missing active environment variable(s): Base Url.'),
+      find.textContaining('Thiếu biến môi trường: Base Url.'),
       findsOneWidget,
     );
 
@@ -1217,7 +1451,7 @@ void main() {
         environments: [
           ApiToolEnvironment(
             id: 'env-1',
-            name: 'Local',
+            name: 'Ở máy',
             updatedAt: now,
             variables: const [
               ApiToolEnvironmentVariable(
@@ -1232,7 +1466,7 @@ void main() {
       ),
     ]);
 
-    await tester.tap(find.byKey(const Key('open-api-tool')));
+    await _openAutomationMenuItem(tester, 'API Tool');
     await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const Key('api-tool-url')),
@@ -1244,7 +1478,9 @@ void main() {
 
     expect(apiTool.requests, isEmpty);
     expect(
-      find.textContaining('Resolved URL must be a valid http or https URL.'),
+      find.textContaining(
+        'URL sau khi thay biến phải là http hoặc https hợp lệ.',
+      ),
       findsOneWidget,
     );
 
@@ -1258,7 +1494,7 @@ void main() {
     Get.put<ApiToolService>(_FakeApiToolService());
     await _pumpHome(tester, harness);
 
-    await tester.tap(find.byKey(const Key('open-api-tool')));
+    await _openAutomationMenuItem(tester, 'API Tool');
     await tester.pumpAndSettle();
 
     await tester.enterText(
@@ -1334,7 +1570,7 @@ void main() {
     await harness.controller.store.saveApiToolCollections([
       ApiToolCollectionRoot(
         id: 'collection-1',
-        name: 'Default Collection',
+        name: 'Collection mặc định',
         updatedAt: now,
       ),
     ]);
@@ -1358,7 +1594,7 @@ void main() {
     ]);
     await _pumpHome(tester, harness);
 
-    await tester.tap(find.byKey(const Key('open-api-tool')));
+    await _openAutomationMenuItem(tester, 'API Tool');
     await tester.pumpAndSettle();
     await tester.tap(
       find.byKey(const Key('api-tool-root-folder-collection-1')),
@@ -1395,7 +1631,7 @@ void main() {
     Get.put<ApiToolService>(apiTool);
     await _pumpHome(tester, harness);
 
-    await tester.tap(find.byKey(const Key('open-api-tool')));
+    await _openAutomationMenuItem(tester, 'API Tool');
     await tester.pumpAndSettle();
 
     // URL -> rows.
@@ -1475,7 +1711,7 @@ void main() {
     Get.put<ApiToolService>(_FakeApiToolService());
     await _pumpHome(tester, harness);
 
-    await tester.tap(find.byKey(const Key('open-api-tool')));
+    await _openAutomationMenuItem(tester, 'API Tool');
     await tester.pumpAndSettle();
 
     await tester.enterText(
@@ -1542,7 +1778,7 @@ void main() {
     Get.put<ApiToolService>(apiTool);
     await _pumpHome(tester, harness);
 
-    await tester.tap(find.byKey(const Key('open-api-tool')));
+    await _openAutomationMenuItem(tester, 'API Tool');
     await tester.pumpAndSettle();
 
     await tester.enterText(
@@ -1569,7 +1805,7 @@ void main() {
     Get.put<ApiToolService>(_FakeApiToolService());
     await _pumpHome(tester, harness);
 
-    await tester.tap(find.byKey(const Key('open-api-tool')));
+    await _openAutomationMenuItem(tester, 'API Tool');
     await tester.pumpAndSettle();
 
     await tester.enterText(
@@ -1621,9 +1857,8 @@ void main() {
     ]) {
       view.physicalSize = size;
       await _pumpHome(tester, harness);
-      await tester.ensureVisible(find.byKey(const Key('open-api-tool')));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('open-api-tool')));
+      await _openAutomationMenuItem(tester, 'API Tool');
       await tester.pumpAndSettle();
       expect(
         find.byKey(const Key('api-tool-dialog')),
@@ -1650,7 +1885,7 @@ void main() {
     Get.put<ApiToolService>(_FakeApiToolService());
     await _pumpHome(tester, harness);
 
-    await tester.tap(find.byKey(const Key('open-api-tool')));
+    await _openAutomationMenuItem(tester, 'API Tool');
     await tester.pumpAndSettle();
 
     // Send once so the response panel has measurable content.
@@ -1723,9 +1958,8 @@ void main() {
         TestWidgetsFlutterBinding.instance.platformDispatcher.views.first;
     view.physicalSize = const Size(880, 1100);
     await _pumpHome(tester, harness);
-    await tester.ensureVisible(find.byKey(const Key('open-api-tool')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('open-api-tool')));
+    await _openAutomationMenuItem(tester, 'API Tool');
     await tester.pumpAndSettle();
 
     final sidebarSplitter = find.byKey(const Key('api-tool-sidebar-splitter'));
@@ -1762,8 +1996,8 @@ void main() {
 
     expect(find.byKey(const Key('release-workflow-dialog')), findsOneWidget);
     expect(find.byKey(const Key('release-track-selector')), findsOneWidget);
-    expect(find.text('Prepare release'), findsOneWidget);
-    expect(find.text('CH Play track'), findsOneWidget);
+    expect(find.text('Chuẩn bị release'), findsOneWidget);
+    expect(find.text('Track CH Play'), findsOneWidget);
     expect(find.byKey(const Key('review-release-workflow')), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('hide-release-workflow')));
@@ -1927,9 +2161,9 @@ void main() {
     expect(find.byKey(const Key('stop-release-workflow')), findsOneWidget);
     expect(find.text('Building release AAB...'), findsWidgets);
 
-    await tester.tap(find.text('All'));
+    await tester.tap(find.text('Tất cả'));
     await tester.pump();
-    expect(find.text('All logs'), findsOneWidget);
+    expect(find.text('Toàn bộ log'), findsOneWidget);
     expect(find.textContaining('Preflight ok.'), findsOneWidget);
 
     String? copiedText;
@@ -2056,8 +2290,92 @@ void main() {
     );
     expect(find.text('Preflight'), findsWidgets);
     expect(find.text('Release'), findsWidgets);
-    expect(find.text('New Release'), findsOneWidget);
+    expect(find.text('Release mới'), findsOneWidget);
     await tester.tap(find.byKey(const Key('hide-release-workflow')));
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('pull branch offers the repo remotes and preselects upstream', (
+    tester,
+  ) async {
+    await _pumpHome(tester, harness);
+    final inspector =
+        Get.find<GitInspectorService>() as _FakeGitInspectorService;
+    inspector.options = const GitBranchOptions(
+      remotes: ['origin', 'backup'],
+      branchesByRemote: {
+        'origin': ['develop', 'main'],
+        'backup': ['mirror'],
+      },
+      currentBranch: 'develop',
+      suggestedRemote: 'origin',
+      suggestedBranch: 'develop',
+    );
+
+    await _openAutomationMenuItem(tester, 'Pull branch từ remote');
+
+    expect(inspector.inspectedPaths, [harness.projectDirectory.path]);
+    expect(find.byKey(const Key('pull-branch-remote')), findsOneWidget);
+    expect(find.byKey(const Key('pull-branch-branch')), findsOneWidget);
+    // Nothing to type: the upstream is already selected.
+    expect(
+      tester
+          .widget<DropdownButtonFormField<String>>(
+            find.byKey(const Key('pull-branch-remote')),
+          )
+          .initialValue,
+      'origin',
+    );
+    expect(
+      tester
+          .widget<DropdownButtonFormField<String>>(
+            find.byKey(const Key('pull-branch-branch')),
+          )
+          .initialValue,
+      'develop',
+    );
+    expect(find.text('Đang ở branch develop'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('pull-branch-remote')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('backup').last);
+    await tester.pumpAndSettle();
+
+    // Switching remote re-picks a branch that actually exists on it.
+    expect(
+      tester
+          .widget<DropdownButtonFormField<String>>(
+            find.byKey(const Key('pull-branch-branch')),
+          )
+          .initialValue,
+      'mirror',
+    );
+
+    // Confirming here would start a real git pull, whose spinner never
+    // settles; the selection above is what this test is about.
+    await tester.tap(find.text('Huỷ'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('pull-branch-confirm')), findsNothing);
+  });
+
+  testWidgets('pull branch falls back to text when git says nothing', (
+    tester,
+  ) async {
+    await _pumpHome(tester, harness);
+    (Get.find<GitInspectorService>() as _FakeGitInspectorService).options =
+        const GitBranchOptions();
+
+    await _openAutomationMenuItem(tester, 'Pull branch từ remote');
+
+    expect(find.byKey(const Key('pull-branch-remote')), findsNothing);
+    expect(find.byKey(const Key('pull-branch-remote-text')), findsOneWidget);
+    expect(find.byKey(const Key('pull-branch-branch-text')), findsOneWidget);
+    expect(
+      find.text('Không đọc được remote từ dự án này, hãy nhập tay.'),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('Huỷ'));
     await tester.pumpAndSettle();
   });
 
@@ -2066,20 +2384,14 @@ void main() {
   ) async {
     await _pumpHome(tester, harness);
 
-    await tester.tap(find.text('Extend'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Generate Android JKS'), findsOneWidget);
-
-    await tester.tap(find.text('Generate Android JKS'));
-    await tester.pumpAndSettle();
-    expect(find.widgetWithText(TextField, 'JKS password'), findsOneWidget);
+    await _openAutomationMenuItem(tester, 'Tạo Android JKS');
+    expect(find.widgetWithText(TextField, 'Mật khẩu JKS'), findsOneWidget);
 
     await tester.enterText(
-      find.widgetWithText(TextField, 'JKS password'),
+      find.widgetWithText(TextField, 'Mật khẩu JKS'),
       'manual-menu-pass',
     );
-    await tester.tap(find.widgetWithText(FilledButton, 'Generate').last);
+    await tester.tap(find.widgetWithText(FilledButton, 'Tạo').last);
     await tester.pump();
 
     expect(harness.androidKeystores.calls, hasLength(1));
@@ -2092,7 +2404,7 @@ void main() {
   testWidgets('switches right panel feature tabs', (tester) async {
     await _pumpHome(tester, harness);
 
-    expect(find.text('Release notes'), findsOneWidget);
+    expect(find.text('Release note'), findsOneWidget);
 
     await tester.ensureVisible(find.byKey(const Key('options-tab-resources')));
     await tester.tap(
@@ -2111,22 +2423,22 @@ void main() {
     await tester.tap(find.text('Telegram'));
     await tester.pumpAndSettle();
     expect(find.text('Telegram bot token'), findsOneWidget);
-    expect(find.text('Auto send release updates'), findsOneWidget);
+    expect(find.text('Tự động gửi cập nhật release'), findsOneWidget);
     expect(find.byKey(const Key('installer-telegram-options')), findsOneWidget);
     final installerButton = find.byKey(const Key('build-send-installer'));
     expect(installerButton, findsOneWidget);
     expect(tester.widget<FilledButton>(installerButton).onPressed, isNull);
 
-    await tester.tap(find.text('Push'));
+    await tester.tap(find.text('Thông báo'));
     await tester.pumpAndSettle();
-    expect(find.text('Command notifications'), findsOneWidget);
+    expect(find.text('Thông báo trạng thái lệnh'), findsOneWidget);
     expect(find.text('Serverless endpoint'), findsOneWidget);
 
-    await tester.tap(find.text('Remote'));
+    await tester.tap(find.text('Điều khiển'));
     await tester.pumpAndSettle();
-    expect(find.text('Phone command relay'), findsOneWidget);
-    expect(find.text('Pair control app'), findsOneWidget);
-    expect(find.text('Send to script'), findsOneWidget);
+    expect(find.text('Trung chuyển lệnh từ điện thoại'), findsOneWidget);
+    expect(find.text('Ghép app điều khiển'), findsOneWidget);
+    expect(find.text('Gửi cho script'), findsOneWidget);
   });
 
   testWidgets('shows resource catalog and masks passwords by default', (
@@ -2217,7 +2529,7 @@ void main() {
     expect(
       find.descendant(
         of: find.byKey(const Key('resource-select-all')),
-        matching: find.text('All'),
+        matching: find.text('Tất cả'),
       ),
       findsOneWidget,
     );
@@ -2288,7 +2600,7 @@ void main() {
       findsOneWidget,
     );
     expect(find.byKey(const Key('resource-key-alias')), findsOneWidget);
-    expect(find.textContaining('Resolved'), findsWidgets);
+    expect(find.textContaining('Đủ'), findsWidgets);
     expect(find.textContaining('store-secret'), findsNothing);
     expect(find.textContaining('key-secret'), findsNothing);
 
@@ -2354,8 +2666,8 @@ void main() {
     harness.controller.runner.yesNoPrompt.value = 'Continue release?';
     await tester.pump();
     expect(find.text('Continue release?'), findsOneWidget);
-    expect(find.text('Yes'), findsOneWidget);
-    expect(find.text('No'), findsOneWidget);
+    expect(find.text('Có'), findsOneWidget);
+    expect(find.text('Không'), findsOneWidget);
     expect(_hasStdinField(tester, harness.controller), isFalse);
   });
 
@@ -2371,14 +2683,14 @@ void main() {
     ]);
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('Credentials'));
+    await tester.tap(find.byTooltip('Thông tin đăng nhập'));
     await tester.pumpAndSettle();
     await tester.enterText(
-      find.widgetWithText(TextField, 'JKS password'),
+      find.widgetWithText(TextField, 'Mật khẩu JKS'),
       'manual-dialog-pass',
     );
     await tester.pump();
-    await tester.tap(find.widgetWithText(OutlinedButton, 'Generate'));
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Tạo'));
     await tester.pump();
     for (var attempt = 0; attempt < 50; attempt++) {
       await tester.pump(const Duration(milliseconds: 50));
@@ -2404,14 +2716,14 @@ void main() {
     );
     expect(_textFieldByLabel(tester, 'Key alias').controller?.text, 'release');
     expect(
-      _textFieldByLabel(tester, 'Store password').controller?.text,
+      _textFieldByLabel(tester, 'Mật khẩu store').controller?.text,
       'manual-dialog-pass',
     );
 
-    await tester.tap(find.text('Key password matches store password'));
+    await tester.tap(find.text('Mật khẩu key trùng mật khẩu store'));
     await tester.pump();
     expect(
-      _textFieldByLabel(tester, 'Key password').controller?.text,
+      _textFieldByLabel(tester, 'Mật khẩu key').controller?.text,
       'manual-dialog-pass',
     );
   });
@@ -2456,6 +2768,25 @@ bool _hasStdinField(WidgetTester tester, HomeController controller) {
   return tester
       .widgetList<TextField>(find.byType(TextField))
       .any((field) => field.controller == controller.stdinController);
+}
+
+/// Ctrl+K is bound at the scaffold, so the shortcut works without focusing any
+/// particular field first.
+Future<void> _pressPaletteShortcut(WidgetTester tester) async {
+  await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+  await tester.sendKeyEvent(LogicalKeyboardKey.keyK);
+  await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+  await tester.pumpAndSettle();
+}
+
+/// The header keeps one overflow menu now; tools open through it.
+Future<void> _openAutomationMenuItem(WidgetTester tester, String label) async {
+  await tester.ensureVisible(find.byKey(const Key('automation-menu')));
+  await tester.pumpAndSettle();
+  await tester.tap(find.byKey(const Key('automation-menu')));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text(label));
+  await tester.pumpAndSettle();
 }
 
 /// The request workbench opens on the Params tab; most assertions need a
@@ -2590,6 +2921,9 @@ class _Harness {
       runner: runner,
       connect: connect,
       credentialStore: notificationCredentials,
+      mobileCredentialStore: MobileControlCredentialStoreService(
+        secureStore: secureStore,
+      ),
     );
     final chPlayInspector = ChPlayProjectInspectorService();
     final chPlayCredentialStore = ChPlayCredentialStoreService(
@@ -2642,6 +2976,9 @@ class _Harness {
     Get.put<ResourceCatalogCryptoService>(resourceCatalogCrypto);
     Get.put<ResourceCatalogExcelService>(resourceCatalogExcel);
 
+    Get.put<GitInspectorService>(_FakeGitInspectorService());
+    Get.put<AppShellController>(AppShellController(store: store));
+
     final controller = Get.put<HomeController>(
       HomeController(
         store: store,
@@ -2684,6 +3021,17 @@ class _Harness {
     if (root.existsSync()) {
       root.deleteSync(recursive: true);
     }
+  }
+}
+
+class _FakeGitInspectorService extends GitInspectorService {
+  GitBranchOptions options = const GitBranchOptions();
+  final inspectedPaths = <String>[];
+
+  @override
+  Future<GitBranchOptions> readBranchOptions(String projectPath) async {
+    inspectedPaths.add(projectPath);
+    return options;
   }
 }
 

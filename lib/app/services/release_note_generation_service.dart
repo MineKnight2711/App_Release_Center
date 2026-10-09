@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:app_release_center/app/models/release_project.dart';
+import 'package:app_management_center/app/models/release_project.dart';
 import 'package:get/get.dart';
 import 'package:path/path.dart' as p;
 
@@ -14,13 +14,13 @@ class ReleaseNoteGenerationService extends GetxService {
   }) async {
     final trimmedKey = apiKey.trim();
     if (trimmedKey.isEmpty) {
-      throw const ReleaseNoteGenerationException('Gemini API key is required.');
+      throw const ReleaseNoteGenerationException('Phải có Gemini API key.');
     }
 
     final history = await _collectGitHistory(project.path);
     if (history.commits.isEmpty) {
       throw const ReleaseNoteGenerationException(
-        'No git commits were found for release note generation.',
+        'Không tìm thấy commit git nào để tạo release note.',
       );
     }
 
@@ -60,7 +60,7 @@ class ReleaseNoteGenerationService extends GetxService {
     await _runGit(projectPath, const [
       'rev-parse',
       '--show-toplevel',
-    ], failureMessage: 'Selected project is not a git repository.');
+    ], failureMessage: 'Dự án đang chọn không phải git repository.');
 
     final tagResult = await _runGit(projectPath, const [
       'describe',
@@ -105,7 +105,7 @@ class ReleaseNoteGenerationService extends GetxService {
       final output = '${result.stdout}${result.stderr}'.trim();
       if (!allowFailure && result.exitCode != 0) {
         throw ReleaseNoteGenerationException(
-          failureMessage ?? 'Git command failed: $output',
+          failureMessage ?? 'Lệnh git lỗi: $output',
         );
       }
       return _CommandResult(exitCode: result.exitCode, output: output);
@@ -114,7 +114,7 @@ class ReleaseNoteGenerationService extends GetxService {
         return _CommandResult(exitCode: -1, output: error.message);
       }
       throw ReleaseNoteGenerationException(
-        failureMessage ?? 'Failed to run git: ${error.message}',
+        failureMessage ?? 'Chạy git lỗi: ${error.message}',
       );
     }
   }
@@ -228,27 +228,27 @@ class ReleaseNoteGenerationService extends GetxService {
       final decoded = jsonDecode(body);
       if (decoded is! Map) {
         throw const ReleaseNoteGenerationException(
-          'Gemini returned an unexpected response.',
+          'Gemini trả về phản hồi lạ.',
         );
       }
 
       final text = _extractResponseText(decoded).trim();
       if (text.isEmpty) {
         throw const ReleaseNoteGenerationException(
-          'Gemini did not return release note text.',
+          'Gemini không trả về nội dung release note.',
         );
       }
 
       return _normalizeReleaseNoteText(_stripCodeFence(text));
     } on TimeoutException {
-      throw const ReleaseNoteGenerationException('Gemini request timed out.');
+      throw const ReleaseNoteGenerationException('Request tới Gemini quá hạn.');
     } on SocketException catch (error) {
       throw ReleaseNoteGenerationException(
-        'Network error while calling Gemini: ${error.message}',
+        'Lỗi mạng khi gọi Gemini: ${error.message}',
       );
     } on FormatException {
       throw const ReleaseNoteGenerationException(
-        'Gemini returned invalid JSON.',
+        'Gemini trả về JSON không hợp lệ.',
       );
     } finally {
       client.close(force: true);
@@ -372,10 +372,10 @@ class ReleaseNoteGenerationService extends GetxService {
     }
 
     final prefix = switch (statusCode) {
-      401 || 403 => 'Gemini API key is invalid or lacks permission',
-      429 => 'Gemini rate limit exceeded',
-      >= 500 => 'Gemini service error',
-      _ => 'Gemini request failed',
+      401 || 403 => 'Gemini API key sai hoặc không đủ quyền',
+      429 => 'Đã vượt giới hạn gọi Gemini',
+      >= 500 => 'Dịch vụ Gemini lỗi',
+      _ => 'Gọi Gemini lỗi',
     };
 
     if (message.isEmpty) return '$prefix ($statusCode).';

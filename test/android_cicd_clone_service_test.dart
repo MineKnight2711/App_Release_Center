@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:app_release_center/app/services/android_cicd_clone_service.dart';
+import 'package:app_management_center/app/services/android_cicd_clone_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 
@@ -233,7 +233,7 @@ void main() {
       );
 
       expect(preview.isFallback, isTrue);
-      expect(preview.gradleFilePath, 'Not found');
+      expect(preview.gradleFilePath, 'Không thấy');
       expect(preview.applicationId, isNull);
       expect(preview.flavors, isEmpty);
       expect(preview.selectedFlavor, isNull);
@@ -244,7 +244,7 @@ void main() {
       expect(
         preview.warnings,
         contains(
-          'Gradle app build file was not found. Update ANDROID_PACKAGE_NAME before uploading.',
+          'Không thấy file build Gradle của app. Sửa ANDROID_PACKAGE_NAME trước khi upload.',
         ),
       );
     });

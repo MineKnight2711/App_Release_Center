@@ -1,4 +1,4 @@
-import 'package:app_release_center/app/theme/cyber_theme.dart';
+import 'package:app_management_center/app/theme/cyber_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -8,7 +8,7 @@ class ThemeService extends GetxService {
 
   late final SharedPreferences _preferences;
 
-  final choice = AppThemeChoice.cyber.obs;
+  final choice = AppThemeChoice.console.obs;
 
   Future<ThemeService> init() async {
     _preferences = await SharedPreferences.getInstance();
@@ -32,6 +32,6 @@ class ThemeService extends GetxService {
     for (final option in AppThemeChoice.values) {
       if (option.name == key) return option;
     }
-    return AppThemeChoice.cyber;
+    return AppThemeChoice.console;
   }
 }

@@ -3,9 +3,9 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
-import 'package:app_release_center/app/models/google_drive_release_settings.dart';
-import 'package:app_release_center/app/services/google_drive_credential_store_service.dart';
-import 'package:app_release_center/app/services/project_store_service.dart';
+import 'package:app_management_center/app/models/google_drive_release_settings.dart';
+import 'package:app_management_center/app/services/google_drive_credential_store_service.dart';
+import 'package:app_management_center/app/services/project_store_service.dart';
 import 'package:get/get.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:http/http.dart' as http;
@@ -30,7 +30,7 @@ class UrlLauncherGoogleDriveUrlLauncher implements GoogleDriveUrlLauncher {
     final launched = await launchUrl(url, mode: LaunchMode.externalApplication);
     if (!launched) {
       throw const GoogleDriveReleaseUploadException(
-        'Could not open the Google OAuth page.',
+        'Không mở được trang OAuth của Google.',
       );
     }
   }
@@ -65,7 +65,7 @@ class BrowserGoogleDriveOAuthFlow implements GoogleDriveOAuthFlow {
     final clientSecret = oauthClientSecret?.trim();
     if (clientId.isEmpty) {
       throw const GoogleDriveReleaseUploadException(
-        'Google OAuth Client ID is required.',
+        'Phải có Google OAuth Client ID.',
       );
     }
 
@@ -135,9 +135,9 @@ class BrowserGoogleDriveOAuthFlow implements GoogleDriveOAuthFlow {
       return oauthClient.credentials.toJson();
     } on TimeoutException {
       final message = waitingForTokenExchange
-          ? 'Google Drive token exchange timed out after authorization. '
-                'Please try Connect Drive again.'
-          : 'Google Drive authorization timed out.';
+          ? 'Đổi token Google Drive quá hạn sau khi cấp quyền. '
+                'Hãy bấm Kết nối Drive lại.'
+          : 'Cấp quyền Google Drive quá hạn.';
       await writeBrowserResponse(success: false, details: message);
       throw GoogleDriveReleaseUploadException(message);
     } on oauth2.AuthorizationException catch (error) {
@@ -146,18 +146,17 @@ class BrowserGoogleDriveOAuthFlow implements GoogleDriveOAuthFlow {
       throw GoogleDriveReleaseUploadException(message);
     } on FormatException catch (error) {
       final message =
-          'Google Drive authorization returned an invalid response: '
+          'Cấp quyền Google Drive trả về phản hồi không hợp lệ: '
           '${error.message}';
       await writeBrowserResponse(success: false, details: message);
       throw GoogleDriveReleaseUploadException(message);
     } on SocketException catch (error) {
-      final message =
-          'Network error during Google Drive authorization: ${error.message}';
+      final message = 'Lỗi mạng khi cấp quyền Google Drive: ${error.message}';
       await writeBrowserResponse(success: false, details: message);
       throw GoogleDriveReleaseUploadException(message);
     } on http.ClientException catch (error) {
       final message =
-          'Google Drive authorization HTTP request failed: ${error.message}';
+          'Request HTTP khi cấp quyền Google Drive lỗi: ${error.message}';
       await writeBrowserResponse(success: false, details: message);
       throw GoogleDriveReleaseUploadException(message);
     } finally {
@@ -180,11 +179,11 @@ class BrowserGoogleDriveOAuthFlow implements GoogleDriveOAuthFlow {
     response.write(
       success
           ? '<html><body><h3>Google Drive connected.</h3>'
-                '<p>You can close this tab and return to App Release Center.</p>'
+                '<p>You can close this tab and return to App Management Center.</p>'
                 '</body></html>'
           : '<html><body><h3>Google Drive authorization failed.</h3>'
                 '${escapedDetails.isEmpty ? '' : '<p>$escapedDetails</p>'}'
-                '<p>You can close this tab and return to App Release Center.</p>'
+                '<p>You can close this tab and return to App Management Center.</p>'
                 '</body></html>',
     );
     await response.close();
@@ -200,11 +199,11 @@ class BrowserGoogleDriveOAuthFlow implements GoogleDriveOAuthFlow {
 String _googleDriveAuthorizationMessage(oauth2.AuthorizationException error) {
   final details = error.description ?? error.error;
   if (details.toLowerCase().contains('client_secret is missing')) {
-    return 'Google Drive authorization failed: client_secret is missing. '
-        'Enter the OAuth Client Secret for this Google client, or create a new '
-        'OAuth Client ID with application type Desktop app.';
+    return 'Cấp quyền Google Drive lỗi: thiếu client_secret. '
+        'Nhập OAuth Client Secret cho client này, hoặc tạo một '
+        'OAuth Client ID mới với application type là Desktop app.';
   }
-  return 'Google Drive authorization failed: $details';
+  return 'Cấp quyền Google Drive lỗi: $details';
 }
 
 class _TimeoutHttpClient extends http.BaseClient {
@@ -392,7 +391,7 @@ class GoogleDriveReleaseUploadService extends GetxService {
     final clientSecret = oauthClientSecret?.trim();
     if (clientId.isEmpty) {
       throw const GoogleDriveReleaseUploadException(
-        'Google OAuth Client ID is required.',
+        'Phải có Google OAuth Client ID.',
       );
     }
 
@@ -437,7 +436,7 @@ class GoogleDriveReleaseUploadService extends GetxService {
       appDisplayName: appDisplayName,
       version: version,
       buildDate: buildDate,
-      missingFileMessage: 'Release APK file does not exist.',
+      missingFileMessage: 'File APK release không tồn tại.',
     );
   }
 
@@ -448,7 +447,7 @@ class GoogleDriveReleaseUploadService extends GetxService {
     required String version,
     required DateTime buildDate,
     String? fileName,
-    String missingFileMessage = 'Release file does not exist.',
+    String missingFileMessage = 'File release không tồn tại.',
   }) async {
     if (!file.existsSync()) {
       throw GoogleDriveReleaseUploadException(missingFileMessage);
@@ -457,7 +456,7 @@ class GoogleDriveReleaseUploadService extends GetxService {
     final trimmedContentType = contentType.trim();
     if (trimmedContentType.isEmpty) {
       throw const GoogleDriveReleaseUploadException(
-        'Google Drive upload content type is required.',
+        'Phải có content type khi upload lên Google Drive.',
       );
     }
 
@@ -494,7 +493,7 @@ class GoogleDriveReleaseUploadService extends GetxService {
     final clientId = currentSettings.oauthClientId.trim();
     if (clientId.isEmpty) {
       throw const GoogleDriveReleaseUploadException(
-        'Google OAuth Client ID is required.',
+        'Phải có Google OAuth Client ID.',
       );
     }
 
@@ -502,7 +501,7 @@ class GoogleDriveReleaseUploadService extends GetxService {
         ?.trim();
     if (storedCredentials == null || storedCredentials.isEmpty) {
       throw const GoogleDriveReleaseUploadException(
-        'Google Drive is not connected.',
+        'Chưa kết nối Google Drive.',
       );
     }
 
@@ -519,8 +518,8 @@ class GoogleDriveReleaseUploadService extends GetxService {
       await _credentialStore.deleteCredentials();
       throw GoogleDriveReleaseUploadException(
         _googleDriveAuthorizationMessage(error).replaceFirst(
-          'Google Drive authorization failed:',
-          'Google Drive authorization expired:',
+          'Cấp quyền Google Drive lỗi:',
+          'Quyền truy cập Google Drive đã hết hạn:',
         ),
       );
     } on drive.ApiRequestError catch (error) {
@@ -529,7 +528,7 @@ class GoogleDriveReleaseUploadService extends GetxService {
           : null;
       throw GoogleDriveReleaseUploadException(
         _sanitizeDriveMessage(
-          'Google Drive API failed'
+          'API Google Drive lỗi'
           '${status == null ? '' : ' ($status)'}'
           '${error.message == null ? '' : ': ${error.message}'}',
           storedCredentials,
@@ -537,11 +536,11 @@ class GoogleDriveReleaseUploadService extends GetxService {
       );
     } on TimeoutException {
       throw const GoogleDriveReleaseUploadException(
-        'Google Drive request timed out.',
+        'Request tới Google Drive quá hạn.',
       );
     } on FileSystemException catch (error) {
       throw GoogleDriveReleaseUploadException(
-        'Failed to read file for Google Drive upload: ${error.message}',
+        'Không đọc được file để upload lên Google Drive: ${error.message}',
       );
     } finally {
       if (client != null) {
@@ -634,7 +633,7 @@ class GoogleDriveRemoteFile {
     final id = file.id?.trim();
     if (id == null || id.isEmpty) {
       throw const GoogleDriveReleaseUploadException(
-        'Google Drive response did not include file ID.',
+        'Phản hồi từ Google Drive không có file ID.',
       );
     }
     return GoogleDriveRemoteFile(
@@ -688,7 +687,7 @@ String _driveFolderUrl(String folderId) {
 }
 
 const googleDriveReleaseScope = 'https://www.googleapis.com/auth/drive.file';
-const googleDriveReleaseFolderName = 'App Release Center APKs';
+const googleDriveReleaseFolderName = 'App Management Center APKs';
 const _driveFolderMimeType = 'application/vnd.google-apps.folder';
 const _driveFileFields = 'id,name,webViewLink,webContentLink';
 const _oauthTimeout = Duration(minutes: 3);

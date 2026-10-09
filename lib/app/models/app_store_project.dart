@@ -1,4 +1,4 @@
-import 'package:app_release_center/app/models/app_store_credentials.dart';
+import 'package:app_management_center/app/models/app_store_credentials.dart';
 import 'package:path/path.dart' as p;
 
 class AppStoreProject {

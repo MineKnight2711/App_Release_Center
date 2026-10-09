@@ -8,11 +8,11 @@ class _FastlanePanel extends GetView<HomeController> {
     return Obx(() {
       final project = controller.project.value;
       if (project == null) {
-        return const Center(child: Text('Choose a project'));
+        return const Center(child: Text('Chọn một dự án'));
       }
 
       if (project.fastlaneLanes.isEmpty) {
-        return const Center(child: Text('No Fastlane lanes found'));
+        return const Center(child: Text('Không tìm thấy lane Fastlane nào'));
       }
 
       return GridView.builder(
@@ -86,7 +86,7 @@ class _FastlaneLaneCard extends GetView<HomeController> {
                 ),
                 const SizedBox(width: 8),
                 IconButton.filledTonal(
-                  tooltip: 'Run ${lane.command}',
+                  tooltip: 'Chạy ${lane.command}',
                   visualDensity: VisualDensity.compact,
                   onPressed: isRunning
                       ? null

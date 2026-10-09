@@ -1,50 +1,51 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:app_release_center/app/data/release_center_connect.dart';
-import 'package:app_release_center/app/models/app_store_credentials.dart';
-import 'package:app_release_center/app/models/app_store_project.dart';
-import 'package:app_release_center/app/models/app_store_version_snapshot.dart';
-import 'package:app_release_center/app/models/ch_play_credentials.dart';
-import 'package:app_release_center/app/models/ch_play_project.dart';
-import 'package:app_release_center/app/models/ch_play_version_snapshot.dart';
-import 'package:app_release_center/app/models/cicd_dependency.dart';
-import 'package:app_release_center/app/models/google_drive_release_settings.dart';
-import 'package:app_release_center/app/models/release_fastlane_lane.dart';
-import 'package:app_release_center/app/models/release_notification.dart';
-import 'package:app_release_center/app/models/release_project.dart';
-import 'package:app_release_center/app/models/release_script.dart';
-import 'package:app_release_center/app/models/release_workflow.dart';
-import 'package:app_release_center/app/models/resource_catalog.dart';
-import 'package:app_release_center/app/models/resource_collection.dart';
-import 'package:app_release_center/app/models/telegram_release_settings.dart';
-import 'package:app_release_center/app/services/android_cicd_clone_service.dart';
-import 'package:app_release_center/app/services/android_keystore_generation_service.dart';
-import 'package:app_release_center/app/services/app_store_credential_store_service.dart';
-import 'package:app_release_center/app/services/app_store_project_inspector_service.dart';
-import 'package:app_release_center/app/services/app_store_version_check_service.dart';
-import 'package:app_release_center/app/services/ch_play_credential_store_service.dart';
-import 'package:app_release_center/app/services/ch_play_project_inspector_service.dart';
-import 'package:app_release_center/app/services/ch_play_version_check_service.dart';
-import 'package:app_release_center/app/services/cicd_dependency_doctor_service.dart';
-import 'package:app_release_center/app/services/cicd_dependency_installer_service.dart';
-import 'package:app_release_center/app/services/command_notification_service.dart';
-import 'package:app_release_center/app/services/gemini_env_service.dart';
-import 'package:app_release_center/app/services/google_drive_release_upload_service.dart';
-import 'package:app_release_center/app/services/project_store_service.dart';
-import 'package:app_release_center/app/services/release_apk_artifact_service.dart';
-import 'package:app_release_center/app/services/release_installer_artifact_service.dart';
-import 'package:app_release_center/app/services/release_note_generation_service.dart';
-import 'package:app_release_center/app/services/release_runner_service.dart';
-import 'package:app_release_center/app/services/release_workflow_service.dart';
-import 'package:app_release_center/app/services/resource_catalog_crypto_service.dart';
-import 'package:app_release_center/app/services/resource_catalog_excel_service.dart';
-import 'package:app_release_center/app/services/resource_catalog_password_store_service.dart';
-import 'package:app_release_center/app/services/resource_credential_resolver.dart';
-import 'package:app_release_center/app/services/resource_discovery_service.dart';
-import 'package:app_release_center/app/services/resource_export_service.dart';
-import 'package:app_release_center/app/services/script_catalog_service.dart';
-import 'package:app_release_center/app/services/telegram_release_notification_service.dart';
+import 'package:app_management_center/app/data/release_center_connect.dart';
+import 'package:app_management_center/app/models/app_store_credentials.dart';
+import 'package:app_management_center/app/models/app_store_project.dart';
+import 'package:app_management_center/app/models/app_store_version_snapshot.dart';
+import 'package:app_management_center/app/models/ch_play_credentials.dart';
+import 'package:app_management_center/app/models/ch_play_project.dart';
+import 'package:app_management_center/app/models/ch_play_version_snapshot.dart';
+import 'package:app_management_center/app/models/cicd_dependency.dart';
+import 'package:app_management_center/app/models/google_drive_release_settings.dart';
+import 'package:app_management_center/app/models/release_fastlane_lane.dart';
+import 'package:app_management_center/app/models/release_notification.dart';
+import 'package:app_management_center/app/models/release_project.dart';
+import 'package:app_management_center/app/models/release_script.dart';
+import 'package:app_management_center/app/models/release_workflow.dart';
+import 'package:app_management_center/app/models/resource_catalog.dart';
+import 'package:app_management_center/app/models/resource_collection.dart';
+import 'package:app_management_center/app/models/telegram_release_settings.dart';
+import 'package:app_management_center/app/services/android_cicd_clone_service.dart';
+import 'package:app_management_center/app/services/android_keystore_generation_service.dart';
+import 'package:app_management_center/app/services/app_store_credential_store_service.dart';
+import 'package:app_management_center/app/services/app_store_project_inspector_service.dart';
+import 'package:app_management_center/app/services/app_store_version_check_service.dart';
+import 'package:app_management_center/app/services/ch_play_credential_store_service.dart';
+import 'package:app_management_center/app/services/ch_play_project_inspector_service.dart';
+import 'package:app_management_center/app/services/ch_play_version_check_service.dart';
+import 'package:app_management_center/app/services/cicd_dependency_doctor_service.dart';
+import 'package:app_management_center/app/services/cicd_dependency_installer_service.dart';
+import 'package:app_management_center/app/services/command_notification_service.dart';
+import 'package:app_management_center/app/services/gemini_env_service.dart';
+import 'package:app_management_center/app/services/google_drive_release_upload_service.dart';
+import 'package:app_management_center/app/services/machine_power_service.dart';
+import 'package:app_management_center/app/services/project_store_service.dart';
+import 'package:app_management_center/app/services/release_apk_artifact_service.dart';
+import 'package:app_management_center/app/services/release_installer_artifact_service.dart';
+import 'package:app_management_center/app/services/release_note_generation_service.dart';
+import 'package:app_management_center/app/services/release_runner_service.dart';
+import 'package:app_management_center/app/services/release_workflow_service.dart';
+import 'package:app_management_center/app/services/resource_catalog_crypto_service.dart';
+import 'package:app_management_center/app/services/resource_catalog_excel_service.dart';
+import 'package:app_management_center/app/services/resource_catalog_password_store_service.dart';
+import 'package:app_management_center/app/services/resource_credential_resolver.dart';
+import 'package:app_management_center/app/services/resource_discovery_service.dart';
+import 'package:app_management_center/app/services/resource_export_service.dart';
+import 'package:app_management_center/app/services/script_catalog_service.dart';
+import 'package:app_management_center/app/services/telegram_release_notification_service.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:file_selector/file_selector.dart' as file_selector;
 import 'package:flutter/material.dart';
@@ -88,6 +89,7 @@ class HomeController extends GetxController {
     CiCdDependencyDoctorService? cicdDoctor,
     CiCdDependencyInstallerService? cicdInstaller,
     Uuid? uuid,
+    MachinePowerService? machineShutdown,
   }) : releaseWorkflow =
            releaseWorkflow ??
            ReleaseWorkflowService(
@@ -114,6 +116,7 @@ class HomeController extends GetxController {
           passwordStore: passwordStore,
         );
     _uuid = uuid ?? const Uuid();
+    this.machineShutdown = machineShutdown ?? MachinePowerService();
   }
 
   final ProjectStoreService store;
@@ -144,6 +147,19 @@ class HomeController extends GetxController {
   late final ResourceCatalogPasswordStoreService resourceCatalogPasswords;
   late final ResourceCatalogExcelService resourceCatalogExcel;
   late final Uuid _uuid;
+  late final MachinePowerService machineShutdown;
+  final shutdownAfterDeploy = false.obs;
+
+  Future<void> _shutdownAfterSuccessfulDeploy(bool succeeded) async {
+    if (!succeeded || !shutdownAfterDeploy.value || runner.isBusy) return;
+    shutdownAfterDeploy.value = false;
+    try {
+      runner.appendSystemLog('Deploy thành công. Đang shutdown máy...');
+      await machineShutdown.shutdown();
+    } catch (error) {
+      runner.appendSystemLog('Không thể shutdown máy: $error');
+    }
+  }
 
   final project = Rxn<ReleaseProject>();
   final recentPaths = <String>[].obs;
@@ -252,10 +268,12 @@ class HomeController extends GetxController {
       isGeneratingReleaseNotes.value ||
       runner.isBusy;
 
-  bool get hasSelectedAppReleaseCenterProject {
+  bool get hasSelectedAppManagementCenterProject {
     final currentProject = project.value;
     if (currentProject == null) return false;
-    return releaseInstallerArtifacts.isAppReleaseCenterProject(currentProject);
+    return releaseInstallerArtifacts.isAppManagementCenterProject(
+      currentProject,
+    );
   }
 
   @override
@@ -326,7 +344,7 @@ class HomeController extends GetxController {
 
   Future<bool> pickProjectDirectory() async {
     final selectedPath = await _pickDirectoryPath(
-      dialogTitle: 'Select project directory',
+      dialogTitle: 'Chọn thư mục dự án',
       initialDirectory: _initialDirectory(),
     );
 
@@ -339,7 +357,7 @@ class HomeController extends GetxController {
 
   Future<ChPlayProject?> pickChPlayProjectDraft() async {
     final selectedPath = await _pickDirectoryPath(
-      dialogTitle: 'Select CH Play project directory',
+      dialogTitle: 'Chọn thư mục dự án CH Play',
       initialDirectory: _initialDirectory(),
     );
 
@@ -413,7 +431,7 @@ class HomeController extends GetxController {
 
   Future<AppStoreProject?> pickAppStoreProjectDraft() async {
     final selectedPath = await _pickDirectoryPath(
-      dialogTitle: 'Select App Store project directory',
+      dialogTitle: 'Chọn thư mục dự án App Store',
       initialDirectory: _initialDirectory(),
     );
 
@@ -499,7 +517,7 @@ class HomeController extends GetxController {
 
   Future<String?> pickGooglePlayJsonContent() async {
     final path = await _pickFilePath(
-      dialogTitle: 'Select Google Play service-account JSON',
+      dialogTitle: 'Chọn file JSON service-account của Google Play',
       extensions: const ['json'],
     );
     if (path == null) return null;
@@ -509,7 +527,7 @@ class HomeController extends GetxController {
 
   Future<String?> pickAppStoreP8Content() async {
     final path = await _pickFilePath(
-      dialogTitle: 'Select App Store Connect .p8 key',
+      dialogTitle: 'Chọn key .p8 của App Store Connect',
       extensions: const ['p8'],
     );
     if (path == null) return null;
@@ -519,7 +537,7 @@ class HomeController extends GetxController {
 
   Future<String?> pickJksPath() async {
     return _pickFilePath(
-      dialogTitle: 'Select Android keystore',
+      dialogTitle: 'Chọn Android keystore',
       extensions: const ['jks', 'keystore'],
     );
   }
@@ -622,7 +640,7 @@ class HomeController extends GetxController {
   Future<void> upsertResourceCatalogItem(ResourceCatalogItem item) async {
     final currentProject = project.value;
     if (currentProject == null) {
-      resourceCatalogStatus.value = 'Select a project before saving resources.';
+      resourceCatalogStatus.value = 'Chọn dự án trước khi lưu tài nguyên.';
       return;
     }
 
@@ -630,7 +648,7 @@ class HomeController extends GetxController {
     final url = item.url.trim();
     final localPath = item.localPath.trim();
     if (title.isEmpty && url.isEmpty && localPath.isEmpty) {
-      resourceCatalogStatus.value = 'Add a title, link, or path.';
+      resourceCatalogStatus.value = 'Nhập tiêu đề, link hoặc đường dẫn.';
       return;
     }
 
@@ -661,7 +679,7 @@ class HomeController extends GetxController {
     entries.sort(_compareResourceCatalogItems);
     resourceCatalogItems.assignAll(entries);
     await _saveResourceCatalogForProject(currentProject.path);
-    resourceCatalogStatus.value = 'Resource saved.';
+    resourceCatalogStatus.value = 'Đã lưu tài nguyên.';
   }
 
   Future<void> deleteResourceCatalogItem(ResourceCatalogItem item) async {
@@ -669,7 +687,7 @@ class HomeController extends GetxController {
     if (currentProject == null) return;
     resourceCatalogItems.removeWhere((entry) => entry.id == item.id);
     await _saveResourceCatalogForProject(currentProject.path);
-    resourceCatalogStatus.value = 'Resource removed.';
+    resourceCatalogStatus.value = 'Đã xoá tài nguyên.';
   }
 
   Future<void> upsertResourcePasswordEntry(
@@ -678,7 +696,7 @@ class HomeController extends GetxController {
   }) async {
     final currentProject = project.value;
     if (currentProject == null) {
-      resourceCatalogStatus.value = 'Select a project before saving passwords.';
+      resourceCatalogStatus.value = 'Chọn dự án trước khi lưu mật khẩu.';
       return;
     }
 
@@ -686,7 +704,7 @@ class HomeController extends GetxController {
     final loginUrl = entry.loginUrl.trim();
     final username = entry.username.trim();
     if (site.isEmpty && loginUrl.isEmpty && username.isEmpty) {
-      resourceCatalogStatus.value = 'Add a site, login URL, or username.';
+      resourceCatalogStatus.value = 'Nhập trang, URL đăng nhập hoặc tài khoản.';
       return;
     }
 
@@ -732,7 +750,7 @@ class HomeController extends GetxController {
     entries.sort(_compareResourcePasswordEntries);
     resourcePasswordEntries.assignAll(entries);
     await _saveResourceCatalogForProject(currentProject.path);
-    resourceCatalogStatus.value = 'Password entry saved.';
+    resourceCatalogStatus.value = 'Đã lưu mật khẩu.';
   }
 
   Future<void> deleteResourcePasswordEntry(ResourcePasswordEntry entry) async {
@@ -744,14 +762,14 @@ class HomeController extends GetxController {
     hideResourcePassword(entry.id);
     await resourceCatalogPasswords.delete(entry.secretKey);
     await _saveResourceCatalogForProject(currentProject.path);
-    resourceCatalogStatus.value = 'Password entry removed.';
+    resourceCatalogStatus.value = 'Đã xoá mật khẩu.';
   }
 
   Future<String?> revealResourcePassword(ResourcePasswordEntry entry) async {
     final password = await resourceCatalogPasswords.read(entry.secretKey);
     if (password == null || password.isEmpty) {
       hideResourcePassword(entry.id);
-      resourceCatalogStatus.value = 'No password saved for this entry.';
+      resourceCatalogStatus.value = 'Mục này chưa lưu mật khẩu.';
       return null;
     }
 
@@ -768,35 +786,35 @@ class HomeController extends GetxController {
   Future<void> copyResourcePassword(ResourcePasswordEntry entry) async {
     final password = await resourceCatalogPasswords.read(entry.secretKey);
     if (password == null || password.isEmpty) {
-      resourceCatalogStatus.value = 'No password saved for this entry.';
+      resourceCatalogStatus.value = 'Mục này chưa lưu mật khẩu.';
       return;
     }
 
     await Clipboard.setData(ClipboardData(text: password));
-    resourceCatalogStatus.value = 'Password copied.';
+    resourceCatalogStatus.value = 'Đã sao chép mật khẩu.';
   }
 
   Future<void> copyResourceCatalogValue(String value) async {
     final text = value.trim();
     if (text.isEmpty) return;
     await Clipboard.setData(ClipboardData(text: text));
-    resourceCatalogStatus.value = 'Copied.';
+    resourceCatalogStatus.value = 'Đã sao chép.';
   }
 
   Future<void> openResourceCatalogItem(ResourceCatalogItem item) async {
     if (item.hasUrl) {
       final launched = await _launchUrlText(item.url);
       resourceCatalogStatus.value = launched
-          ? 'Resource opened.'
-          : 'Could not open resource URL.';
+          ? 'Đã mở tài nguyên.'
+          : 'Không mở được URL tài nguyên.';
       return;
     }
 
     if (item.hasLocalPath) {
       final opened = await _openLocalPath(item.localPath);
       resourceCatalogStatus.value = opened
-          ? 'Resource path opened.'
-          : 'Could not open resource path.';
+          ? 'Đã mở đường dẫn tài nguyên.'
+          : 'Không mở được đường dẫn tài nguyên.';
     }
   }
 
@@ -804,30 +822,30 @@ class HomeController extends GetxController {
     if (!entry.hasLoginUrl) return;
     final launched = await _launchUrlText(entry.loginUrl);
     resourceCatalogStatus.value = launched
-        ? 'Login page opened.'
-        : 'Could not open login URL.';
+        ? 'Đã mở trang đăng nhập.'
+        : 'Không mở được URL đăng nhập.';
   }
 
   Future<ResourceCatalogExcelExportResult?> exportResourceCatalogExcel() async {
     final currentProject = project.value;
     if (currentProject == null) {
-      resourceCatalogStatus.value = 'Select a project before export.';
+      resourceCatalogStatus.value = 'Chọn dự án trước khi xuất.';
       return null;
     }
     if (resourceCatalogItems.isEmpty && resourcePasswordEntries.isEmpty) {
-      resourceCatalogStatus.value = 'Add at least one catalog entry.';
+      resourceCatalogStatus.value = 'Thêm ít nhất một mục vào danh mục.';
       return null;
     }
 
     final outputPath = await _pickSaveFilePath(
-      dialogTitle: 'Export resource catalog',
+      dialogTitle: 'Xuất danh mục tài nguyên',
       suggestedName: '${_safeFileName(currentProject.name)}_resources.xlsx',
       extensions: const ['xlsx'],
     );
     if (outputPath == null) return null;
 
     isExportingResourceCatalog.value = true;
-    resourceCatalogStatus.value = 'Exporting resource catalog...';
+    resourceCatalogStatus.value = 'Đang xuất danh mục tài nguyên...';
     try {
       final result = await resourceCatalogExcel.exportCatalog(
         outputPath: _withExtension(outputPath, '.xlsx'),
@@ -835,10 +853,10 @@ class HomeController extends GetxController {
         passwords: resourcePasswordEntries.toList(),
       );
       resourceCatalogStatus.value =
-          'Exported ${result.resourceCount} resource(s) and ${result.passwordCount} password entry(s).';
+          'Đã xuất ${result.resourceCount} tài nguyên và ${result.passwordCount} mật khẩu.';
       return result;
     } catch (error) {
-      resourceCatalogStatus.value = 'Resource catalog export failed: $error';
+      resourceCatalogStatus.value = 'Xuất danh mục tài nguyên lỗi: $error';
       return null;
     } finally {
       isExportingResourceCatalog.value = false;
@@ -848,18 +866,18 @@ class HomeController extends GetxController {
   Future<ResourceCatalogExcelImportResult?> importResourceCatalogExcel() async {
     final currentProject = project.value;
     if (currentProject == null) {
-      resourceCatalogStatus.value = 'Select a project before import.';
+      resourceCatalogStatus.value = 'Chọn dự án trước khi nhập.';
       return null;
     }
 
     final inputPath = await _pickFilePath(
-      dialogTitle: 'Import resource catalog',
+      dialogTitle: 'Nhập danh mục tài nguyên',
       extensions: const ['xlsx'],
     );
     if (inputPath == null) return null;
 
     isImportingResourceCatalog.value = true;
-    resourceCatalogStatus.value = 'Importing resource catalog...';
+    resourceCatalogStatus.value = 'Đang nhập danh mục tài nguyên...';
     try {
       final previousSecrets = resourcePasswordEntries
           .map((entry) => entry.secretKey)
@@ -880,10 +898,10 @@ class HomeController extends GetxController {
       revealedResourcePasswords.clear();
       await _saveResourceCatalogForProject(currentProject.path);
       resourceCatalogStatus.value =
-          'Imported ${result.resourceCount} resource(s) and ${result.passwordCount} password entry(s).';
+          'Đã nhập ${result.resourceCount} tài nguyên và ${result.passwordCount} mật khẩu.';
       return result;
     } catch (error) {
-      resourceCatalogStatus.value = 'Resource catalog import failed: $error';
+      resourceCatalogStatus.value = 'Nhập danh mục tài nguyên lỗi: $error';
       return null;
     } finally {
       isImportingResourceCatalog.value = false;
@@ -892,7 +910,7 @@ class HomeController extends GetxController {
 
   Future<void> pickResourceSourceDirectory() async {
     final selectedPath = await _pickDirectoryPath(
-      dialogTitle: 'Select resource source directory',
+      dialogTitle: 'Chọn thư mục nguồn tài nguyên',
       initialDirectory: effectiveResourceSourcePath.isNotEmpty
           ? effectiveResourceSourcePath
           : _initialDirectory(),
@@ -906,7 +924,7 @@ class HomeController extends GetxController {
 
   Future<void> pickResourceTargetDirectory() async {
     final selectedPath = await _pickDirectoryPath(
-      dialogTitle: 'Select resource export directory',
+      dialogTitle: 'Chọn thư mục xuất tài nguyên',
       initialDirectory: resourceTargetPathController.text.trim().isNotEmpty
           ? resourceTargetPathController.text.trim()
           : Directory.current.parent.path,
@@ -920,13 +938,13 @@ class HomeController extends GetxController {
     if (isScanningResources.value || isExportingResources.value) return;
     final sourcePath = effectiveResourceSourcePath;
     if (sourcePath.isEmpty) {
-      resourceStatus.value = 'Select a source folder before scanning.';
+      resourceStatus.value = 'Chọn thư mục nguồn trước khi quét.';
       return;
     }
 
     _commitActiveResourceSigningCredentialFields();
     isScanningResources.value = true;
-    resourceStatus.value = 'Scanning resources...';
+    resourceStatus.value = 'Đang quét tài nguyên...';
     try {
       final result = await resourceDiscovery.scan(
         sourceRoot: sourcePath,
@@ -957,16 +975,16 @@ class HomeController extends GetxController {
       resourceExcludedPaths.assignAll(result.excludedPaths);
       final count = result.findings.length;
       resourceStatus.value = count == 0
-          ? 'No matching resource files found.'
+          ? 'Không tìm thấy file tài nguyên nào khớp.'
           : '$count resource file(s) found.';
       runner.appendSystemLog(
-        'Resource scan completed: $count file(s), '
-        '${result.excludedPaths.length} excluded path(s).',
+        'Quét tài nguyên xong: $count file, '
+        'bỏ qua ${result.excludedPaths.length} đường dẫn.',
       );
       await _saveResourceCollectionState();
     } catch (error) {
-      resourceStatus.value = 'Resource scan failed: $error';
-      runner.appendSystemLog('Resource scan failed: $error');
+      resourceStatus.value = 'Quét tài nguyên lỗi: $error';
+      runner.appendSystemLog('Quét tài nguyên lỗi: $error');
     } finally {
       isScanningResources.value = false;
     }
@@ -1038,13 +1056,13 @@ class HomeController extends GetxController {
     if (isScanningResources.value || isExportingResources.value) return null;
     final sourcePath = effectiveResourceSourcePath;
     if (sourcePath.isEmpty) {
-      resourceStatus.value = 'Select a source folder before export.';
+      resourceStatus.value = 'Chọn thư mục nguồn trước khi xuất.';
       return null;
     }
     _commitActiveResourceSigningCredentialFields();
     final findingsForExport = selectedResourceFindings;
     if (findingsForExport.isEmpty) {
-      resourceStatus.value = 'Select at least one resource file.';
+      resourceStatus.value = 'Chọn ít nhất một file tài nguyên.';
       return null;
     }
     final signingCredentialsForExport = _selectedSigningCredentialsForExport(
@@ -1053,12 +1071,12 @@ class HomeController extends GetxController {
     if (resourceTargetPathController.text.trim().isEmpty) {
       await pickResourceTargetDirectory();
       if (resourceTargetPathController.text.trim().isEmpty) {
-        resourceStatus.value = 'Select an export folder before export.';
+        resourceStatus.value = 'Chọn thư mục xuất trước khi xuất.';
         return null;
       }
     }
     isExportingResources.value = true;
-    resourceStatus.value = 'Exporting resources...';
+    resourceStatus.value = 'Đang xuất tài nguyên...';
     try {
       await _saveResourceCollectionState();
       final result = await resourceExports.export(
@@ -1068,13 +1086,13 @@ class HomeController extends GetxController {
         signingCredentials: signingCredentialsForExport,
       );
       resourceStatus.value =
-          'Exported ${result.fileCount} resource file(s)'
-          '${result.signingCredentialCount > 0 ? ' with ${result.signingCredentialCount} signing credential(s)' : ''}.';
-      runner.appendSystemLog('Resource bundle exported: ${result.archivePath}');
+          'Đã xuất ${result.fileCount} file tài nguyên'
+          '${result.signingCredentialCount > 0 ? ', kèm ${result.signingCredentialCount} thông tin ký' : ''}.';
+      runner.appendSystemLog('Đã xuất gói tài nguyên: ${result.archivePath}');
       return result;
     } catch (error) {
-      resourceStatus.value = 'Resource export failed: $error';
-      runner.appendSystemLog('Resource export failed: $error');
+      resourceStatus.value = 'Xuất tài nguyên lỗi: $error';
+      runner.appendSystemLog('Xuất tài nguyên lỗi: $error');
       return null;
     } finally {
       isExportingResources.value = false;
@@ -1144,7 +1162,7 @@ class HomeController extends GetxController {
 
   Future<void> refreshAllChPlayProjects() async {
     if (runner.isBusy) {
-      runner.appendSystemLog('Wait for the active command before refreshing.');
+      runner.appendSystemLog('Đợi lệnh đang chạy xong rồi làm mới.');
       return;
     }
 
@@ -1160,7 +1178,7 @@ class HomeController extends GetxController {
 
   Future<void> refreshAllStoreProjects() async {
     if (runner.isBusy) {
-      runner.appendSystemLog('Wait for the active command before refreshing.');
+      runner.appendSystemLog('Đợi lệnh đang chạy xong rồi làm mới.');
       return;
     }
 
@@ -1181,7 +1199,7 @@ class HomeController extends GetxController {
 
   Future<void> refreshChPlayProject(ChPlayProject project) async {
     if (runner.isBusy) {
-      runner.appendSystemLog('Wait for the active command before refreshing.');
+      runner.appendSystemLog('Đợi lệnh đang chạy xong rồi làm mới.');
       return;
     }
 
@@ -1190,7 +1208,7 @@ class HomeController extends GetxController {
 
   Future<void> refreshAppStoreProject(AppStoreProject project) async {
     if (runner.isBusy) {
-      runner.appendSystemLog('Wait for the active command before refreshing.');
+      runner.appendSystemLog('Đợi lệnh đang chạy xong rồi làm mới.');
       return;
     }
 
@@ -1245,7 +1263,7 @@ class HomeController extends GetxController {
     if (isCheckingCiCdDependencies.value) return;
 
     isCheckingCiCdDependencies.value = true;
-    cicdSetupStatus.value = 'Checking CI/CD dependencies...';
+    cicdSetupStatus.value = 'Đang kiểm tra dependency CI/CD...';
     try {
       final snapshot = await cicdDoctor.checkAll(
         projectPath: project.value?.path,
@@ -1256,11 +1274,11 @@ class HomeController extends GetxController {
           .where((check) => check.isActionable)
           .length;
       cicdSetupStatus.value = actionableCount == 0
-          ? 'All checked dependencies look ready.'
-          : '$actionableCount item(s) need attention.';
+          ? 'Mọi dependency đã kiểm tra đều sẵn sàng.'
+          : '$actionableCount mục cần xử lý.';
     } catch (error) {
-      cicdSetupStatus.value = 'Doctor failed: $error';
-      runner.appendSystemLog('CI/CD doctor failed: $error');
+      cicdSetupStatus.value = 'Doctor lỗi: $error';
+      runner.appendSystemLog('CI/CD doctor lỗi: $error');
     } finally {
       isCheckingCiCdDependencies.value = false;
     }
@@ -1293,28 +1311,27 @@ class HomeController extends GetxController {
 
   Future<int> runCiCdInstallStep(CiCdInstallStep step) async {
     if (runner.isBusy || isRunningCiCdInstallStep.value) {
-      runner.appendSystemLog('Wait for the active command before setup.');
+      runner.appendSystemLog('Đợi lệnh đang chạy xong rồi thiết lập.');
       return -1;
     }
 
     isRunningCiCdInstallStep.value = true;
-    cicdSetupStatus.value = 'Running ${step.label}...';
+    cicdSetupStatus.value = 'Đang chạy ${step.label}...';
     try {
       final exitCode = await cicdInstaller.runInstallStep(
         step: step,
         runner: runner,
       );
       if (exitCode == 0) {
-        cicdSetupStatus.value = 'Finished ${step.label}. Rechecking...';
+        cicdSetupStatus.value = 'Xong ${step.label}. Đang kiểm tra lại...';
         await checkCiCdDependencies();
       } else {
-        cicdSetupStatus.value =
-            '${step.label} failed with exit code $exitCode.';
+        cicdSetupStatus.value = '${step.label} lỗi, exit code $exitCode.';
       }
       return exitCode;
     } catch (error) {
       cicdSetupStatus.value = '${step.label} failed: $error';
-      runner.appendSystemLog('CI/CD setup step failed: $error');
+      runner.appendSystemLog('Bước thiết lập CI/CD lỗi: $error');
       return -1;
     } finally {
       isRunningCiCdInstallStep.value = false;
@@ -1324,7 +1341,7 @@ class HomeController extends GetxController {
   Future<void> openCiCdInstallFallback(CiCdInstallStep step) async {
     final fallbackUrl = step.fallbackUrl.trim();
     if (fallbackUrl.isEmpty) {
-      cicdSetupStatus.value = 'Manual step: ${step.description}';
+      cicdSetupStatus.value = 'Bước thủ công: ${step.description}';
       return;
     }
 
@@ -1333,8 +1350,8 @@ class HomeController extends GetxController {
       mode: LaunchMode.externalApplication,
     );
     cicdSetupStatus.value = opened
-        ? 'Opened guide for ${step.label}.'
-        : 'Could not open guide for ${step.label}.';
+        ? 'Đã mở hướng dẫn cho ${step.label}.'
+        : 'Không mở được hướng dẫn cho ${step.label}.';
   }
 
   void _refreshCiCdInstallPlan() {
@@ -1369,7 +1386,7 @@ class HomeController extends GetxController {
   Future<void> removeRecentProject(String path) async {
     await store.removeRecentProjectPath(path);
     recentPaths.assignAll(_initialProjectPaths());
-    runner.appendSystemLog('Removed ${p.basename(path)} from recent projects.');
+    runner.appendSystemLog('Đã bỏ ${p.basename(path)} khỏi danh sách gần đây.');
   }
 
   Future<void> runScript(ReleaseScript script) async {
@@ -1402,13 +1419,13 @@ class HomeController extends GetxController {
     final currentProject = project.value;
     if (currentProject == null) {
       throw const ReleaseWorkflowException(
-        'Select a project before preparing a release.',
+        'Chọn dự án trước khi chuẩn bị release.',
       );
     }
     final managedProject = _chPlayProjectByPath(currentProject.path);
     if (managedProject == null) {
       throw const ReleaseWorkflowException(
-        'Add this project under Store Versions > CH Play before release.',
+        'Thêm dự án này ở Bản trên store > CH Play trước khi release.',
       );
     }
     final credentials = await readChPlayCredentials(managedProject.id);
@@ -1438,6 +1455,9 @@ class HomeController extends GetxController {
     if (currentProject != null) {
       await _refreshProjectSnapshot(currentProject.path);
     }
+    await _shutdownAfterSuccessfulDeploy(
+      result.isCompleted && !result.hasWarning,
+    );
     return result;
   }
 
@@ -1447,15 +1467,21 @@ class HomeController extends GetxController {
     if (currentProject != null) {
       await _refreshProjectSnapshot(currentProject.path);
     }
+    await _shutdownAfterSuccessfulDeploy(
+      result.isCompleted && !result.hasWarning,
+    );
     return result;
   }
 
-  Future<void> cancelAutomatedRelease() => releaseWorkflow.cancel();
+  Future<void> cancelAutomatedRelease() {
+    shutdownAfterDeploy.value = false;
+    return releaseWorkflow.cancel();
+  }
 
   Future<void> openReleaseArtifact(String path) async {
     final file = File(path);
     if (!file.existsSync()) {
-      runner.appendSystemLog('Release artifact no longer exists: $path');
+      runner.appendSystemLog('Artifact của bản release không còn: $path');
       return;
     }
     try {
@@ -1468,7 +1494,7 @@ class HomeController extends GetxController {
       }
     } on ProcessException catch (error) {
       runner.appendSystemLog(
-        'Could not open release artifact: ${error.message}',
+        'Không mở được artifact release: ${error.message}',
       );
     }
   }
@@ -1498,7 +1524,7 @@ class HomeController extends GetxController {
   }) async {
     final currentProject = project.value;
     if (currentProject == null) {
-      runner.appendSystemLog('Select a project before pulling from remote.');
+      runner.appendSystemLog('Chọn dự án trước khi pull từ remote.');
       return;
     }
     if (runner.isBusy) return;
@@ -1506,7 +1532,7 @@ class HomeController extends GetxController {
     final remoteName = remote.trim();
     final branchName = branch.trim();
     if (remoteName.isEmpty || branchName.isEmpty) {
-      runner.appendSystemLog('Remote and branch are required for pull.');
+      runner.appendSystemLog('Phải có remote và branch để pull.');
       return;
     }
 
@@ -1525,7 +1551,7 @@ class HomeController extends GetxController {
   Future<void> checkFastlaneVersionAndUpdate() async {
     final currentProject = project.value;
     if (currentProject == null) {
-      runner.appendSystemLog('Select a project before updating Fastlane.');
+      runner.appendSystemLog('Chọn dự án trước khi cập nhật Fastlane.');
       return;
     }
     if (runner.isBusy) return;
@@ -1534,7 +1560,7 @@ class HomeController extends GetxController {
         ? currentProject.androidDirectory.path
         : currentProject.path;
 
-    runner.beginWorkflow(totalSteps: 2, label: 'Update Fastlane');
+    runner.beginWorkflow(totalSteps: 2, label: 'Cập nhật Fastlane');
     var succeeded = false;
     try {
       final versionExitCode = await runner.runCommand(
@@ -1587,7 +1613,7 @@ class HomeController extends GetxController {
   }) async {
     final currentProject = project.value;
     if (currentProject == null) {
-      runner.appendSystemLog('Select a project before cloning Android CI/CD.');
+      runner.appendSystemLog('Chọn dự án trước khi clone Android CI/CD.');
       return null;
     }
     if (runner.isBusy) return null;
@@ -1602,7 +1628,7 @@ class HomeController extends GetxController {
       runner.appendSystemLog(error.message);
       return null;
     } catch (error) {
-      runner.appendSystemLog('Failed to prepare Android CI/CD clone: $error');
+      runner.appendSystemLog('Chuẩn bị clone Android CI/CD lỗi: $error');
       return null;
     }
   }
@@ -1613,29 +1639,29 @@ class HomeController extends GetxController {
     try {
       runner.clearLog();
       runner.appendSystemLog(
-        'Cloning Android CI/CD into ${preview.projectPath}',
+        'Đang clone Android CI/CD vào ${preview.projectPath}',
       );
       final result = await androidCicdCloner.apply(preview);
 
       runner.appendSystemLog(
-        'Android CI/CD clone completed: ${result.writtenFiles.length} written, '
-        '${result.skippedFiles.length} skipped.',
+        'Clone Android CI/CD xong: ghi ${result.writtenFiles.length} file, '
+        'bỏ qua ${result.skippedFiles.length}.',
       );
       for (final file in result.writtenFiles) {
-        runner.appendSystemLog('Wrote $file');
+        runner.appendSystemLog('Đã ghi $file');
       }
       for (final file in result.skippedFiles) {
-        runner.appendSystemLog('Skipped $file');
+        runner.appendSystemLog('Bỏ qua $file');
       }
       for (final warning in preview.warnings) {
-        runner.appendSystemLog('Warning: $warning');
+        runner.appendSystemLog('Cảnh báo: $warning');
       }
 
       await _refreshProjectSnapshot(preview.projectPath);
     } on FileSystemException catch (error) {
       runner.appendSystemLog(error.message);
     } catch (error) {
-      runner.appendSystemLog('Failed to clone Android CI/CD: $error');
+      runner.appendSystemLog('Clone Android CI/CD lỗi: $error');
     }
   }
 
@@ -1649,15 +1675,16 @@ class HomeController extends GetxController {
 
     final targetPath = projectPath ?? project.value?.path;
     if (targetPath == null || targetPath.trim().isEmpty) {
-      runner.appendSystemLog('Select a project before generating Android JKS.');
+      runner.appendSystemLog('Chọn dự án trước khi tạo Android JKS.');
       return null;
     }
 
     isGeneratingAndroidKeystore.value = true;
-    runner.status.value = 'Generating Android JKS';
+    runner.runState.value = ReleaseRunnerState.running;
+    runner.status.value = 'Đang tạo Android JKS';
     runner.clearLog();
     runner.appendSystemLog(
-      'Generating Android upload keystore for ${p.basename(targetPath)}...',
+      'Đang tạo Android upload keystore cho ${p.basename(targetPath)}...',
     );
 
     try {
@@ -1667,11 +1694,12 @@ class HomeController extends GetxController {
         storePassword: storePassword,
         forceRecreate: forceRecreate,
       );
-      runner.appendSystemLog('Android upload keystore created.');
+      runner.appendSystemLog('Đã tạo Android upload keystore.');
       runner.appendSystemLog('Keystore: ${result.keystorePath}');
-      runner.appendSystemLog('Updated android/env.properties.');
-      runner.appendSystemLog('Updated android/key.properties.');
-      runner.status.value = 'Completed';
+      runner.appendSystemLog('Đã cập nhật android/env.properties.');
+      runner.appendSystemLog('Đã cập nhật android/key.properties.');
+      runner.runState.value = ReleaseRunnerState.completed;
+      runner.status.value = 'Xong';
 
       final currentProject = project.value;
       if (currentProject != null && p.equals(currentProject.path, targetPath)) {
@@ -1680,11 +1708,13 @@ class HomeController extends GetxController {
       return result;
     } on FileSystemException catch (error) {
       runner.appendSystemLog(error.message);
-      runner.status.value = 'Failed';
+      runner.runState.value = ReleaseRunnerState.failed;
+      runner.status.value = 'Lỗi';
       return null;
     } catch (error) {
-      runner.appendSystemLog('Failed to generate Android JKS: $error');
-      runner.status.value = 'Failed';
+      runner.appendSystemLog('Tạo Android JKS lỗi: $error');
+      runner.runState.value = ReleaseRunnerState.failed;
+      runner.status.value = 'Lỗi';
       return null;
     } finally {
       isGeneratingAndroidKeystore.value = false;
@@ -1727,23 +1757,23 @@ class HomeController extends GetxController {
   Future<void> saveGeminiApiKey() async {
     final apiKey = geminiApiKeyController.text.trim();
     if (apiKey.isEmpty) {
-      releaseNoteAiStatus.value = 'Gemini API key is required.';
+      releaseNoteAiStatus.value = 'Phải có Gemini API key.';
       return;
     }
 
     try {
       await geminiEnv.saveApiKey(apiKey);
-      releaseNoteAiStatus.value = 'Gemini API key saved to .env.';
+      releaseNoteAiStatus.value = 'Đã lưu Gemini API key vào .env.';
     } catch (error) {
-      releaseNoteAiStatus.value = 'Failed to save Gemini API key: $error';
-      runner.appendSystemLog('Failed to save Gemini API key: $error');
+      releaseNoteAiStatus.value = 'Lưu Gemini API key lỗi: $error';
+      runner.appendSystemLog('Lưu Gemini API key lỗi: $error');
     }
   }
 
   Future<void> generateReleaseNotes() async {
     final currentProject = project.value;
     if (currentProject == null) {
-      releaseNoteAiStatus.value = 'Select a project before generating notes.';
+      releaseNoteAiStatus.value = 'Chọn dự án trước khi tạo note.';
       return;
     }
     if (runner.isBusy ||
@@ -1754,13 +1784,13 @@ class HomeController extends GetxController {
 
     final apiKey = geminiApiKeyController.text.trim();
     if (apiKey.isEmpty) {
-      releaseNoteAiStatus.value = 'Gemini API key is required.';
+      releaseNoteAiStatus.value = 'Phải có Gemini API key.';
       return;
     }
 
     isGeneratingReleaseNotes.value = true;
     _clearGeneratedReleaseContext();
-    releaseNoteAiStatus.value = 'Generating release notes from git history...';
+    releaseNoteAiStatus.value = 'Đang tạo release note từ lịch sử git...';
 
     try {
       await geminiEnv.saveApiKey(apiKey);
@@ -1782,16 +1812,16 @@ class HomeController extends GetxController {
           ? ' using fallback range'
           : '';
       releaseNoteAiStatus.value = noteLength > _playReleaseNoteCharacterLimit
-          ? 'Generated $noteLength characters$fallbackLabel. Review before upload.'
-          : 'Generated from ${result.gitRangeLabel} (${result.commitCount} commits).';
+          ? 'Đã tạo $noteLength ký tự$fallbackLabel. Xem lại trước khi upload.'
+          : 'Tạo từ ${result.gitRangeLabel} (${result.commitCount} commit).';
       runner.appendSystemLog(
-        'Generated release notes from ${result.gitRangeLabel} '
-        '(${result.commitCount} commits).',
+        'Đã tạo release note từ ${result.gitRangeLabel} '
+        '(${result.commitCount} commit).',
       );
       if (noteLength > _playReleaseNoteCharacterLimit) {
         runner.appendSystemLog(
-          'Release notes are $noteLength characters; Google Play allows '
-          '$_playReleaseNoteCharacterLimit characters per language.',
+          'Release note dài $noteLength ký tự; Google Play chỉ cho '
+          '$_playReleaseNoteCharacterLimit ký tự mỗi ngôn ngữ.',
         );
       }
       if (result.version == null) {
@@ -1807,8 +1837,8 @@ class HomeController extends GetxController {
         );
       }
     } catch (error) {
-      releaseNoteAiStatus.value = 'Release note generation failed: $error';
-      runner.appendSystemLog('Release note generation failed: $error');
+      releaseNoteAiStatus.value = 'Tạo release note lỗi: $error';
+      runner.appendSystemLog('Tạo release note lỗi: $error');
     } finally {
       isGeneratingReleaseNotes.value = false;
     }
@@ -1817,7 +1847,7 @@ class HomeController extends GetxController {
   Future<void> saveTelegramConfiguration() async {
     final saved = await _persistTelegramConfiguration(requireComplete: false);
     if (saved) {
-      telegramReleaseStatus.value = 'Telegram settings saved.';
+      telegramReleaseStatus.value = 'Đã lưu cài đặt Telegram.';
     }
   }
 
@@ -1828,24 +1858,24 @@ class HomeController extends GetxController {
     );
     if (saved) {
       telegramReleaseStatus.value = enabled
-          ? 'Telegram auto send enabled.'
-          : 'Telegram auto send disabled.';
+          ? 'Đã bật tự động gửi Telegram.'
+          : 'Đã tắt tự động gửi Telegram.';
     }
   }
 
   Future<void> testTelegramConfiguration() async {
     if (isSendingTelegram.value || isGeneratingReleaseNotes.value) return;
     isSendingTelegram.value = true;
-    telegramReleaseStatus.value = 'Sending Telegram test message...';
+    telegramReleaseStatus.value = 'Đang gửi tin nhắn thử Telegram...';
     try {
       final saved = await _persistTelegramConfiguration(requireComplete: true);
       if (!saved) return;
       await telegramReleaseNotifications.sendTestMessage();
-      telegramReleaseStatus.value = 'Telegram test message sent.';
-      runner.appendSystemLog('Telegram test message sent.');
+      telegramReleaseStatus.value = 'Đã gửi tin nhắn thử Telegram.';
+      runner.appendSystemLog('Đã gửi tin nhắn thử Telegram.');
     } catch (error) {
-      telegramReleaseStatus.value = 'Telegram test failed: $error';
-      runner.appendSystemLog('Telegram test failed: $error');
+      telegramReleaseStatus.value = 'Thử Telegram lỗi: $error';
+      runner.appendSystemLog('Thử Telegram lỗi: $error');
     } finally {
       isSendingTelegram.value = false;
     }
@@ -1859,13 +1889,13 @@ class HomeController extends GetxController {
         currentProject == null ||
         !p.equals(context.projectPath, currentProject.path)) {
       telegramReleaseStatus.value =
-          'Generate release notes for the selected project before sending.';
+          'Tạo release note cho dự án đang chọn trước khi gửi.';
       return;
     }
 
     final notes = releaseNotesController.text.trim();
     if (notes.isEmpty) {
-      telegramReleaseStatus.value = 'Release notes are required.';
+      telegramReleaseStatus.value = 'Phải có release note.';
       return;
     }
 
@@ -1884,7 +1914,7 @@ class HomeController extends GetxController {
     final currentProject = project.value;
     if (currentProject == null) {
       installerDeliveryStatus.value =
-          'Select the App Release Center project before building an installer.';
+          'Chọn dự án App Management Center trước khi build bộ cài.';
       return;
     }
 
@@ -1897,27 +1927,25 @@ class HomeController extends GetxController {
     }
 
     isBuildingInstaller.value = true;
-    installerDeliveryStatus.value = 'Building Windows installer...';
+    installerDeliveryStatus.value = 'Đang build bộ cài Windows...';
     var workflowStarted = false;
     try {
-      runner.beginWorkflow(
-        totalSteps: 3,
-        label: 'Build and send Windows installer',
-      );
+      runner.beginWorkflow(totalSteps: 3, label: 'Build và gửi bộ cài Windows');
       workflowStarted = true;
 
       final artifact = await releaseInstallerArtifacts.build(
         project: currentProject,
       );
-      runner.appendSystemLog('Windows installer ready: ${artifact.file.path}');
+      runner.appendSystemLog(
+        'Bộ cài Windows đã sẵn sàng: ${artifact.file.path}',
+      );
 
       await _deliverReleaseInstaller(artifact);
-      installerDeliveryStatus.value = 'Windows installer sent to Telegram.';
+      installerDeliveryStatus.value = 'Đã gửi bộ cài Windows qua Telegram.';
       runner.finishWorkflow(success: true);
     } catch (error) {
-      installerDeliveryStatus.value =
-          'Windows installer workflow failed: $error';
-      runner.appendSystemLog('Windows installer workflow failed: $error');
+      installerDeliveryStatus.value = 'Luồng bộ cài Windows lỗi: $error';
+      runner.appendSystemLog('Luồng bộ cài Windows lỗi: $error');
       if (workflowStarted) {
         runner.finishWorkflow(success: false);
       }
@@ -1935,8 +1963,8 @@ class HomeController extends GetxController {
     if (isSendingTelegram.value) return false;
     isSendingTelegram.value = true;
     telegramReleaseStatus.value = automatic
-        ? 'Sending generated release notes to Telegram...'
-        : 'Sending release notes to Telegram...';
+        ? 'Đang gửi release note vừa tạo qua Telegram...'
+        : 'Đang gửi release note qua Telegram...';
     try {
       final saved = await _persistTelegramConfiguration(requireComplete: true);
       if (!saved) return false;
@@ -1945,16 +1973,16 @@ class HomeController extends GetxController {
         version: context.version,
         releaseNotes: releaseNotes,
       );
-      telegramReleaseStatus.value = 'Release notes sent to Telegram.';
+      telegramReleaseStatus.value = 'Đã gửi release note qua Telegram.';
       runner.appendSystemLog(
-        'Release notes sent to Telegram for ${context.appDisplayName} '
+        'Đã gửi release note qua Telegram cho ${context.appDisplayName} '
         '${context.version ?? 'không xác định'}.',
       );
       return true;
     } catch (error) {
       telegramReleaseStatus.value =
-          'Release notes generated, but Telegram send failed: $error';
-      runner.appendSystemLog('Telegram release note send failed: $error');
+          'Đã tạo release note nhưng gửi Telegram lỗi: $error';
+      runner.appendSystemLog('Gửi release note qua Telegram lỗi: $error');
       return false;
     } finally {
       isSendingTelegram.value = false;
@@ -1970,18 +1998,20 @@ class HomeController extends GetxController {
     final targetAutoSend =
         autoSendEnabled ?? telegramReleaseSettings.value.autoSendEnabled;
     if ((requireComplete || targetAutoSend) && token.isEmpty) {
-      telegramReleaseStatus.value = 'Telegram bot token is required.';
+      telegramReleaseStatus.value = 'Phải có Telegram bot token.';
       return false;
     }
     if ((requireComplete || targetAutoSend) && chatId.isEmpty) {
-      telegramReleaseStatus.value = 'Telegram chat ID is required.';
+      telegramReleaseStatus.value = 'Phải có Telegram chat ID.';
       return false;
     }
 
     try {
       await telegramReleaseNotifications.saveBotToken(token);
+      // copyWith keeps settings owned elsewhere, such as the Bot API server
+      // the AAB checker moved the bot to.
       await telegramReleaseNotifications.saveSettings(
-        TelegramReleaseSettings(
+        telegramReleaseNotifications.settings.copyWith(
           autoSendEnabled: targetAutoSend,
           chatId: chatId,
         ),
@@ -1989,8 +2019,8 @@ class HomeController extends GetxController {
       _syncTelegramStateFromStore();
       return true;
     } catch (error) {
-      telegramReleaseStatus.value = 'Failed to save Telegram settings: $error';
-      runner.appendSystemLog('Failed to save Telegram settings: $error');
+      telegramReleaseStatus.value = 'Lưu cài đặt Telegram lỗi: $error';
+      runner.appendSystemLog('Lưu cài đặt Telegram lỗi: $error');
       return false;
     }
   }
@@ -2000,18 +2030,18 @@ class HomeController extends GetxController {
       requireClientId: false,
     );
     if (saved) {
-      googleDriveReleaseStatus.value = 'Google Drive settings saved.';
+      googleDriveReleaseStatus.value = 'Đã lưu cài đặt Google Drive.';
     }
   }
 
   Future<void> connectGoogleDrive() async {
     if (_isGoogleDriveBusy) return;
     isConnectingGoogleDrive.value = true;
-    googleDriveReleaseStatus.value = 'Opening Google Drive authorization...';
+    googleDriveReleaseStatus.value = 'Đang mở trang cấp quyền Google Drive...';
     try {
       final clientId = googleDriveOAuthClientIdController.text.trim();
       if (clientId.isEmpty) {
-        googleDriveReleaseStatus.value = 'Google OAuth Client ID is required.';
+        googleDriveReleaseStatus.value = 'Phải có Google OAuth Client ID.';
         return;
       }
 
@@ -2020,11 +2050,11 @@ class HomeController extends GetxController {
         oauthClientSecret: googleDriveOAuthClientSecretController.text,
       );
       await _loadGoogleDriveReleaseState();
-      googleDriveReleaseStatus.value = 'Google Drive connected.';
-      runner.appendSystemLog('Google Drive connected for APK fallback.');
+      googleDriveReleaseStatus.value = 'Đã kết nối Google Drive.';
+      runner.appendSystemLog('Đã kết nối Google Drive để dự phòng gửi APK.');
     } catch (error) {
-      googleDriveReleaseStatus.value = 'Google Drive connect failed: $error';
-      runner.appendSystemLog('Google Drive connect failed: $error');
+      googleDriveReleaseStatus.value = 'Kết nối Google Drive lỗi: $error';
+      runner.appendSystemLog('Kết nối Google Drive lỗi: $error');
     } finally {
       isConnectingGoogleDrive.value = false;
     }
@@ -2036,11 +2066,11 @@ class HomeController extends GetxController {
     try {
       await googleDriveReleaseUploads.disconnect();
       await _loadGoogleDriveReleaseState();
-      googleDriveReleaseStatus.value = 'Google Drive disconnected.';
-      runner.appendSystemLog('Google Drive disconnected.');
+      googleDriveReleaseStatus.value = 'Đã ngắt kết nối Google Drive.';
+      runner.appendSystemLog('Đã ngắt kết nối Google Drive.');
     } catch (error) {
-      googleDriveReleaseStatus.value = 'Google Drive disconnect failed: $error';
-      runner.appendSystemLog('Google Drive disconnect failed: $error');
+      googleDriveReleaseStatus.value = 'Ngắt kết nối Google Drive lỗi: $error';
+      runner.appendSystemLog('Ngắt kết nối Google Drive lỗi: $error');
     } finally {
       isConnectingGoogleDrive.value = false;
     }
@@ -2049,7 +2079,8 @@ class HomeController extends GetxController {
   Future<void> testGoogleDriveConnection() async {
     if (_isGoogleDriveBusy) return;
     isTestingGoogleDrive.value = true;
-    googleDriveReleaseStatus.value = 'Testing Google Drive upload folder...';
+    googleDriveReleaseStatus.value =
+        'Đang thử thư mục upload trên Google Drive...';
     try {
       final saved = await _persistGoogleDriveConfiguration(
         requireClientId: true,
@@ -2060,11 +2091,13 @@ class HomeController extends GetxController {
       final folder = await googleDriveReleaseUploads.testConnection();
       await _loadGoogleDriveReleaseState();
       googleDriveReleaseStatus.value =
-          'Google Drive ready: ${folder.name.isEmpty ? folder.id : folder.name}.';
-      runner.appendSystemLog('Google Drive APK folder ready: ${folder.id}');
+          'Google Drive sẵn sàng: ${folder.name.isEmpty ? folder.id : folder.name}.';
+      runner.appendSystemLog(
+        'Thư mục APK trên Google Drive sẵn sàng: ${folder.id}',
+      );
     } catch (error) {
-      googleDriveReleaseStatus.value = 'Google Drive test failed: $error';
-      runner.appendSystemLog('Google Drive test failed: $error');
+      googleDriveReleaseStatus.value = 'Thử Google Drive lỗi: $error';
+      runner.appendSystemLog('Thử Google Drive lỗi: $error');
     } finally {
       isTestingGoogleDrive.value = false;
     }
@@ -2076,13 +2109,13 @@ class HomeController extends GetxController {
     final currentProject = project.value;
     if (currentProject == null) {
       googleDriveReleaseStatus.value =
-          'Select a project before uploading an APK to Google Drive.';
+          'Chọn dự án trước khi upload APK lên Google Drive.';
       return;
     }
 
     isUploadingGoogleDriveApk.value = true;
     googleDriveReleaseStatus.value =
-        'Preparing release APK for Google Drive...';
+        'Đang chuẩn bị APK release cho Google Drive...';
     var workflowStarted = false;
     try {
       final saved = await _persistGoogleDriveConfiguration(
@@ -2102,8 +2135,8 @@ class HomeController extends GetxController {
       runner.beginWorkflow(
         totalSteps: (needsBuild ? 2 : 1) + (sendDriveLinkToTelegram ? 1 : 0),
         label: needsBuild
-            ? 'Build and upload APK to Drive'
-            : 'Upload APK to Drive',
+            ? 'Build và upload APK lên Drive'
+            : 'Upload APK lên Drive',
       );
       workflowStarted = true;
 
@@ -2114,11 +2147,9 @@ class HomeController extends GetxController {
             appDisplayName: appDisplayName,
           );
       if (existingArtifact == null) {
-        runner.appendSystemLog('Release APK built: ${artifact.file.path}');
+        runner.appendSystemLog('Đã build APK release: ${artifact.file.path}');
       } else {
-        runner.appendSystemLog(
-          'Existing release APK found: ${artifact.file.path}',
-        );
+        runner.appendSystemLog('Đã có sẵn APK release: ${artifact.file.path}');
       }
 
       final upload = await _uploadReleaseApkToGoogleDrive(artifact);
@@ -2132,9 +2163,8 @@ class HomeController extends GetxController {
       }
       runner.finishWorkflow(success: true);
     } catch (error) {
-      googleDriveReleaseStatus.value =
-          'Google Drive APK workflow failed: $error';
-      runner.appendSystemLog('Google Drive APK workflow failed: $error');
+      googleDriveReleaseStatus.value = 'Luồng APK qua Google Drive lỗi: $error';
+      runner.appendSystemLog('Luồng APK qua Google Drive lỗi: $error');
       if (workflowStarted) {
         runner.finishWorkflow(success: false);
       }
@@ -2162,8 +2192,8 @@ class HomeController extends GetxController {
     );
     if (saved) {
       googleDriveReleaseStatus.value = enabled
-          ? 'Google Drive APK fallback enabled.'
-          : 'Google Drive APK fallback disabled.';
+          ? 'Đã bật dự phòng gửi APK qua Google Drive.'
+          : 'Đã tắt dự phòng gửi APK qua Google Drive.';
     }
   }
 
@@ -2185,8 +2215,8 @@ class HomeController extends GetxController {
     );
     if (saved) {
       googleDriveReleaseStatus.value = enabled
-          ? 'Drive APK link auto-send enabled.'
-          : 'Drive APK link auto-send disabled.';
+          ? 'Đã bật tự động gửi link APK trên Drive.'
+          : 'Đã tắt tự động gửi link APK trên Drive.';
     }
   }
 
@@ -2197,8 +2227,8 @@ class HomeController extends GetxController {
     );
     if (saved) {
       googleDriveReleaseStatus.value = enabled
-          ? 'Release notes will be included with Drive links.'
-          : 'Release notes will not be included with Drive links.';
+          ? 'Link Drive sẽ kèm release note.'
+          : 'Link Drive sẽ không kèm release note.';
     }
   }
 
@@ -2226,13 +2256,13 @@ class HomeController extends GetxController {
         requireCredentials || targetFallback || targetSendLink;
 
     if (requiresDrive && clientId.isEmpty) {
-      googleDriveReleaseStatus.value = 'Google OAuth Client ID is required.';
+      googleDriveReleaseStatus.value = 'Phải có Google OAuth Client ID.';
       return false;
     }
     if (requiresTelegram &&
         (!hasTelegramBotToken.value || !hasTelegramChatId.value)) {
       googleDriveReleaseStatus.value =
-          'Telegram bot token and chat ID are required before enabling Drive Telegram delivery.';
+          'Phải có Telegram bot token và chat ID trước khi bật gửi link Drive qua Telegram.';
       return false;
     }
 
@@ -2240,7 +2270,7 @@ class HomeController extends GetxController {
     hasGoogleDriveCredentials.value = hasCredentials;
     if (requiresStoredCredentials && !hasCredentials) {
       googleDriveReleaseStatus.value =
-          'Connect Google Drive before enabling APK link delivery.';
+          'Kết nối Google Drive trước khi bật gửi link APK.';
       return false;
     }
 
@@ -2258,9 +2288,8 @@ class HomeController extends GetxController {
       _syncGoogleDriveStateFromStore();
       return true;
     } catch (error) {
-      googleDriveReleaseStatus.value =
-          'Failed to save Google Drive settings: $error';
-      runner.appendSystemLog('Failed to save Google Drive settings: $error');
+      googleDriveReleaseStatus.value = 'Lưu cài đặt Google Drive lỗi: $error';
+      runner.appendSystemLog('Lưu cài đặt Google Drive lỗi: $error');
       return false;
     }
   }
@@ -2272,7 +2301,7 @@ class HomeController extends GetxController {
     await notifications.saveSettings(updated);
     await notifications.saveApiToken(notificationTokenController.text);
     _syncNotificationStateFromStore();
-    notificationStatus.value = 'Notification settings saved.';
+    notificationStatus.value = 'Đã lưu cài đặt thông báo.';
   }
 
   Future<void> setNotificationsEnabled(bool enabled) async {
@@ -2283,7 +2312,7 @@ class HomeController extends GetxController {
 
   Future<void> refreshLinkedNotificationDevices() async {
     isLoadingNotificationDevices.value = true;
-    notificationStatus.value = 'Loading linked phones...';
+    notificationStatus.value = 'Đang tải danh sách điện thoại...';
     final previousSelectedIds = notificationSettings.value.selectedDeviceIds
         .toSet();
     try {
@@ -2296,13 +2325,13 @@ class HomeController extends GetxController {
           .difference(currentSelectedIds)
           .length;
       notificationStatus.value = devices.isEmpty
-          ? 'No linked phones found.'
+          ? 'Chưa liên kết điện thoại nào.'
           : removedSelectedCount > 0
-          ? 'Linked phones refreshed. Removed $removedSelectedCount unavailable selection(s).'
-          : 'Linked phones refreshed.';
+          ? 'Đã làm mới danh sách điện thoại. Bỏ $removedSelectedCount lựa chọn không còn dùng được.'
+          : 'Đã làm mới danh sách điện thoại.';
     } catch (error) {
       notificationStatus.value = error.toString();
-      runner.appendSystemLog('Notification devices refresh failed: $error');
+      runner.appendSystemLog('Làm mới thiết bị nhận thông báo lỗi: $error');
     } finally {
       isLoadingNotificationDevices.value = false;
     }
@@ -2322,15 +2351,17 @@ class HomeController extends GetxController {
     _syncNotificationStateFromStore();
   }
 
-  Future<NotificationPairingSession?> createPhonePairing() async {
+  Future<NotificationPairingSession?> createPhonePairing({
+    List<String> scopes = const ['run'],
+  }) async {
     await saveNotificationConfiguration();
     try {
-      final session = await notifications.createPairingSession();
-      notificationStatus.value = 'Pairing code ready.';
+      final session = await notifications.createPairingSession(scopes: scopes);
+      notificationStatus.value = 'Mã ghép đã sẵn sàng.';
       return session;
     } catch (error) {
       notificationStatus.value = error.toString();
-      runner.appendSystemLog('Phone pairing failed: $error');
+      runner.appendSystemLog('Ghép điện thoại lỗi: $error');
       return null;
     }
   }
@@ -2344,14 +2375,14 @@ class HomeController extends GetxController {
       if (result.status == NotificationPairingStatus.linked && device != null) {
         await notifications.saveLinkedDevice(device);
         _syncNotificationStateFromStore();
-        notificationStatus.value = 'Linked ${device.label}.';
+        notificationStatus.value = 'Đã liên kết ${device.label}.';
       } else if (result.status == NotificationPairingStatus.expired) {
-        notificationStatus.value = 'Pairing code expired.';
+        notificationStatus.value = 'Mã ghép đã hết hạn.';
       }
       return result;
     } catch (error) {
       notificationStatus.value = error.toString();
-      runner.appendSystemLog('Phone pairing poll failed: $error');
+      runner.appendSystemLog('Kiểm tra trạng thái ghép điện thoại lỗi: $error');
       return null;
     }
   }
@@ -2360,10 +2391,10 @@ class HomeController extends GetxController {
     try {
       await notifications.unlinkDevice(device.id);
       _syncNotificationStateFromStore();
-      notificationStatus.value = 'Unlinked ${device.label}.';
+      notificationStatus.value = 'Đã bỏ liên kết ${device.label}.';
     } catch (error) {
       notificationStatus.value = error.toString();
-      runner.appendSystemLog('Unlink phone failed: $error');
+      runner.appendSystemLog('Bỏ liên kết điện thoại lỗi: $error');
     }
   }
 
@@ -2371,10 +2402,10 @@ class HomeController extends GetxController {
     await saveNotificationConfiguration();
     try {
       await notifications.sendTestNotification();
-      notificationStatus.value = 'Test notification sent.';
+      notificationStatus.value = 'Đã gửi thông báo thử.';
     } catch (error) {
       notificationStatus.value = error.toString();
-      runner.appendSystemLog('Test notification failed: $error');
+      runner.appendSystemLog('Gửi thông báo thử lỗi: $error');
     }
   }
 
@@ -2406,16 +2437,14 @@ class HomeController extends GetxController {
   }) async {
     final currentProject = project.value;
     if (currentProject == null) {
-      runner.appendSystemLog('Select a project before running Flutter tools.');
+      runner.appendSystemLog('Chọn dự án trước khi chạy công cụ Flutter.');
       return;
     }
     if (runner.isBusy) return;
 
     final pubspec = File(p.join(currentProject.path, 'pubspec.yaml'));
     if (!pubspec.existsSync()) {
-      runner.appendSystemLog(
-        'Selected project does not contain a pubspec.yaml file.',
-      );
+      runner.appendSystemLog('Dự án đang chọn không có file pubspec.yaml.');
       return;
     }
 
@@ -2432,6 +2461,7 @@ class HomeController extends GetxController {
   }
 
   Future<void> stopRun() async {
+    shutdownAfterDeploy.value = false;
     await runner.stop();
   }
 
@@ -2455,9 +2485,9 @@ class HomeController extends GetxController {
           version: context.fullVersion,
           releaseNotes: context.releaseNotes,
         );
-        runner.appendSystemLog('Release notes sent to Telegram.');
+        runner.appendSystemLog('Đã gửi release note qua Telegram.');
       } catch (error) {
-        final warning = 'Telegram release note send failed: $error';
+        final warning = 'Gửi release note qua Telegram lỗi: $error';
         warnings.add(warning);
         runner.appendSystemLog(warning);
       }
@@ -2469,9 +2499,10 @@ class HomeController extends GetxController {
         project: context.project,
         appDisplayName: context.appDisplayName,
       );
-      runner.appendSystemLog('Release APK ready: ${artifact.file.path}');
+      runner.appendSystemLog('APK release đã sẵn sàng: ${artifact.file.path}');
     } catch (error) {
-      final warning = 'CH Play release succeeded, but APK build failed: $error';
+      final warning =
+          'Release lên CH Play thành công nhưng build APK lỗi: $error';
       warnings.add(warning);
       runner.appendSystemLog(warning);
       return ReleaseWorkflowPostResult(warning: warnings.join('\n'));
@@ -2486,9 +2517,7 @@ class HomeController extends GetxController {
         warnings.add(telegramReleaseStatus.value);
       }
     } else {
-      runner.appendSystemLog(
-        'Automatic APK delivery is disabled; APK was kept locally.',
-      );
+      runner.appendSystemLog('Tự động gửi APK đang tắt; APK giữ lại ở máy.');
     }
 
     return ReleaseWorkflowPostResult(
@@ -2502,7 +2531,7 @@ class HomeController extends GetxController {
     required String appDisplayName,
   }) async {
     googleDriveReleaseStatus.value =
-        'No release APK found; building a new APK...';
+        'Chưa có APK release; đang build APK mới...';
     return releaseApkArtifacts.buildAndRename(
       project: project,
       appDisplayName: appDisplayName,
@@ -2512,8 +2541,9 @@ class HomeController extends GetxController {
   Future<GoogleDriveReleaseUploadResult> _uploadReleaseApkToGoogleDrive(
     ReleaseApkArtifact artifact,
   ) async {
-    runner.beginWorkflowStep('Upload APK to Drive');
-    googleDriveReleaseStatus.value = 'Uploading release APK to Google Drive...';
+    runner.beginWorkflowStep('Upload APK lên Drive');
+    googleDriveReleaseStatus.value =
+        'Đang upload APK release lên Google Drive...';
     var succeeded = false;
     try {
       final upload = await googleDriveReleaseUploads.uploadReleaseApk(
@@ -2525,9 +2555,9 @@ class HomeController extends GetxController {
       succeeded = true;
       final sizeLabel = formatGoogleDriveReleaseMegabytes(upload.fileSizeBytes);
       googleDriveReleaseStatus.value =
-          'Release APK uploaded to Google Drive: ${upload.downloadUrl}';
+          'Đã upload APK release lên Google Drive: ${upload.downloadUrl}';
       runner.appendSystemLog(
-        'Release APK uploaded to Google Drive '
+        'Đã upload APK release lên Google Drive '
         '(${upload.fileName}, $sizeLabel MB): ${upload.downloadUrl}',
       );
       return upload;
@@ -2543,11 +2573,11 @@ class HomeController extends GetxController {
     bool trackWorkflowStep = false,
   }) async {
     if (trackWorkflowStep) {
-      runner.beginWorkflowStep('Send Drive link to Telegram');
+      runner.beginWorkflowStep('Gửi link Drive qua Telegram');
     }
     isSendingTelegram.value = true;
     telegramReleaseStatus.value =
-        'Sending Google Drive APK link to Telegram...';
+        'Đang gửi link APK trên Google Drive qua Telegram...';
     var succeeded = false;
     try {
       final driveSettings = googleDriveReleaseSettings.value;
@@ -2563,15 +2593,16 @@ class HomeController extends GetxController {
         oversized: oversized,
       );
       succeeded = true;
-      telegramReleaseStatus.value = 'Release APK Drive link sent to Telegram.';
+      telegramReleaseStatus.value =
+          'Đã gửi link Drive của APK release qua Telegram.';
       runner.appendSystemLog(
-        'Release APK Drive link sent to Telegram: ${upload.downloadUrl}',
+        'Đã gửi link Drive của APK release qua Telegram: ${upload.downloadUrl}',
       );
     } catch (error) {
       telegramReleaseStatus.value =
-          'Google Drive APK link Telegram send failed: $error';
+          'Gửi link APK trên Google Drive qua Telegram lỗi: $error';
       runner.appendSystemLog(
-        'Google Drive APK link Telegram send failed: $error',
+        'Gửi link APK trên Google Drive qua Telegram lỗi: $error',
       );
       rethrow;
     } finally {
@@ -2594,7 +2625,7 @@ class HomeController extends GetxController {
     if (playChoice == PlayUploadChoice.ask) {
       final selectedChoice = await _confirmPlayUploadChoice();
       if (selectedChoice == null) {
-        runner.appendSystemLog('Deployment cancelled before CH Play choice.');
+        runner.appendSystemLog('Đã huỷ deploy trước khi chọn CH Play.');
         return;
       }
       playChoice = selectedChoice;
@@ -2656,36 +2687,39 @@ class HomeController extends GetxController {
           project: currentProject,
           appDisplayName: appDisplayName,
         );
-        runner.appendSystemLog('Release APK ready: ${artifact.file.path}');
+        runner.appendSystemLog(
+          'APK release đã sẵn sàng: ${artifact.file.path}',
+        );
 
         if (shouldSendApk) {
           final sent = await _deliverReleaseApk(artifact);
           if (!sent) return;
         } else {
           runner.appendSystemLog(
-            'Telegram auto send is disabled; APK was kept locally.',
+            'Tự động gửi Telegram đang tắt; APK giữ lại ở máy.',
           );
         }
       }
       succeeded = true;
     } catch (error) {
-      runner.appendSystemLog('Post-deploy APK step failed: $error');
+      runner.appendSystemLog('Bước gửi APK sau deploy lỗi: $error');
       if (shouldSendApk) {
         telegramReleaseStatus.value =
-            'CH Play deploy completed, but APK delivery failed: $error';
+            'Deploy CH Play xong nhưng gửi APK lỗi: $error';
       }
     } finally {
       runner.finishWorkflow(success: succeeded);
       await _refreshProjectSnapshot(currentProject.path);
     }
+    await _shutdownAfterSuccessfulDeploy(succeeded);
   }
 
   Future<void> _deliverReleaseInstaller(
     ReleaseInstallerArtifact artifact,
   ) async {
-    runner.beginWorkflowStep('Deliver installer');
+    runner.beginWorkflowStep('Gửi bộ cài');
     isSendingTelegram.value = true;
-    installerDeliveryStatus.value = 'Delivering Windows installer...';
+    installerDeliveryStatus.value = 'Đang gửi bộ cài Windows...';
     var succeeded = false;
     var usingDriveLink = false;
     try {
@@ -2702,21 +2736,21 @@ class HomeController extends GetxController {
         hasGoogleDriveCredentials.value = hasDriveCredentials;
         if (!hasDriveClientId || !hasDriveCredentials) {
           throw TelegramReleaseNotificationException(
-            'Installer is ${formatGoogleDriveReleaseMegabytes(fileSize)} MB; '
-            'connect Google Drive before sending oversized installers. '
-            'Installer kept at ${artifact.file.path}.',
+            'Bộ cài nặng ${formatGoogleDriveReleaseMegabytes(fileSize)} MB; '
+            'hãy kết nối Google Drive trước khi gửi bộ cài quá lớn. '
+            'Bộ cài giữ ở ${artifact.file.path}.',
           );
         }
 
         installerDeliveryStatus.value =
-            'Uploading oversized installer to Google Drive...';
+            'Bộ cài quá lớn, đang upload lên Google Drive...';
         final upload = await googleDriveReleaseUploads.uploadReleaseArtifact(
           file: artifact.file,
           contentType: windowsInstallerContentType,
           appDisplayName: artifact.appDisplayName,
           version: artifact.fullVersion,
           buildDate: artifact.buildDate,
-          missingFileMessage: 'Windows installer file does not exist.',
+          missingFileMessage: 'File bộ cài Windows không tồn tại.',
         );
         await telegramReleaseNotifications.sendReleaseInstallerLink(
           appDisplayName: artifact.appDisplayName,
@@ -2727,33 +2761,33 @@ class HomeController extends GetxController {
           oversized: true,
         );
         installerDeliveryStatus.value =
-            'Windows installer Drive link sent to Telegram.';
+            'Đã gửi link Drive của bộ cài Windows qua Telegram.';
         runner.appendSystemLog(
-          'Windows installer uploaded to Google Drive and link sent to Telegram: '
+          'Đã upload bộ cài Windows lên Google Drive và gửi link qua Telegram: '
           '${upload.downloadUrl}',
         );
       } else {
         installerDeliveryStatus.value =
-            'Uploading Windows installer to Telegram...';
+            'Đang gửi bộ cài Windows qua Telegram...';
         await telegramReleaseNotifications.sendReleaseInstaller(
           installerFile: artifact.file,
           appDisplayName: artifact.appDisplayName,
           version: artifact.fullVersion,
           buildDate: artifact.buildDate,
         );
-        installerDeliveryStatus.value = 'Windows installer sent to Telegram.';
+        installerDeliveryStatus.value = 'Đã gửi bộ cài Windows qua Telegram.';
         runner.appendSystemLog(
-          'Windows installer sent to Telegram: ${artifact.file.path}',
+          'Đã gửi bộ cài Windows qua Telegram: ${artifact.file.path}',
         );
       }
 
       succeeded = true;
     } catch (error) {
       final channel = usingDriveLink
-          ? 'Google Drive installer delivery'
-          : 'Telegram installer upload';
-      installerDeliveryStatus.value = '$channel failed: $error';
-      runner.appendSystemLog('$channel failed: $error');
+          ? 'gửi bộ cài qua Google Drive'
+          : 'gửi bộ cài qua Telegram';
+      installerDeliveryStatus.value = 'Lỗi khi $channel: $error';
+      runner.appendSystemLog('Lỗi khi $channel: $error');
       rethrow;
     } finally {
       runner.completeWorkflowStep(success: succeeded);
@@ -2762,9 +2796,9 @@ class HomeController extends GetxController {
   }
 
   Future<bool> _deliverReleaseApk(ReleaseApkArtifact artifact) async {
-    runner.beginWorkflowStep('Deliver APK');
+    runner.beginWorkflowStep('Gửi APK');
     isSendingTelegram.value = true;
-    telegramReleaseStatus.value = 'Delivering release APK...';
+    telegramReleaseStatus.value = 'Đang gửi APK release...';
     var succeeded = false;
     var usingDriveLink = false;
     try {
@@ -2777,8 +2811,8 @@ class HomeController extends GetxController {
 
       if (usingDriveLink) {
         telegramReleaseStatus.value = oversized
-            ? 'Uploading oversized APK to Google Drive...'
-            : 'Uploading release APK to Google Drive...';
+            ? 'APK quá lớn, đang upload lên Google Drive...'
+            : 'Đang upload APK release lên Google Drive...';
         final upload = await googleDriveReleaseUploads.uploadReleaseApk(
           apkFile: artifact.file,
           appDisplayName: artifact.appDisplayName,
@@ -2791,11 +2825,11 @@ class HomeController extends GetxController {
           oversized: oversized,
         );
         runner.appendSystemLog(
-          'Release APK uploaded to Google Drive and link sent to Telegram: '
+          'Đã upload APK release lên Google Drive và gửi link qua Telegram: '
           '${upload.downloadUrl}',
         );
       } else {
-        telegramReleaseStatus.value = 'Uploading release APK to Telegram...';
+        telegramReleaseStatus.value = 'Đang gửi APK release qua Telegram...';
         await telegramReleaseNotifications.sendReleaseApk(
           apkFile: artifact.file,
           appDisplayName: artifact.appDisplayName,
@@ -2803,21 +2837,21 @@ class HomeController extends GetxController {
           buildDate: artifact.buildDate,
         );
         runner.appendSystemLog(
-          'Release APK sent to Telegram: ${artifact.file.path}',
+          'Đã gửi APK release qua Telegram: ${artifact.file.path}',
         );
       }
       succeeded = true;
       telegramReleaseStatus.value = usingDriveLink
-          ? 'Release APK Drive link sent to Telegram.'
-          : 'Release APK sent to Telegram.';
+          ? 'Đã gửi link Drive của APK release qua Telegram.'
+          : 'Đã gửi APK release qua Telegram.';
       return true;
     } catch (error) {
       final channel = usingDriveLink
-          ? 'Google Drive APK delivery'
-          : 'Telegram APK upload';
+          ? 'gửi APK qua Google Drive'
+          : 'gửi APK qua Telegram';
       telegramReleaseStatus.value =
-          'CH Play deploy completed, but $channel failed: $error';
-      runner.appendSystemLog('$channel failed: $error');
+          'Deploy CH Play xong nhưng lỗi khi $channel: $error';
+      runner.appendSystemLog('Lỗi khi $channel: $error');
       return false;
     } finally {
       runner.completeWorkflowStep(success: succeeded);
@@ -2856,18 +2890,18 @@ class HomeController extends GetxController {
   Future<PlayUploadChoice?> _confirmPlayUploadChoice() {
     return Get.dialog<PlayUploadChoice>(
       AlertDialog(
-        title: const Text('CH Play upload'),
+        title: const Text('Upload CH Play'),
         content: const Text(
-          'Do you want to upload this deployment to CH Play?',
+          'Bạn có muốn upload bản deploy này lên CH Play không?',
         ),
         actions: [
           TextButton(
             onPressed: () => Get.back<PlayUploadChoice>(),
-            child: const Text('Cancel'),
+            child: const Text('Huỷ'),
           ),
           OutlinedButton(
             onPressed: () => Get.back(result: PlayUploadChoice.skip),
-            child: const Text('Skip'),
+            child: const Text('Bỏ qua'),
           ),
           FilledButton(
             onPressed: () => Get.back(result: PlayUploadChoice.upload),
@@ -2885,7 +2919,7 @@ class HomeController extends GetxController {
     if (Platform.isWindows) {
       return file_selector.getDirectoryPath(
         initialDirectory: _existingDirectoryOrNull(initialDirectory),
-        confirmButtonText: 'Select',
+        confirmButtonText: 'Chọn',
       );
     }
 
@@ -2903,7 +2937,7 @@ class HomeController extends GetxController {
       final file = await file_selector.openFile(
         acceptedTypeGroups: [file_selector.XTypeGroup(extensions: extensions)],
         initialDirectory: _existingDirectoryOrNull(_initialDirectory()),
-        confirmButtonText: 'Open',
+        confirmButtonText: 'Mở',
       );
       return file?.path;
     }
@@ -2926,7 +2960,7 @@ class HomeController extends GetxController {
         acceptedTypeGroups: [file_selector.XTypeGroup(extensions: extensions)],
         initialDirectory: _existingDirectoryOrNull(_initialDirectory()),
         suggestedName: suggestedName,
-        confirmButtonText: 'Save',
+        confirmButtonText: 'Lưu',
       );
       return location?.path;
     }
@@ -2990,7 +3024,7 @@ class HomeController extends GetxController {
       geminiApiKeyController.text = apiKey;
       _syncGeminiKeyState();
     } catch (error) {
-      releaseNoteAiStatus.value = 'Failed to load Gemini API key: $error';
+      releaseNoteAiStatus.value = 'Tải Gemini API key lỗi: $error';
     }
   }
 
@@ -3005,7 +3039,7 @@ class HomeController extends GetxController {
           await telegramReleaseNotifications.readBotToken() ?? '';
       _syncTelegramFormState();
     } catch (error) {
-      telegramReleaseStatus.value = 'Failed to load Telegram settings: $error';
+      telegramReleaseStatus.value = 'Tải cài đặt Telegram lỗi: $error';
     }
   }
 
@@ -3035,8 +3069,7 @@ class HomeController extends GetxController {
       hasGoogleDriveOAuthClientSecret.value = await googleDriveReleaseUploads
           .hasOAuthClientSecret();
     } catch (error) {
-      googleDriveReleaseStatus.value =
-          'Failed to load Google Drive settings: $error';
+      googleDriveReleaseStatus.value = 'Tải cài đặt Google Drive lỗi: $error';
     }
   }
 
@@ -3598,7 +3631,7 @@ class HomeController extends GetxController {
           ? keepImageValidation
           : false;
     } catch (error) {
-      projectError.value = 'Failed to refresh project metadata: $error';
+      projectError.value = 'Làm mới thông tin dự án lỗi: $error';
     }
   }
 

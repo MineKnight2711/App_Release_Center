@@ -1,47 +1,99 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:app_release_center/app/data/release_center_connect.dart';
-import 'package:app_release_center/app/models/release_fastlane_lane.dart';
-import 'package:app_release_center/app/models/release_project.dart';
-import 'package:app_release_center/app/models/release_script.dart';
-import 'package:app_release_center/app/models/remote_control.dart';
-import 'package:app_release_center/app/services/notification_credential_store_service.dart';
-import 'package:app_release_center/app/services/project_store_service.dart';
-import 'package:app_release_center/app/services/release_runner_service.dart';
-import 'package:app_release_center/app/services/script_catalog_service.dart';
+import 'package:app_management_center/app/data/release_center_connect.dart';
+import 'package:app_management_center/app/models/release_fastlane_lane.dart';
+import 'package:app_management_center/app/models/release_project.dart';
+import 'package:app_management_center/app/models/release_script.dart';
+import 'package:app_management_center/app/models/remote_control.dart';
+import 'package:app_management_center/app/models/wake_diagnostics.dart';
+import 'package:app_management_center/app/services/app_build_stamp.dart';
+import 'package:app_management_center/app/services/machine_power_service.dart';
+import 'package:app_management_center/app/services/mobile_control_credential_store_service.dart';
+import 'package:app_management_center/app/services/notification_credential_store_service.dart';
+import 'package:app_management_center/app/services/project_store_service.dart';
+import 'package:app_management_center/app/services/release_runner_service.dart';
+import 'package:app_management_center/app/services/remote_unlock_service.dart';
+import 'package:app_management_center/app/services/script_catalog_service.dart';
+import 'package:app_management_center/app/services/wake_diagnostics_service.dart';
+import 'package:app_management_center/app/services/wake_probe_listener.dart';
+import 'package:app_management_center/app/services/windows_auto_start_service.dart';
 import 'package:get/get.dart';
 import 'package:path/path.dart' as p;
 
 class RemoteControlService extends GetxService {
+  static const relayEndpoint =
+      'https://amc-relay.huynhphuocdat2.workers.dev/api';
+  static const _legacyRelayHost =
+      'app-release-center-notifications.onrender.com';
+
   RemoteControlService({
     required ProjectStoreService store,
     required ScriptCatalogService catalog,
     required ReleaseRunnerService runner,
     required ReleaseCenterConnect connect,
     required NotificationCredentialStoreService credentialStore,
+    required MobileControlCredentialStoreService mobileCredentialStore,
+    MachinePowerService? power,
+    WakeDiagnosticsService? wakeDiagnostics,
+    WindowsAutoStartService? autoStart,
+    RemoteUnlockService? remoteUnlock,
+    WakeProbeListener? wakeProbe,
   }) : _store = store,
        _catalog = catalog,
        _runner = runner,
        _connect = connect,
-       _credentialStore = credentialStore;
+       _credentialStore = credentialStore,
+       _mobileCredentialStore = mobileCredentialStore,
+       _power = power ?? MachinePowerService(),
+       _wakeDiagnostics = wakeDiagnostics ?? WakeDiagnosticsService(),
+       _autoStart = autoStart ?? WindowsAutoStartService(),
+       _remoteUnlock = remoteUnlock ?? RemoteUnlockService(),
+       _wakeProbe = wakeProbe ?? WakeProbeListener();
 
   final ProjectStoreService _store;
   final ScriptCatalogService _catalog;
   final ReleaseRunnerService _runner;
   final ReleaseCenterConnect _connect;
   final NotificationCredentialStoreService _credentialStore;
+  final MobileControlCredentialStoreService _mobileCredentialStore;
+  final MachinePowerService _power;
+  final WakeDiagnosticsService _wakeDiagnostics;
+  final WindowsAutoStartService _autoStart;
+  final RemoteUnlockService _remoteUnlock;
+  final WakeProbeListener _wakeProbe;
 
   final settings = const RemoteControlSettings().obs;
   final mobileSettings = const MobileControlSettings().obs;
-  final agentStatus = 'Remote control idle'.obs;
+  final agentStatus = 'Điều khiển từ xa đang chờ'.obs;
   final desktopState = Rxn<RemoteDesktopState>();
   final activeMobileCommand = Rxn<RemoteCommand>();
   final mobileStatus = ''.obs;
   final isMobileBusy = false.obs;
 
+  /// A shutdown or restart the machine is counting down to, so the desktop can
+  /// offer a cancel button to whoever is sitting in front of it.
+  final pendingPowerCommand = Rxn<PendingPowerCommand>();
+
   Timer? _heartbeatTimer;
   bool _isPollingDesktop = false;
+  bool _isPollingControl = false;
+  MachineSleepSupport? _sleepSupport;
+  WakeDiagnostics? _wake;
+  DateTime? _wakeReadAt;
+
+  /// How long a wake-readiness reading stays good for.
+  ///
+  /// Long enough that the heartbeat is not spawning PowerShell every few
+  /// seconds, short enough that swapping Wi-Fi for a cable is picked up
+  /// without restarting the app.
+  static const _wakeCacheFor = Duration(minutes: 5);
+
+  bool get _isWakeCacheStale {
+    final readAt = _wakeReadAt;
+    return readAt == null || DateTime.now().difference(readAt) > _wakeCacheFor;
+  }
+
   bool _isExecutingRemoteCommand = false;
   String? _activeDesktopCommandId;
   int _lastInputSequence = 0;
@@ -49,18 +101,88 @@ class RemoteControlService extends GetxService {
   Timer? _inputTimer;
   Timer? _publishTimer;
 
+  /// Loads settings before the first frame so the phone never flashes the
+  /// pairing form at someone who is already linked.
+  Future<RemoteControlService> init() async {
+    await _migrateLegacyRelay();
+    settings.value = _store.remoteControlSettings;
+    mobileSettings.value = await _loadMobileSettings();
+    return this;
+  }
+
+  /// Moves the desktop off the retired Render relay.
+  ///
+  /// The two relays never shared a `DESKTOP_API_TOKEN`, so the token left over
+  /// from Render cannot authenticate against the Worker. Leaving it in place
+  /// turned every call into a bare `HTTP 401: Unauthorized.` that read like a
+  /// server fault rather than a credential that has to be re-entered, so the
+  /// migration drops it the same way [_loadMobileSettings] drops the phone's
+  /// control token. The devices go with it: they lived in the old relay's
+  /// store and did not come across.
+  Future<void> _migrateLegacyRelay() async {
+    final notificationSettings = _store.notificationSettings;
+    if (!_usesLegacyRelay(notificationSettings.endpointBaseUrl)) return;
+
+    await _store.saveNotificationSettings(
+      notificationSettings.copyWith(
+        endpointBaseUrl: relayEndpoint,
+        selectedDeviceIds: const [],
+      ),
+    );
+    await _store.saveLinkedNotificationDevices(const []);
+    await _credentialStore.saveApiToken(null);
+  }
+
   @override
   void onInit() {
     super.onInit();
-    settings.value = _store.remoteControlSettings;
-    mobileSettings.value = _store.mobileControlSettings;
     if (!Platform.isAndroid && !Platform.isIOS) {
       unawaited(_syncDesktopAgent());
     }
   }
 
+  /// Reads the phone's link, moving a control token left in preferences by an
+  /// older build into secure storage and scrubbing it from preferences.
+  ///
+  /// The scrub is what makes this worth doing: writing the token to its new
+  /// home while leaving a copy in `shared_preferences.json` would add a
+  /// storage location instead of replacing one.
+  Future<MobileControlSettings> _loadMobileSettings() async {
+    final stored = _store.mobileControlSettings;
+    if (_usesLegacyRelay(stored.endpointBaseUrl)) {
+      await _mobileCredentialStore.clearControlToken();
+      const migrated = MobileControlSettings(endpointBaseUrl: relayEndpoint);
+      await _store.saveMobileControlSettings(migrated);
+      return migrated;
+    }
+    final secureToken = (await _mobileCredentialStore.readControlToken())
+        ?.trim();
+    final legacyToken = stored.deviceControlToken.trim();
+
+    if (legacyToken.isEmpty) {
+      return stored.copyWith(deviceControlToken: secureToken ?? '');
+    }
+
+    if (secureToken == null || secureToken.isEmpty) {
+      await _mobileCredentialStore.saveControlToken(legacyToken);
+    }
+    // toJson no longer serialises the token, so this rewrite drops it.
+    await _store.saveMobileControlSettings(stored);
+    return stored.copyWith(
+      deviceControlToken: secureToken == null || secureToken.isEmpty
+          ? legacyToken
+          : secureToken,
+    );
+  }
+
+  static bool _usesLegacyRelay(String endpoint) {
+    return Uri.tryParse(endpoint.trim())?.host.toLowerCase() ==
+        _legacyRelayHost;
+  }
+
   @override
   void onClose() {
+    unawaited(_wakeProbe.stop());
     _heartbeatTimer?.cancel();
     _inputTimer?.cancel();
     _publishTimer?.cancel();
@@ -72,6 +194,41 @@ class RemoteControlService extends GetxService {
     await _store.saveRemoteControlSettings(updated);
     settings.value = updated;
     await _syncDesktopAgent();
+  }
+
+  Future<void> setAllowPowerControl(bool allowed) async {
+    final updated = settings.value.copyWith(allowPowerControl: allowed);
+    await _store.saveRemoteControlSettings(updated);
+    settings.value = updated;
+  }
+
+  Future<void> setAllowWindowControl(bool allowed) async {
+    final updated = settings.value.copyWith(allowWindowControl: allowed);
+    await _store.saveRemoteControlSettings(updated);
+    settings.value = updated;
+  }
+
+  Future<void> setAllowRemoteUnlock(bool allowed) async {
+    final updated = settings.value.copyWith(allowRemoteUnlock: allowed);
+    await _store.saveRemoteControlSettings(updated);
+    settings.value = updated;
+  }
+
+  Future<void> installRemoteUnlockProvider() async {
+    await _remoteUnlock.launchInstaller();
+    agentStatus.value = 'Đã cài Credential Provider mở khóa Windows.';
+  }
+
+  Future<void> saveAllowedApps(List<String> apps) async {
+    final normalized = apps
+        .map((app) => app.trim())
+        .where((app) => app.isNotEmpty)
+        .map(p.normalize)
+        .toSet()
+        .toList();
+    final updated = settings.value.copyWith(allowedApps: normalized);
+    await _store.saveRemoteControlSettings(updated);
+    settings.value = updated;
   }
 
   Future<void> saveAllowedRoots(List<String> roots) async {
@@ -94,9 +251,7 @@ class RemoteControlService extends GetxService {
   }) async {
     final endpoint = endpointBaseUrl.trim();
     if (endpoint.isEmpty || pairingCode.trim().isEmpty) {
-      throw const RemoteControlException(
-        'Endpoint and pairing code are required.',
-      );
+      throw const RemoteControlException('Phải có endpoint và mã ghép.');
     }
 
     final response = await _connect.post(
@@ -120,7 +275,7 @@ class RemoteControlService extends GetxService {
         : const <String, Object?>{};
     if (token.isEmpty) {
       throw const RemoteControlException(
-        'Pairing response did not include a control token.',
+        'Phản hồi ghép nối không kèm control token.',
       );
     }
 
@@ -129,13 +284,15 @@ class RemoteControlService extends GetxService {
       deviceControlToken: token,
       deviceId: device['id']?.toString() ?? '',
     );
+    await _mobileCredentialStore.saveControlToken(token);
     await _store.saveMobileControlSettings(updated);
     mobileSettings.value = updated;
-    mobileStatus.value = 'Linked to desktop relay.';
+    mobileStatus.value = 'Đã liên kết với relay của máy tính.';
   }
 
   Future<void> clearMobileLink() async {
     const cleared = MobileControlSettings();
+    await _mobileCredentialStore.clearControlToken();
     await _store.saveMobileControlSettings(cleared);
     mobileSettings.value = cleared;
     desktopState.value = null;
@@ -188,6 +345,39 @@ class RemoteControlService extends GetxService {
     return _enqueueMobileCommand({
       'type': 'fastlane',
       'payload': {'projectPath': project.path, 'laneKey': lane.key},
+    });
+  }
+
+  /// Queues a power command for [desktopId].
+  ///
+  /// The desktop is named explicitly because the relay refuses a power command
+  /// that does not say which machine it is for — there is no sane default for
+  /// "shut down whichever one answered first".
+  Future<RemoteCommand> enqueuePowerCommand({
+    required String desktopId,
+    required MachinePowerAction action,
+    int delaySeconds = 0,
+    bool force = false,
+  }) {
+    return _enqueueMobileCommand({
+      'type': 'power',
+      'targetDesktopId': desktopId,
+      'payload': {
+        'action': action.name,
+        'delaySeconds': delaySeconds,
+        'force': force,
+      },
+    });
+  }
+
+  Future<RemoteCommand> enqueueUnlockCommand({
+    required String desktopId,
+    required String encryptedEnvelope,
+  }) {
+    return _enqueueMobileCommand({
+      'type': 'unlock',
+      'targetDesktopId': desktopId,
+      'payload': {'envelope': encryptedEnvelope},
     });
   }
 
@@ -249,17 +439,289 @@ class RemoteControlService extends GetxService {
     _heartbeatTimer = null;
 
     if (Platform.isAndroid || Platform.isIOS || !settings.value.enabled) {
-      agentStatus.value = 'Remote control disabled.';
+      agentStatus.value = 'Đã tắt điều khiển từ xa.';
       return;
     }
 
-    agentStatus.value = 'Remote control enabled.';
+    agentStatus.value = 'Đã bật điều khiển từ xa.';
     await _sendHeartbeat();
     _heartbeatTimer = Timer.periodic(
       const Duration(seconds: 10),
       (_) => unawaited(_sendHeartbeat()),
     );
     unawaited(_desktopPollLoop());
+    unawaited(_controlPollLoop());
+  }
+
+  /// Drains the control lane.
+  ///
+  /// Deliberately does not wait on [_runner]: locking or shutting the machine
+  /// down is most wanted exactly while a release holds the runner, which is
+  /// the one moment [_desktopPollLoop] refuses to act.
+  Future<void> _controlPollLoop() async {
+    if (_isPollingControl || !settings.value.enabled) return;
+    _isPollingControl = true;
+    try {
+      while (settings.value.enabled && !Platform.isAndroid && !Platform.isIOS) {
+        final commands = await _fetchQueuedControlCommands();
+        for (final command in commands) {
+          await _claimAndExecuteControl(command);
+        }
+      }
+    } finally {
+      _isPollingControl = false;
+    }
+  }
+
+  Future<List<RemoteCommand>> _fetchQueuedControlCommands() {
+    return _longPollCommands(
+      path: 'desktop/control-commands',
+      label: 'lệnh điều khiển',
+    );
+  }
+
+  /// Long-polls one of the relay's command queues.
+  ///
+  /// A poll that comes back with nothing is the normal idle case, not a
+  /// failure: treating it as one used to paint an error across the agent
+  /// status of a perfectly healthy machine and add a five second backoff
+  /// before the next poll, which queued commands waited out.
+  Future<List<RemoteCommand>> _longPollCommands({
+    required String path,
+    required String label,
+  }) async {
+    final endpoint = _desktopEndpoint;
+    if (endpoint == null) {
+      agentStatus.value = 'Chưa cấu hình endpoint điều khiển từ xa.';
+      await Future<void>.delayed(const Duration(seconds: 5));
+      return const [];
+    }
+
+    final startedAt = DateTime.now();
+    try {
+      final query =
+          'desktopId=${Uri.encodeQueryComponent(settings.value.desktopId)}'
+          '&waitMs=${remoteLongPollWindow.inMilliseconds}';
+      final response = await _connect.get(
+        _endpoint(endpoint, '$path?$query'),
+        headers: await _desktopHeaders(),
+      );
+      _ensureResponseOk(response.statusCode ?? 0, response.body, 'load $label');
+
+      final entries = _bodyMap(response.body)['commands'];
+      if (entries is! List) return const [];
+      return entries
+          .whereType<Map>()
+          .map(
+            (entry) => RemoteCommand.fromJson(Map<String, Object?>.from(entry)),
+          )
+          .toList();
+    } catch (error) {
+      // A request that ran at least the whole window and then gave up is the
+      // relay holding an idle connection, not a broken link.
+      final elapsed = DateTime.now().difference(startedAt);
+      if (elapsed >= remoteLongPollWindow) return const [];
+
+      agentStatus.value = 'Lấy $label lỗi: $error';
+      await Future<void>.delayed(const Duration(seconds: 5));
+      return const [];
+    }
+  }
+
+  Future<void> _claimAndExecuteControl(RemoteCommand command) async {
+    final endpoint = _desktopEndpoint;
+    if (endpoint == null) return;
+
+    try {
+      final claimResponse = await _connect.post(
+        _endpoint(endpoint, 'desktop/commands/${command.commandId}/claim'),
+        {'desktopId': settings.value.desktopId},
+        headers: await _desktopHeaders(),
+      );
+      if ((claimResponse.statusCode ?? 0) == 409) return;
+      _ensureResponseOk(
+        claimResponse.statusCode ?? 0,
+        claimResponse.body,
+        'claim control command',
+      );
+    } catch (error) {
+      agentStatus.value = 'Nhận lệnh điều khiển lỗi: $error';
+      return;
+    }
+
+    final startedAt = DateTime.now();
+    String? errorMessage;
+    final log = <String>[];
+    try {
+      await _publishControlState(
+        command.commandId,
+        status: 'running',
+        startedAt: startedAt,
+      );
+      log.addAll(await _executeControlCommand(command));
+    } catch (error) {
+      errorMessage = error.toString();
+      log.add(errorMessage);
+    }
+
+    // Whoever is at the machine should be able to see what the phone did,
+    // successful or not.
+    for (final line in log) {
+      _runner.appendSystemLog(line);
+    }
+
+    final finishedAt = DateTime.now();
+    await _publishControlState(
+      command.commandId,
+      status: errorMessage == null ? 'completed' : 'failed',
+      startedAt: startedAt,
+      finishedAt: finishedAt,
+      durationMs: finishedAt.difference(startedAt).inMilliseconds,
+      exitCode: errorMessage == null ? 0 : 1,
+      error: errorMessage,
+      logLines: log,
+    );
+  }
+
+  Future<List<String>> _executeControlCommand(RemoteCommand command) {
+    switch (command.type) {
+      case 'power':
+        return _executePower(command.payload);
+      case 'unlock':
+        return _executeUnlock(command.payload);
+      default:
+        throw RemoteControlException(
+          'Lệnh điều khiển không hỗ trợ: ${command.type}.',
+        );
+    }
+  }
+
+  Future<List<String>> _executeUnlock(Map<String, Object?> payload) async {
+    if (!settings.value.allowRemoteUnlock) {
+      throw const RemoteControlException(
+        'Máy tính chưa bật quyền mở khóa từ xa.',
+      );
+    }
+    if (!await _power.isSessionLocked()) {
+      throw const RemoteControlException(
+        'Máy tính hiện không ở màn hình khóa.',
+      );
+    }
+    final envelope = payload['envelope']?.toString().trim() ?? '';
+    if (envelope.isEmpty) {
+      throw const RemoteControlException('Thiếu payload mở khóa đã mã hóa.');
+    }
+    try {
+      await _remoteUnlock.acceptEncryptedEnvelope(envelope);
+    } on RemoteUnlockException catch (error) {
+      throw RemoteControlException(error.message);
+    }
+    return const ['Đã chuyển yêu cầu mã hóa tới Windows LogonUI.'];
+  }
+
+  Future<List<String>> _executePower(Map<String, Object?> payload) {
+    final action = machinePowerActionFromName(
+      payload['action']?.toString() ?? '',
+    );
+    if (action == null) {
+      throw RemoteControlException(
+        'Hành động nguồn không hợp lệ: ${payload['action']}.',
+      );
+    }
+
+    return applyPowerCommand(
+      action: action,
+      delaySeconds: _int(payload['delaySeconds']) ?? 0,
+      force: payload['force'] == true,
+    );
+  }
+
+  /// Runs a power action after checking it is allowed right now.
+  ///
+  /// Returns the lines to log. Throws [RemoteControlException] when the
+  /// machine refuses, so the phone gets a reason rather than silence.
+  Future<List<String>> applyPowerCommand({
+    required MachinePowerAction action,
+    int delaySeconds = 0,
+    bool force = false,
+  }) async {
+    final rejection = powerCommandRejection(
+      action: action,
+      allowPowerControl: settings.value.allowPowerControl,
+      powerSupported: _power.isSupported,
+      runnerBusy: _runner.isBusy,
+      force: force,
+      runnerStatus: _runner.status.value,
+    );
+    if (rejection != null) throw RemoteControlException(rejection);
+
+    if (action == MachinePowerAction.cancel) {
+      await _power.perform(action);
+      pendingPowerCommand.value = null;
+      return ['Đã huỷ lệnh nguồn đang chờ.'];
+    }
+
+    final delay = delaySeconds < 0 ? 0 : delaySeconds;
+    await _power.perform(action, delaySeconds: delay, force: force);
+
+    if (isDelayablePowerAction(action) && delay > 0) {
+      pendingPowerCommand.value = PendingPowerCommand(
+        action: action,
+        firesAt: DateTime.now().add(Duration(seconds: delay)),
+      );
+    }
+
+    return [
+      'Lệnh nguồn từ điện thoại: ${action.name}'
+          '${delay > 0 ? ' sau ${delay}s' : ''}'
+          '${force ? ' (buộc)' : ''}.',
+    ];
+  }
+
+  /// Cancels a shutdown or restart that is still counting down.
+  Future<void> cancelPendingPowerCommand() async {
+    await _power.perform(MachinePowerAction.cancel);
+    pendingPowerCommand.value = null;
+    _runner.appendSystemLog('Đã huỷ lệnh nguồn tại máy.');
+  }
+
+  Future<void> _publishControlState(
+    String commandId, {
+    required String status,
+    DateTime? startedAt,
+    DateTime? finishedAt,
+    int? durationMs,
+    int? exitCode,
+    String? error,
+    List<String> logLines = const [],
+  }) async {
+    final endpoint = _desktopEndpoint;
+    if (endpoint == null) return;
+
+    try {
+      final response = await _connect.post(
+        _endpoint(endpoint, 'desktop/commands/$commandId/events'),
+        {
+          'status': status,
+          'startedAt': startedAt?.toUtc().toIso8601String(),
+          'finishedAt': finishedAt?.toUtc().toIso8601String(),
+          'durationMs': durationMs,
+          'exitCode': exitCode,
+          'error': error,
+          'logLines': logLines,
+        },
+        headers: await _desktopHeaders(),
+      );
+      _ensureResponseOk(
+        response.statusCode ?? 0,
+        response.body,
+        'publish control state',
+      );
+    } catch (publishError) {
+      // The machine may already be shutting down; losing the receipt must not
+      // take the loop down with it.
+      agentStatus.value = 'Báo trạng thái điều khiển lỗi: $publishError';
+    }
   }
 
   Future<void> _desktopPollLoop() async {
@@ -284,40 +746,8 @@ class RemoteControlService extends GetxService {
     }
   }
 
-  Future<List<RemoteCommand>> _fetchQueuedDesktopCommands() async {
-    try {
-      final endpoint = _desktopEndpoint;
-      if (endpoint == null) {
-        agentStatus.value = 'Remote endpoint is not configured.';
-        await Future<void>.delayed(const Duration(seconds: 5));
-        return const [];
-      }
-      final response = await _connect.get(
-        _endpoint(
-          endpoint,
-          'desktop/commands?desktopId=${Uri.encodeQueryComponent(settings.value.desktopId)}&waitMs=20000',
-        ),
-        headers: await _desktopHeaders(),
-      );
-      _ensureResponseOk(
-        response.statusCode ?? 0,
-        response.body,
-        'load remote commands',
-      );
-      final body = _bodyMap(response.body);
-      final entries = body['commands'];
-      if (entries is! List) return const [];
-      return entries
-          .whereType<Map>()
-          .map(
-            (entry) => RemoteCommand.fromJson(Map<String, Object?>.from(entry)),
-          )
-          .toList();
-    } catch (error) {
-      agentStatus.value = 'Remote poll failed: $error';
-      await Future<void>.delayed(const Duration(seconds: 5));
-      return const [];
-    }
+  Future<List<RemoteCommand>> _fetchQueuedDesktopCommands() {
+    return _longPollCommands(path: 'desktop/commands', label: 'lệnh từ xa');
   }
 
   Future<void> _claimAndExecute(RemoteCommand queuedCommand) async {
@@ -355,7 +785,7 @@ class RemoteControlService extends GetxService {
       exitCode = await _executeRemoteCommand(queuedCommand);
     } catch (error) {
       errorMessage = error.toString();
-      _runner.appendSystemLog('Remote command failed: $errorMessage');
+      _runner.appendSystemLog('Lệnh từ xa lỗi: $errorMessage');
     } finally {
       _inputTimer?.cancel();
       _publishTimer?.cancel();
@@ -389,7 +819,7 @@ class RemoteControlService extends GetxService {
         return _executeFastlane(command.payload);
       default:
         throw RemoteControlException(
-          'Unsupported remote command: ${command.type}.',
+          'Lệnh từ xa không hỗ trợ: ${command.type}.',
         );
     }
   }
@@ -397,7 +827,7 @@ class RemoteControlService extends GetxService {
   Future<int> _executeShell(Map<String, Object?> payload) {
     final command = payload['command']?.toString().trim() ?? '';
     if (command.isEmpty) {
-      throw const RemoteControlException('Remote shell command is empty.');
+      throw const RemoteControlException('Lệnh shell từ xa trống.');
     }
 
     final workingDirectory = _allowedWorkingDirectory(
@@ -405,7 +835,7 @@ class RemoteControlService extends GetxService {
     );
     return _runner.runCommand(
       workingDirectory: workingDirectory,
-      statusLabel: 'Remote shell',
+      statusLabel: 'Shell từ xa',
       activePath: 'remote:shell:${DateTime.now().microsecondsSinceEpoch}',
       executable: Platform.isWindows ? 'powershell.exe' : 'sh',
       arguments: Platform.isWindows
@@ -425,7 +855,7 @@ class RemoteControlService extends GetxService {
           _samePath(entry.path, scriptPath) || entry.fileName == scriptPath,
     );
     if (script == null) {
-      throw RemoteControlException('Script is not available: $scriptPath.');
+      throw RemoteControlException('Không có script: $scriptPath.');
     }
 
     return _runner.run(
@@ -449,7 +879,7 @@ class RemoteControlService extends GetxService {
       (entry) => entry.key == laneKey || entry.name == laneKey,
     );
     if (lane == null) {
-      throw RemoteControlException('Fastlane lane is not available: $laneKey.');
+      throw RemoteControlException('Không có lane Fastlane: $laneKey.');
     }
 
     return _runner.runFastlaneLane(
@@ -512,7 +942,7 @@ class RemoteControlService extends GetxService {
         }
       }
     } catch (error) {
-      agentStatus.value = 'Remote input poll failed: $error';
+      agentStatus.value = 'Lấy input từ xa lỗi: $error';
     }
   }
 
@@ -581,15 +1011,59 @@ class RemoteControlService extends GetxService {
         'send heartbeat',
       );
       agentStatus.value = _activeDesktopCommandId == null
-          ? 'Remote control online.'
-          : 'Remote command running.';
+          ? 'Điều khiển từ xa đang online.'
+          : 'Lệnh từ xa đang chạy.';
     } catch (error) {
-      agentStatus.value = 'Remote heartbeat failed: $error';
+      agentStatus.value = 'Tín hiệu điều khiển từ xa lỗi: $error';
     }
   }
 
   Future<Map<String, Object?>> _desktopStatePayload() async {
+    // Sleep states are a machine property, not a per-heartbeat one; reading
+    // powercfg every ten seconds would spawn a process for no new answer.
+    _sleepSupport ??= await _power.readSleepSupport();
+    // Same reasoning, plus one more: the phone needs these precisely when the
+    // machine is asleep and cannot be asked, so they must already be up here.
+    //
+    // Re-read periodically rather than once per process. Plugging in an
+    // Ethernet cable changes which adapter the packet has to be aimed at, and
+    // a cache that never expired kept sending the phone a stale Wi-Fi MAC
+    // until the app was restarted — with no sign that anything was wrong.
+    if (_wake == null || _isWakeCacheStale) {
+      _wake = await _wakeDiagnostics.read(
+        autoStartEnabled: _autoStart.isEnabled(),
+        sleepSupport: _sleepSupport!,
+      );
+      _wakeReadAt = DateTime.now();
+      // Only now is the MAC known, and the listener needs it to tell this
+      // machine's wake packets from a neighbour's.
+      unawaited(_wakeProbe.start(_wake!.macAddress));
+    }
+
+    // Carried separately from the cached reading: this changes every time the
+    // phone taps wake, which is the whole point of recording it.
+    final wake = _wake!.withProbe(
+      probeListening: _wakeProbe.isListening,
+      lastPacketAt: _wakeProbe.lastPacketAt,
+      lastPacketFrom: _wakeProbe.lastPacketFrom,
+    );
+
+    final sessionLocked = await _power.isSessionLocked();
+    final remoteUnlock = await _remoteUnlock.diagnostics(
+      sessionLocked: sessionLocked,
+      enabled: settings.value.allowRemoteUnlock,
+    );
+
     return {
+      // Lets the phone show which build the desktop is on, so a stale copy is
+      // visible rather than something to be inferred from missing behaviour.
+      'buildStamp': const AppBuildStamp().read()?.toUtc().toIso8601String(),
+      'wake': wake.toJson(),
+      'sessionLocked': sessionLocked,
+      'powerControlEnabled': settings.value.allowPowerControl,
+      'windowControlEnabled': settings.value.allowWindowControl,
+      'remoteUnlock': remoteUnlock.toJson(),
+      'sleepSupport': _sleepSupport!.toJson(),
       'isRunning': _runner.isBusy,
       'status': _runner.status.value,
       'activeScriptPath': _runner.activeScriptPath.value,
@@ -651,7 +1125,7 @@ class RemoteControlService extends GetxService {
     final roots = _allowedRoots();
     if (roots.isEmpty) {
       throw const RemoteControlException(
-        'No allowed project roots are configured for remote shell.',
+        'Chưa cấu hình thư mục dự án nào cho phép chạy shell từ xa.',
       );
     }
 
@@ -663,7 +1137,7 @@ class RemoteControlService extends GetxService {
     }
 
     throw RemoteControlException(
-      'Remote path is outside allowed project roots: $candidate.',
+      'Đường dẫn nằm ngoài các thư mục dự án được phép: $candidate.',
     );
   }
 
@@ -717,7 +1191,7 @@ class RemoteControlService extends GetxService {
   MobileControlSettings _requireMobileSettings() {
     final settings = mobileSettings.value;
     if (!settings.isLinked) {
-      throw const RemoteControlException('This phone is not linked yet.');
+      throw const RemoteControlException('Điện thoại này chưa được liên kết.');
     }
     return settings;
   }
@@ -738,7 +1212,7 @@ class RemoteControlService extends GetxService {
   Map<String, Object?> _bodyMap(Object? body) {
     if (body is Map<String, Object?>) return body;
     if (body is Map) return Map<String, Object?>.from(body);
-    throw const RemoteControlException('Expected JSON object from relay.');
+    throw const RemoteControlException('Relay phải trả về một object JSON.');
   }
 
   void _ensureResponseOk(int statusCode, Object? body, String action) {
@@ -746,7 +1220,7 @@ class RemoteControlService extends GetxService {
     final message = body is Map && body['error'] != null
         ? body['error'].toString()
         : 'HTTP $statusCode';
-    throw RemoteControlException('Failed to $action: $message');
+    throw RemoteControlException('$action lỗi: $message');
   }
 
   List<String> _stringList(Object? value) {
@@ -765,6 +1239,56 @@ class RemoteControlService extends GetxService {
       if (test(entry)) return entry;
     }
     return null;
+  }
+}
+
+/// Why a power command must not run now, or null when it may.
+///
+/// Pulled out of the service so the rule that protects a running release can
+/// be read and tested on its own, without a relay or a machine to shut down.
+String? powerCommandRejection({
+  required MachinePowerAction action,
+  required bool allowPowerControl,
+  required bool powerSupported,
+  required bool runnerBusy,
+  required bool force,
+  required String runnerStatus,
+}) {
+  if (!allowPowerControl) {
+    return 'Máy tính chưa bật quyền điều khiển nguồn.';
+  }
+  if (!powerSupported) {
+    return 'Máy này không hỗ trợ điều khiển nguồn.';
+  }
+  if (interruptsRunningWork(action) && runnerBusy && !force) {
+    return 'Đang chạy: $runnerStatus. Lệnh ${action.name} bị bỏ qua để không '
+        'làm hỏng việc đang dở.';
+  }
+  return null;
+}
+
+/// Everything but locking the screen and aborting a countdown cuts a build off.
+bool interruptsRunningWork(MachinePowerAction action) {
+  return action != MachinePowerAction.lock &&
+      action != MachinePowerAction.cancel;
+}
+
+/// Only `shutdown.exe /s` and `/g` take a timer, so only those can be aborted.
+bool isDelayablePowerAction(MachinePowerAction action) {
+  return action == MachinePowerAction.shutdown ||
+      action == MachinePowerAction.restart;
+}
+
+/// A power command that has been handed to Windows but has not fired yet.
+class PendingPowerCommand {
+  const PendingPowerCommand({required this.action, required this.firesAt});
+
+  final MachinePowerAction action;
+  final DateTime firesAt;
+
+  Duration remaining({DateTime? now}) {
+    final left = firesAt.difference(now ?? DateTime.now());
+    return left.isNegative ? Duration.zero : left;
   }
 }
 

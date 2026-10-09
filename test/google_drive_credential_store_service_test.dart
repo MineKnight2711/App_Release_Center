@@ -1,5 +1,5 @@
-import 'package:app_release_center/app/services/ch_play_credential_store_service.dart';
-import 'package:app_release_center/app/services/google_drive_credential_store_service.dart';
+import 'package:app_management_center/app/services/ch_play_credential_store_service.dart';
+import 'package:app_management_center/app/services/google_drive_credential_store_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

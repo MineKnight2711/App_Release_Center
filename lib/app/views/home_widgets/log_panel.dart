@@ -42,7 +42,7 @@ class _LogPanelState extends State<_LogPanel> {
                     icon: code == 0
                         ? Icons.check_circle_outline
                         : Icons.error_outline,
-                    label: 'Exit $code',
+                    label: 'Thoát $code',
                   );
                 }),
               ],
@@ -65,7 +65,7 @@ class _LogPanelState extends State<_LogPanel> {
 
                     if (lines.isEmpty) {
                       return Text(
-                        'No output',
+                        'Chưa có output',
                         style: AppCyberTheme.dataTextStyle(
                           color: AppCyberTheme.textMuted,
                         ),
@@ -78,7 +78,7 @@ class _LogPanelState extends State<_LogPanel> {
                         lines.join('\n'),
                         style: AppCyberTheme.dataTextStyle(
                           size: 12,
-                          color: AppCyberTheme.isCyber
+                          color: AppCyberTheme.palette.hasGlow
                               ? const Color(0xFFD9EBFF)
                               : AppCyberTheme.textPrimary,
                         ).copyWith(height: 1.35),

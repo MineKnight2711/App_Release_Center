@@ -1,15 +1,18 @@
 import 'dart:convert';
 
-import 'package:app_release_center/app/models/api_tool.dart';
-import 'package:app_release_center/app/models/auth_models.dart';
-import 'package:app_release_center/app/models/app_store_project.dart';
-import 'package:app_release_center/app/models/ch_play_project.dart';
-import 'package:app_release_center/app/models/google_drive_release_settings.dart';
-import 'package:app_release_center/app/models/release_notification.dart';
-import 'package:app_release_center/app/models/resource_catalog.dart';
-import 'package:app_release_center/app/models/resource_collection.dart';
-import 'package:app_release_center/app/models/remote_control.dart';
-import 'package:app_release_center/app/models/telegram_release_settings.dart';
+import 'package:app_management_center/app/models/api_tool.dart';
+import 'package:app_management_center/app/models/app_lock.dart';
+import 'package:app_management_center/app/models/remote_unlock_session.dart';
+import 'package:app_management_center/app/models/auth_models.dart';
+import 'package:app_management_center/app/models/app_store_project.dart';
+import 'package:app_management_center/app/models/ch_play_project.dart';
+import 'package:app_management_center/app/models/flowfin_settings.dart';
+import 'package:app_management_center/app/models/google_drive_release_settings.dart';
+import 'package:app_management_center/app/models/release_notification.dart';
+import 'package:app_management_center/app/models/resource_catalog.dart';
+import 'package:app_management_center/app/models/resource_collection.dart';
+import 'package:app_management_center/app/models/remote_control.dart';
+import 'package:app_management_center/app/models/telegram_release_settings.dart';
 import 'package:get/get.dart';
 import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -25,8 +28,11 @@ class ProjectStoreService extends GetxService implements AuthSessionStore {
   static const _linkedNotificationDevicesKey = 'linked_notification_devices';
   static const _remoteControlSettingsKey = 'remote_control_settings';
   static const _mobileControlSettingsKey = 'mobile_control_settings';
+  static const _appLockSettingsKey = 'app_lock_settings';
+  static const _remoteUnlockSessionKey = 'remote_unlock_session';
   static const _telegramReleaseSettingsKey = 'telegram_release_settings';
   static const _googleDriveReleaseSettingsKey = 'google_drive_release_settings';
+  static const _flowFinSettingsKey = 'flowfin_settings';
   static const _resourceCollectionSettingsKey = 'resource_collection_settings';
   static const _resourceCatalogsKey = 'resource_catalogs';
   static const _apiToolCollectionsKey = 'api_tool_collections';
@@ -35,7 +41,9 @@ class ProjectStoreService extends GetxService implements AuthSessionStore {
   static const _apiToolQuickRequestsKey = 'api_tool_quick_requests';
   static const _apiToolHistoryKey = 'api_tool_history';
   static const _apiToolTimeoutSecondsKey = 'api_tool_timeout_seconds';
+  static const _recentCommandIdsKey = 'recent_command_ids';
   static const _apiToolHistoryLimit = 50;
+  static const _recentCommandIdsLimit = 12;
   static const _defaultApiToolTimeoutSeconds = 30;
 
   late final SharedPreferences _preferences;
@@ -53,6 +61,13 @@ class ProjectStoreService extends GetxService implements AuthSessionStore {
 
   List<String> get dismissedRecentProjectPaths {
     return _preferences.getStringList(_dismissedRecentProjectsKey) ?? const [];
+  }
+
+  /// Command palette entries the user ran most recently, newest first.
+  List<String> get recentCommandIds {
+    final stored = _preferences.getStringList(_recentCommandIdsKey);
+    if (stored == null) return const [];
+    return stored.take(_recentCommandIdsLimit).toList();
   }
 
   @override
@@ -150,6 +165,24 @@ class ProjectStoreService extends GetxService implements AuthSessionStore {
     }
 
     return const TelegramReleaseSettings();
+  }
+
+  FlowFinSettings get flowFinSettings {
+    final entry = _preferences.getString(_flowFinSettingsKey);
+    if (entry == null || entry.trim().isEmpty) {
+      return const FlowFinSettings();
+    }
+
+    try {
+      final json = jsonDecode(entry);
+      if (json is Map<String, Object?>) {
+        return FlowFinSettings.fromJson(json);
+      }
+    } catch (_) {
+      // Ignore invalid or legacy entries and fall back to safe defaults.
+    }
+
+    return const FlowFinSettings();
   }
 
   GoogleDriveReleaseSettings get googleDriveReleaseSettings {
@@ -397,6 +430,44 @@ class ProjectStoreService extends GetxService implements AuthSessionStore {
     return const MobileControlSettings();
   }
 
+  AppLockSettings get appLockSettings {
+    final entry = _preferences.getString(_appLockSettingsKey);
+    if (entry == null || entry.trim().isEmpty) {
+      return const AppLockSettings();
+    }
+
+    try {
+      final json = jsonDecode(entry);
+      if (json is Map<String, Object?>) {
+        return AppLockSettings.fromJson(json);
+      }
+    } catch (_) {
+      // Ignore invalid entries and fall back to defaults.
+    }
+
+    return const AppLockSettings();
+  }
+
+  /// The marker for a saved Windows password. Never the password itself —
+  /// that is in secure storage, and preferences are a plain file on disk.
+  RemoteUnlockSession get remoteUnlockSession {
+    final entry = _preferences.getString(_remoteUnlockSessionKey);
+    if (entry == null || entry.trim().isEmpty) {
+      return const RemoteUnlockSession.none();
+    }
+
+    try {
+      final json = jsonDecode(entry);
+      if (json is Map<String, Object?>) {
+        return RemoteUnlockSession.fromJson(json);
+      }
+    } catch (_) {
+      // Ignore invalid entries and fall back to defaults.
+    }
+
+    return const RemoteUnlockSession.none();
+  }
+
   Future<void> saveProjectPath(String path) async {
     final normalizedPath = p.normalize(path);
     final lowerPath = normalizedPath.toLowerCase();
@@ -481,6 +552,13 @@ class ProjectStoreService extends GetxService implements AuthSessionStore {
   ) async {
     await _preferences.setString(
       _telegramReleaseSettingsKey,
+      jsonEncode(settings.toJson()),
+    );
+  }
+
+  Future<void> saveFlowFinSettings(FlowFinSettings settings) async {
+    await _preferences.setString(
+      _flowFinSettingsKey,
       jsonEncode(settings.toJson()),
     );
   }
@@ -579,6 +657,13 @@ class ProjectStoreService extends GetxService implements AuthSessionStore {
     );
   }
 
+  Future<void> saveRecentCommandIds(List<String> ids) async {
+    await _preferences.setStringList(
+      _recentCommandIdsKey,
+      ids.take(_recentCommandIdsLimit).toList(),
+    );
+  }
+
   Future<void> saveApiToolTimeoutSeconds(int seconds) async {
     await _preferences.setInt(
       _apiToolTimeoutSecondsKey,
@@ -607,5 +692,23 @@ class ProjectStoreService extends GetxService implements AuthSessionStore {
       _mobileControlSettingsKey,
       jsonEncode(settings.toJson()),
     );
+  }
+
+  Future<void> saveAppLockSettings(AppLockSettings settings) async {
+    await _preferences.setString(
+      _appLockSettingsKey,
+      jsonEncode(settings.toJson()),
+    );
+  }
+
+  Future<void> saveRemoteUnlockSession(RemoteUnlockSession session) async {
+    await _preferences.setString(
+      _remoteUnlockSessionKey,
+      jsonEncode(session.toJson()),
+    );
+  }
+
+  Future<void> clearRemoteUnlockSession() async {
+    await _preferences.remove(_remoteUnlockSessionKey);
   }
 }

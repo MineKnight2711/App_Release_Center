@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:app_release_center/app/services/android_keystore_generation_service.dart';
+import 'package:app_management_center/app/services/android_keystore_generation_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 
@@ -105,7 +105,7 @@ void main() {
             isA<AndroidKeystoreGenerationException>().having(
               (error) => error.message,
               'message',
-              contains('already exists'),
+              contains('đã tồn tại'),
             ),
           ),
         );
@@ -144,7 +144,7 @@ void main() {
           isA<AndroidKeystoreGenerationException>().having(
             (error) => error.message,
             'message',
-            contains('at least 6 characters'),
+            contains('từ 6 ký tự'),
           ),
         ),
       );

@@ -1,7 +1,7 @@
 import 'dart:async';
 
-import 'package:app_release_center/app/models/auth_models.dart';
-import 'package:app_release_center/app/services/auth_service.dart';
+import 'package:app_management_center/app/models/auth_models.dart';
+import 'package:app_management_center/app/services/auth_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -25,7 +25,7 @@ void main() {
     final teamData = _FakeTeamDataSource(
       membership: const TeamMembership(
         teamId: 'team-1',
-        teamName: 'Release Team',
+        teamName: 'Nhóm release',
         role: TeamRole.dev,
       ),
     );
@@ -96,13 +96,13 @@ void main() {
       email: 'admin@example.com',
       password: 'secret123',
       displayName: 'Admin',
-      teamName: 'Release Team',
+      teamName: 'Nhóm release',
     );
 
     expect(service.authStatus.value, AuthStatus.authenticated);
     expect(service.profile.value?.role, TeamRole.admin);
-    expect(service.profile.value?.teamName, 'Release Team');
-    expect(teamData.createdTeamName, 'Release Team');
+    expect(service.profile.value?.teamName, 'Nhóm release');
+    expect(teamData.createdTeamName, 'Nhóm release');
   });
 }
 

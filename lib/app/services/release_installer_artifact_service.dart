@@ -1,8 +1,8 @@
 import 'dart:io';
 
 import 'package:archive/archive_io.dart';
-import 'package:app_release_center/app/models/release_project.dart';
-import 'package:app_release_center/app/services/release_runner_service.dart';
+import 'package:app_management_center/app/models/release_project.dart';
+import 'package:app_management_center/app/services/release_runner_service.dart';
 import 'package:get/get.dart';
 import 'package:path/path.dart' as p;
 
@@ -42,7 +42,7 @@ class RunnerReleaseInstallerBuildExecutor
   }) {
     return runner.runCommand(
       workingDirectory: project.path,
-      statusLabel: 'Build Windows installer',
+      statusLabel: 'Build bộ cài Windows',
       activePath: 'installer:package-windows-installer',
       executable: 'powershell.exe',
       arguments: [
@@ -85,9 +85,10 @@ class ReleaseInstallerArtifactService extends GetxService {
 
   bool get isWindowsSupported => _isWindows();
 
-  bool isAppReleaseCenterProject(ReleaseProject project) {
+  bool isAppManagementCenterProject(ReleaseProject project) {
     try {
-      return _readPubspecMetadata(project).name == appReleaseCenterPubspecName;
+      return _readPubspecMetadata(project).name ==
+          appManagementCenterPubspecName;
     } catch (_) {
       return false;
     }
@@ -103,7 +104,7 @@ class ReleaseInstallerArtifactService extends GetxService {
     final buildExitCode = await _buildExecutor.buildWindowsRelease(project);
     if (buildExitCode != 0) {
       throw ReleaseInstallerArtifactException(
-        'Windows release build failed with exit code $buildExitCode.',
+        'Build release Windows lỗi, exit code $buildExitCode.',
       );
     }
 
@@ -113,20 +114,20 @@ class ReleaseInstallerArtifactService extends GetxService {
     );
     if (packageExitCode != 0) {
       throw ReleaseInstallerArtifactException(
-        'Windows installer packaging failed with exit code $packageExitCode.',
+        'Đóng gói bộ cài Windows lỗi, exit code $packageExitCode.',
       );
     }
 
     if (!outputFile.existsSync()) {
       throw ReleaseInstallerArtifactException(
-        'Windows installer was not found at ${outputFile.path}.',
+        'Không thấy bộ cài Windows ở ${outputFile.path}.',
       );
     }
     _validateInstallerPayload(project);
 
     return ReleaseInstallerArtifact(
       file: outputFile,
-      appDisplayName: appReleaseCenterDisplayName,
+      appDisplayName: appManagementCenterDisplayName,
       fullVersion: metadata.version,
       versionName: versionName,
       buildDate: _now(),
@@ -136,15 +137,15 @@ class ReleaseInstallerArtifactService extends GetxService {
   _PubspecMetadata _validate(ReleaseProject project) {
     if (!_isWindows()) {
       throw const ReleaseInstallerArtifactException(
-        'Windows installer builds are only supported on Windows.',
+        'Chỉ build được bộ cài Windows trên máy Windows.',
       );
     }
 
     final metadata = _readPubspecMetadata(project);
-    if (metadata.name != appReleaseCenterPubspecName) {
+    if (metadata.name != appManagementCenterPubspecName) {
       throw ReleaseInstallerArtifactException(
-        'Selected project must be the App Release Center repo '
-        '($appReleaseCenterPubspecName).',
+        'Selected project must be the App Management Center repo '
+        '($appManagementCenterPubspecName).',
       );
     }
 
@@ -207,7 +208,7 @@ class ReleaseInstallerArtifactService extends GetxService {
         project.path,
         'build',
         'installer',
-        'AppReleaseCenter_Setup_v${_safeVersion(versionName)}.exe',
+        'AppManagementCenter_Setup_v${_safeVersion(versionName)}.exe',
       ),
     );
   }
@@ -304,10 +305,10 @@ class _PubspecMetadata {
   final String version;
 }
 
-const appReleaseCenterPubspecName = 'app_release_center';
-const appReleaseCenterDisplayName = 'App Release Center';
+const appManagementCenterPubspecName = 'app_management_center';
+const appManagementCenterDisplayName = 'App Management Center';
 const _requiredInstallerPayloadFiles = [
-  'app_release_center.exe',
+  'app_management_center.exe',
   'flutter_windows.dll',
   'data/app.so',
   'data/icudtl.dat',
