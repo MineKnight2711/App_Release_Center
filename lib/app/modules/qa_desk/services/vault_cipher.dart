@@ -20,9 +20,15 @@ abstract interface class SecretStore {
   Future<void> delete(String key);
 }
 
-/// Windows secure storage (DPAPI), as AMC keeps its other credentials.
+/// Windows secure storage (DPAPI) or the macOS keychain, as AMC keeps its
+/// other credentials.
 class SecureSecretStore implements SecretStore {
-  const SecureSecretStore([this._storage = const FlutterSecureStorage()]);
+  const SecureSecretStore([
+    this._storage = const FlutterSecureStorage(
+      // Legacy keychain: works in ad-hoc signed (team-less) macOS builds.
+      mOptions: MacOsOptions(usesDataProtectionKeychain: false),
+    ),
+  ]);
 
   final FlutterSecureStorage _storage;
 
