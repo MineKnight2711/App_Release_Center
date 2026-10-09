@@ -267,7 +267,7 @@ void main() {
       fastlaneLanes: const [
         ReleaseFastlaneLane(name: 'deploy_internal', platform: 'android'),
       ],
-      hasFirebaseDeployTools: true,
+      hasLegacyDistributionPrompt: true,
       hasPlayReleaseTools: true,
       pubspecVersion: '1.0.0+1',
     );
@@ -455,18 +455,13 @@ void main() {
     expect(find.byKey(const Key('cicd-option-fastlane')), findsOneWidget);
     expect(find.byKey(const Key('cicd-step-install-git')), findsOneWidget);
     expect(find.textContaining('winget install --id Git.Git'), findsOneWidget);
-    expect(
-      find.byKey(const Key('cicd-step-install-firebase-cli')),
-      findsNothing,
-    );
+    expect(find.byKey(const Key('cicd-step-install-github-cli')), findsNothing);
 
-    await tester.ensureVisible(
-      find.byKey(const Key('cicd-option-firebase-cli')),
-    );
-    await tester.tap(find.byKey(const Key('cicd-option-firebase-cli')));
+    await tester.ensureVisible(find.byKey(const Key('cicd-option-github-cli')));
+    await tester.tap(find.byKey(const Key('cicd-option-github-cli')));
     await tester.pumpAndSettle();
     expect(
-      find.byKey(const Key('cicd-step-install-firebase-cli')),
+      find.byKey(const Key('cicd-step-install-github-cli')),
       findsOneWidget,
     );
 
@@ -2738,7 +2733,7 @@ Future<void> _pumpHome(
     path: harness.projectDirectory.path,
     scripts: const [],
     fastlaneLanes: const [],
-    hasFirebaseDeployTools: true,
+    hasLegacyDistributionPrompt: true,
     hasPlayReleaseTools: true,
     pubspecVersion: '1.0.0+1',
   );
@@ -3158,11 +3153,11 @@ class _FakeCiCdDoctorService extends CiCdDependencyDoctorService {
           detail: 'fastlane was not found on PATH.',
         ),
         CiCdDependencyCheck(
-          id: 'firebase-cli',
-          label: 'Firebase CLI',
+          id: 'github-cli',
+          label: 'GitHub CLI',
           group: CiCdSetupGroup.optionalTools,
           status: CiCdDependencyStatus.missing,
-          detail: 'firebase was not found on PATH.',
+          detail: 'gh was not found on PATH.',
         ),
       ],
     );

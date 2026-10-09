@@ -42,7 +42,7 @@ void main() {
     );
     await File(
       p.join(root.path, 'android', 'app', 'google-services.json'),
-    ).writeAsString('{"project_info":{"project_id":"firebase-demo"}}');
+    ).writeAsString('{"project_info":{"project_id":"demo"}}');
     await File(p.join(root.path, 'release.jks')).writeAsBytes([0, 1, 2, 3]);
     await Directory(p.join(root.path, 'build')).create();
     await File(
@@ -68,7 +68,7 @@ void main() {
     expect(paths, contains('.env.production'));
     expect(paths, contains('android/env.properties'));
     expect(paths, contains('android/fastlane/fastlane-service-account.json'));
-    expect(paths, contains('android/app/google-services.json'));
+    expect(paths, isNot(contains('android/app/google-services.json')));
     expect(paths, isNot(contains('.env.example')));
     expect(paths, isNot(contains('android/local.properties')));
     expect(paths, isNot(contains('release.jks')));

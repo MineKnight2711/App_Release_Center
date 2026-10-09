@@ -88,7 +88,7 @@ class _HelpBody extends StatelessWidget {
               'hoặc trình duyệt; không cần viết code test trong dự án.',
           'Đăng nhập bằng tài khoản demo trong kho (nút Tài khoản demo trên thanh '
               'tiêu đề). '
-              'Kho của team được mã hoá bằng passphrase; Firebase chỉ giữ bản '
+              'Kho của team được mã hoá bằng passphrase; server chỉ giữ bản '
               'mã. Mật khẩu vào app qua biến \${MAESTRO_QA_PASSWORD}, không '
               'nằm trong flow hay log.',
           'Kịch bản ghi dữ liệu không bao giờ chạy trên production; tài khoản '

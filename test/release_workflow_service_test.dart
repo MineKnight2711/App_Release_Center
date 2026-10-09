@@ -158,10 +158,10 @@ void main() {
     },
   );
 
-  test('legacy compatibility deploy explicitly skips Firebase', () async {
+  test('legacy deploy answers no to the distribution prompt', () async {
     final harness = await _WorkflowHarness.create(
       splitContract: false,
-      legacyIncludesFirebase: true,
+      legacyDistributionPrompt: true,
     );
     addTearDown(harness.dispose);
 
@@ -227,7 +227,7 @@ class _WorkflowHarness {
     bool failDeployOnce = false,
     int verificationCode = 12,
     bool splitContract = true,
-    bool legacyIncludesFirebase = false,
+    bool legacyDistributionPrompt = false,
     bool blockVersionCode = false,
   }) async {
     final root = await Directory.systemTemp.createTemp('arc_release_workflow_');
@@ -264,7 +264,7 @@ end
       'deploy.sh',
     ]) {
       await File(p.join(project.path, 'auto', name)).writeAsString(
-        name == 'deploy.sh' && legacyIncludesFirebase
+        name == 'deploy.sh' && legacyDistributionPrompt
             ? '#!/bin/bash\ndeploy_firebase_dis\nupload_to_chplay\n'
             : '#!/bin/bash\n',
       );

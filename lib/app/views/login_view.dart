@@ -10,9 +10,14 @@ enum _AuthPanelMode { signIn, register }
 enum _RegisterTarget { createTeam, joinInvite }
 
 class LoginView extends StatefulWidget {
-  const LoginView({super.key, required this.firebaseConfigured});
+  const LoginView({
+    super.key,
+    required this.backendConfigured,
+    this.backendConfigurationError,
+  });
 
-  final bool firebaseConfigured;
+  final bool backendConfigured;
+  final String? backendConfigurationError;
 
   @override
   State<LoginView> createState() => _LoginViewState();
@@ -111,11 +116,13 @@ class _LoginViewState extends State<LoginView> {
             ],
           ),
           const SizedBox(height: 18),
-          if (!widget.firebaseConfigured) ...[
-            const _AuthMessage(
+          if (!widget.backendConfigured) ...[
+            _AuthMessage(
               icon: Icons.warning_amber_outlined,
               message:
-                  'Chưa cấu hình Firebase. Thêm thông tin Firebase vào .env rồi mở lại app.',
+                  widget.backendConfigurationError ??
+                  'Chưa cấu hình server đăng nhập. Đặt AMC_API_BASE_URL rồi '
+                      'build và mở lại app.',
             ),
           ] else ...[
             SegmentedButton<_AuthPanelMode>(

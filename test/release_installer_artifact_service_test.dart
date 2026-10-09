@@ -222,7 +222,7 @@ ReleaseProject _project(Directory root) {
     path: root.path,
     scripts: const [],
     fastlaneLanes: const [],
-    hasFirebaseDeployTools: false,
+    hasLegacyDistributionPrompt: false,
     hasPlayReleaseTools: false,
     pubspecVersion: '0.1.0+1',
   );

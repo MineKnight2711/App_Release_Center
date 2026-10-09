@@ -172,7 +172,6 @@ class HomeController extends GetxController {
   final isLoadingProject = false.obs;
   final projectError = ''.obs;
   final isGeneratingAndroidKeystore = false.obs;
-  final includeFirebaseDeploy = true.obs;
   final playUploadChoice = PlayUploadChoice.ask.obs;
   final uploadPlayListingImages = false.obs;
   final validatePlayImages = true.obs;
@@ -1233,7 +1232,6 @@ class HomeController extends GetxController {
       if (resourceSourcePathController.text.trim().isEmpty) {
         resourceSourcePathController.text = loadedProject.path;
       }
-      includeFirebaseDeploy.value = loadedProject.hasFirebaseDeployTools;
       playUploadChoice.value = loadedProject.hasPlayReleaseTools
           ? PlayUploadChoice.ask
           : PlayUploadChoice.skip;
@@ -2880,8 +2878,7 @@ class HomeController extends GetxController {
     final shouldUpload = playChoice == PlayUploadChoice.upload;
 
     return [
-      if (currentProject.hasFirebaseDeployTools)
-        includeFirebaseDeploy.value ? 'yes' : 'no',
+      if (currentProject.hasLegacyDistributionPrompt) 'no',
       if (currentProject.hasPlayReleaseTools) shouldUpload ? 'yes' : 'no',
       if (shouldUpload && releaseNotes.isNotEmpty) releaseNotes,
     ];
@@ -3610,7 +3607,6 @@ class HomeController extends GetxController {
   Future<void> _refreshProjectSnapshot(String path) async {
     try {
       final refreshedProject = await catalog.inspect(path);
-      final keepFirebase = includeFirebaseDeploy.value;
       final keepPlayChoice = playUploadChoice.value;
       final keepUploadPlayListingImages = uploadPlayListingImages.value;
       final keepImageValidation = validatePlayImages.value;
@@ -3618,9 +3614,6 @@ class HomeController extends GetxController {
       project.value = refreshedProject;
       projectError.value = '';
 
-      includeFirebaseDeploy.value = refreshedProject.hasFirebaseDeployTools
-          ? keepFirebase
-          : false;
       playUploadChoice.value = refreshedProject.hasPlayReleaseTools
           ? keepPlayChoice
           : PlayUploadChoice.skip;

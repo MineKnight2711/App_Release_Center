@@ -54,7 +54,7 @@ before regeneration, and drafts retain their answers after reopening the app.
 Use **Tạo task** in a plan's details to review and enter one task title per line.
 Task extraction is manual in this version.
 
-Data is local to this machine, independent of Firebase teams. SQLite is stored
+Data is local to this machine, independent of team accounts. SQLite is stored
 under the platform application-support directory in `plan_studio/studio.sqlite`.
 The overflow menu exports/imports JSON backups, imports Markdown plans, and
 relinks a moved project directory without changing ticket identities. JSON
@@ -260,7 +260,7 @@ needs no test code: QA Desk writes each test case's steps to
    which Android Studio already has.
 2. Open the vault. Signed in to a team, accounts are shared with it and
    encrypted on the machine with the team's passphrase (Argon2id + AES-GCM);
-   Firestore only holds ciphertext. An Admin creates the vault and adds,
+   the amc-api Worker only holds ciphertext. An Admin creates the vault and adds,
    edits or reveals accounts; each member types the passphrase once per
    machine. Without a team, accounts stay in this machine's secure storage,
    and **Chép từ kho trên máy này** later copies them into the team's.
@@ -313,10 +313,11 @@ flow that taps a `productionGuard` label is refused. Running there asks for
 confirmation. QA Desk cannot see everything an app does on a tap, so the
 production account must also lack write permission in the backend.
 
-Deploy the vault's Firestore rules (`qaVault`, `qaAccounts`,
-`qaAccountStatus`, `qaAccountLeases`, `qaAccountAudit` under each team) with
-`firebase deploy --only firestore:rules`. They are tested against the emulator
-by `test/firestore/run_rules_test.ps1`.
+The vault's tables and permissions live in the amc-api Worker
+(`cloudflare/amc-api/src/qaVault.ts`, migration `0002_qa_vault.sql`): members
+read the vault and record login results, only Admins change it, and a lease is
+taken atomically in the caller's own name against server time. They are tested
+with `npm test` in `cloudflare/amc-api`.
 
 A mobile suite in a project manifest:
 
@@ -529,30 +530,54 @@ agent does not come back after a reboot, because nothing starts the app until
 someone opens it by hand — which makes remote restart a one-way trip. The
 installer adds the Startup entry and the uninstaller removes it.
 
-## Firebase Auth and Teams
+## Accounts and Teams (Cloudflare Worker + D1)
 
-The Windows desktop app can use Firebase Auth and Cloud Firestore for team
-login and shared HTTP Tools.
+Team login and shared HTTP Tools are served by the `amc-api` Cloudflare Worker
+in `cloudflare/amc-api`, backed by the `amc-relay` D1 database (the Worker owns
+only the tables in `cloudflare/amc-api/migrations`).
 
-1. Create a Firebase project, enable Email/Password sign-in, and enable Cloud
-   Firestore.
-2. Copy `.env.example` to `.env` and fill the `FIREBASE_*` values.
-3. Deploy `firestore.rules` to the same Firebase project.
-4. Start the app. The first user can register and create a team as Admin.
-5. Admin users can open the Team menu in the app header to create invite codes
+1. Start the app. The first user can register and create a team as Admin.
+2. Admin users can open the Team menu in the app header to create invite codes
    for Admin or Dev members.
 
-HTTP Tool collections, folders, requests, and environments are shared per team.
+HTTP Tool collections, folders, requests, and environments, and the QA Desk
+demo-account vault, are shared per team.
 Quick Requests can be configured once and run directly from the HTTP Tool;
 they follow the active local or team workspace and may require confirmation
 for reset or other destructive calls.
 HTTP response history stays local on each machine.
 
-For Windows release/installer builds, `installer\windows\build_installer.ps1`
-copies only the `FIREBASE_*` values from `.env` or process environment into a
-generated `firebase.env` beside the installed executable. It deliberately does
-not package the full `.env`, so secrets such as `GEMINI_API_KEY` are not bundled.
-You can also compile Firebase config directly with `--dart-define` values.
+The app talks to `BackendConfig.defaultApiBaseUrl`. To point it elsewhere (for
+example a local `wrangler dev`), set `AMC_API_BASE_URL` with
+`--dart-define=AMC_API_BASE_URL=http://localhost:8787`, the process
+environment, or `.env`. Plain `http` is accepted only for localhost.
+
+Passwords never leave the machine: the app sends a PBKDF2-SHA256 key derived
+from the password and email, and the Worker stores an HMAC of that key with a
+per-user salt and the `PASSWORD_PEPPER` secret. Sessions are opaque 30-day
+tokens kept in the OS secure store; the Worker stores only their SHA-256.
+
+### Worker development and deploy
+
+```sh
+cd cloudflare/amc-api
+npm install
+npx wrangler login
+cp .dev.vars.example .dev.vars        # set a random PASSWORD_PEPPER
+npx wrangler d1 migrations apply amc-relay --local
+npm test
+npx wrangler dev                      # http://localhost:8787
+```
+
+Production (run once per change as needed):
+
+```sh
+npx wrangler secret put PASSWORD_PEPPER   # first deploy only; never rotate casually
+npx wrangler d1 migrations apply amc-relay --remote
+npx wrangler deploy
+```
+
+Rotating `PASSWORD_PEPPER` invalidates every stored password.
 
 ## Telegram Release Notes
 
@@ -647,6 +672,9 @@ flutter build apk --debug
 cd serverless\notifications
 npm test -- --runInBand
 npm run lint
+cd ..\..\cloudflare\amc-api
+npm test
+npm run typecheck
 ```
 
 ### `No target "app_release_center"` when building Windows

@@ -173,8 +173,8 @@ class ApiToolPostmanCollectionImportService {
 
   /// Postman inlines an uploaded file as base64 into the `formdata` entry that
   /// sits beside the real `src` reference, and one of those alone can push a
-  /// request past the 1 MiB Firestore document limit. Values larger than this
-  /// are dropped instead of failing the whole import.
+  /// request past the 1 MiB the team database stores per item. Values larger
+  /// than this are dropped instead of failing the whole import.
   static const int maxImportedValueBytes = 256 * 1024;
 
   final DateTime Function() _now;
@@ -644,8 +644,9 @@ class ApiToolPostmanCollectionImportService {
 
   /// Keeps a single field value inside [maxImportedValueBytes]. Postman stores
   /// an uploaded file both as a `src` reference and as inline base64; the
-  /// inline copy is unusable here and is what blows the Firestore document
-  /// limit, so it is dropped and reported rather than aborting the import.
+  /// inline copy is unusable here and is what blows the team database's
+  /// per-item limit, so it is dropped and reported rather than aborting the
+  /// import.
   String _capValue(String value, String requestName, String field) {
     // UTF-8 never costs more than three bytes per UTF-16 code unit, so short
     // values skip the encode entirely.

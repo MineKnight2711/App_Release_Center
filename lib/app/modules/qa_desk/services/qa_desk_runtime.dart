@@ -15,7 +15,6 @@ import 'appium_server_service.dart';
 import 'artifact_store.dart';
 import 'automation_runner.dart';
 import 'device_discovery_service.dart';
-import 'firestore_vault_backend.dart';
 import 'git_metadata_service.dart';
 import 'maestro_manager.dart';
 import 'mobile_device_service.dart';
@@ -73,14 +72,11 @@ class QaDeskRuntime {
   static Future<AutomationParts> _appAutomation(QaDeskStorage storage) async {
     final maestro = await MaestroManager.forApp();
     final team = host.team;
+    final backend = team == null ? null : host.teamVaultBackend(team.teamId);
     const secrets = SecureSecretStore();
-    final AccountVault vault = team == null
+    final AccountVault vault = team == null || backend == null
         ? LocalAccountVault(store: secrets)
-        : TeamAccountVault(
-            backend: FirestoreVaultBackend(teamId: team.teamId),
-            store: secrets,
-            team: team,
-          );
+        : TeamAccountVault(backend: backend, store: secrets, team: team);
     final installer = AppInstaller(
       recordFile: File(p.join(storage.root, 'installed_builds.json')),
       bundletoolJar: () async {
@@ -135,7 +131,8 @@ class QaDeskRuntime {
           processRunner: processRunner,
         );
         controller.attachAutomation(runner);
-        // Firestore may be slow or offline; QA Desk opens without waiting.
+        // The team database may be slow or offline; QA Desk opens without
+        // waiting.
         unawaited(parts.vault.load());
       }
       try {

@@ -148,7 +148,7 @@ void main() {
   });
 
   group('TeamAccountVault', () {
-    test('an Admin creates it; Firebase only sees ciphertext', () async {
+    test('an Admin creates it; the server only sees ciphertext', () async {
       final backend = MemoryVaultBackend();
       final vault = teamVault(backend, admin);
       await vault.load();

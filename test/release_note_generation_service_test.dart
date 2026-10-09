@@ -105,7 +105,7 @@ void main() {
             path: p.join(directory.path, 'my_android_app'),
             scripts: const [],
             fastlaneLanes: const [],
-            hasFirebaseDeployTools: false,
+            hasLegacyDistributionPrompt: false,
             hasPlayReleaseTools: true,
           ),
         );

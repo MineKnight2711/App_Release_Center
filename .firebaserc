@@ -1,7 +1,0 @@
-{
-  "projects": {
-    "production": "app-release-center"
-  },
-  "targets": {},
-  "etags": {}
-}

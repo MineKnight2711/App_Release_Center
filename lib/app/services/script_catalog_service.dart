@@ -35,7 +35,9 @@ class ScriptCatalogService extends GetxService {
     final deployScript = File(p.join(autoDirectory.path, 'deploy.sh'));
     final deployScriptSource = _readFile(deployScript);
     final executableDeployScript = _stripCommentOnlyLines(deployScriptSource);
-    final hasFirebaseDeployTools =
+    // Older deploy.sh templates prompt for this step; detect it only so the
+    // app can answer "no" (see ReleaseProject.hasLegacyDistributionPrompt).
+    final hasLegacyDistributionPrompt =
         executableDeployScript.contains('deploy_firebase_dis') ||
         executableDeployScript.contains('firebase appdistribution');
     final hasPlayReleaseTools =
@@ -46,7 +48,7 @@ class ScriptCatalogService extends GetxService {
       path: root.path,
       scripts: scripts,
       fastlaneLanes: _readFastlaneLanes(root.path),
-      hasFirebaseDeployTools: hasFirebaseDeployTools,
+      hasLegacyDistributionPrompt: hasLegacyDistributionPrompt,
       hasPlayReleaseTools: hasPlayReleaseTools,
       pubspecVersion: _readPubspecVersion(root.path),
     );

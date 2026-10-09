@@ -4,7 +4,6 @@ enum ResourceTargetKind {
   envFile,
   properties,
   fastlaneServiceAccount,
-  firebaseConfig,
   signingKey,
   appStoreKey,
 }
@@ -17,7 +16,6 @@ const resourceRecommendedTargetKinds = {
   ResourceTargetKind.envFile,
   ResourceTargetKind.properties,
   ResourceTargetKind.fastlaneServiceAccount,
-  ResourceTargetKind.firebaseConfig,
 };
 
 class ResourceCollectionSettings {
@@ -210,7 +208,6 @@ extension ResourceTargetKindText on ResourceTargetKind {
       ResourceTargetKind.envFile => 'File env',
       ResourceTargetKind.properties => 'File properties',
       ResourceTargetKind.fastlaneServiceAccount => 'Service account',
-      ResourceTargetKind.firebaseConfig => 'Cấu hình Firebase',
       ResourceTargetKind.signingKey => 'Key ký',
       ResourceTargetKind.appStoreKey => 'Key App Store',
     };

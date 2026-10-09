@@ -91,7 +91,7 @@ class VaultKdfParams {
 }
 
 /// End-to-end encryption of the team vault: AES-GCM 256 with a key derived
-/// from the team's passphrase. Firebase only ever stores what this produces.
+/// from the team's passphrase. The server only ever stores what this produces.
 class VaultCipher {
   VaultCipher._(this._key, this.keyBytes);
 

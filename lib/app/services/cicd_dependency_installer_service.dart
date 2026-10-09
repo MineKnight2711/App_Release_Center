@@ -214,14 +214,6 @@ class CiCdDependencyInstallerService {
           _bundleInstall(projectPath, snapshot.platform),
       ],
       CiCdSetupGroup.optionalTools => [
-        if (_needs(checks, 'firebase-cli'))
-          _winget(
-            'install-firebase-cli',
-            'Cài Firebase CLI',
-            group,
-            'Google.FirebaseCLI',
-            fallbackUrl: 'https://firebase.google.com/docs/cli',
-          ),
         if (_needs(checks, 'github-cli'))
           _winget('install-github-cli', 'Cài GitHub CLI', group, 'GitHub.cli'),
         for (final check in checks)
@@ -350,13 +342,6 @@ class CiCdDependencyInstallerService {
           _bundleInstall(projectPath, snapshot.platform),
       ],
       CiCdSetupGroup.optionalTools => [
-        if (_needs(checks, 'firebase-cli'))
-          _brew(
-            'install-firebase-cli',
-            'Cài Firebase CLI',
-            group,
-            'firebase-cli',
-          ),
         if (_needs(checks, 'github-cli'))
           _brew('install-github-cli', 'Cài GitHub CLI', group, 'gh'),
         for (final check in checks)

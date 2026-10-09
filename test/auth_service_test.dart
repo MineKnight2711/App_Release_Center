@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:app_management_center/app/models/auth_models.dart';
 import 'package:app_management_center/app/services/auth_service.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -34,7 +32,7 @@ void main() {
       backend: backend,
       teamDataSource: teamData,
       now: () => now,
-    ).init(firebaseEnabled: true);
+    ).init(backendConfigured: true);
 
     await service.signIn(email: 'dev@example.com', password: 'secret123');
 
@@ -45,7 +43,7 @@ void main() {
     expect(sessionStore.authSession?.expiresAt, now.add(authSessionDuration));
   });
 
-  test('expired persisted session signs out current Firebase user', () async {
+  test('expired persisted session signs out current user', () async {
     final now = DateTime(2026, 8, 4, 9);
     final sessionStore = _MemorySessionStore(
       AuthSessionMetadata(
@@ -66,7 +64,7 @@ void main() {
       backend: backend,
       teamDataSource: _FakeTeamDataSource(),
       now: () => now,
-    ).init(firebaseEnabled: true);
+    ).init(backendConfigured: true);
 
     expect(service.authStatus.value, AuthStatus.unauthenticated);
     expect(service.profile.value, isNull);
@@ -90,7 +88,7 @@ void main() {
       backend: backend,
       teamDataSource: teamData,
       now: () => now,
-    ).init(firebaseEnabled: true);
+    ).init(backendConfigured: true);
 
     await service.registerWithNewTeam(
       email: 'admin@example.com',
@@ -134,7 +132,6 @@ class _FakeAuthBackend implements AuthBackend {
        _signInUser = signInUser,
        _createUser = createUser;
 
-  final _controller = StreamController<AuthBackendUser?>.broadcast();
   AuthBackendUser? _currentUser;
   final AuthBackendUser? _signInUser;
   final AuthBackendUser? _createUser;
@@ -144,7 +141,7 @@ class _FakeAuthBackend implements AuthBackend {
   AuthBackendUser? get currentUser => _currentUser;
 
   @override
-  Stream<AuthBackendUser?> authStateChanges() => _controller.stream;
+  Future<void> restore() async {}
 
   @override
   Future<AuthBackendUser> signIn({
@@ -155,7 +152,6 @@ class _FakeAuthBackend implements AuthBackend {
         _signInUser ??
         AuthBackendUser(uid: 'uid-$email', email: email, displayName: '');
     _currentUser = user;
-    _controller.add(user);
     return user;
   }
 
@@ -173,7 +169,6 @@ class _FakeAuthBackend implements AuthBackend {
           displayName: displayName,
         );
     _currentUser = user;
-    _controller.add(user);
     return user;
   }
 
@@ -181,7 +176,6 @@ class _FakeAuthBackend implements AuthBackend {
   Future<void> signOut() async {
     didSignOut = true;
     _currentUser = null;
-    _controller.add(null);
   }
 }
 
@@ -192,22 +186,10 @@ class _FakeTeamDataSource implements TeamDataSource {
   String? createdTeamName;
 
   @override
-  Future<void> upsertUserProfile({
-    required String uid,
-    required String email,
-    required String displayName,
-  }) async {}
+  Future<TeamMembership?> loadMembership() async => membership;
 
   @override
-  Future<TeamMembership?> loadMembershipForUser(String uid) async => membership;
-
-  @override
-  Future<TeamMembership> createTeamForUser({
-    required String uid,
-    required String email,
-    required String displayName,
-    required String teamName,
-  }) async {
+  Future<TeamMembership> createTeam(String teamName) async {
     createdTeamName = teamName;
     membership = TeamMembership(
       teamId: 'team-created',
@@ -218,12 +200,7 @@ class _FakeTeamDataSource implements TeamDataSource {
   }
 
   @override
-  Future<TeamMembership> joinTeamWithInvite({
-    required String uid,
-    required String email,
-    required String displayName,
-    required String inviteCode,
-  }) async {
+  Future<TeamMembership> joinTeamWithInvite(String inviteCode) async {
     membership = const TeamMembership(
       teamId: 'team-invite',
       teamName: 'Invite Team',
@@ -235,7 +212,6 @@ class _FakeTeamDataSource implements TeamDataSource {
   @override
   Future<CreatedTeamInvite> createInvite({
     required String teamId,
-    required String createdByUid,
     required TeamRole role,
     required DateTime expiresAt,
   }) async {

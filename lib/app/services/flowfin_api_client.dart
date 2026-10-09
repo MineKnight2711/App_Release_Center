@@ -60,7 +60,7 @@ class FlowFinAuthRequiredException implements Exception {
 
 /// Talks to the FlowFin Worker directly.
 ///
-/// Nothing here touches App Management Center's Firebase project or its
+/// Nothing here touches App Management Center's amc-api Worker or its
 /// notification relay — the desktop app is just another FlowFin API client.
 ///
 /// Two FlowFin contracts are enforced on this side:

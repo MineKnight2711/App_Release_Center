@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 
+import 'account_vault.dart';
+
 /// What QA Desk needs to know about the rest of AMC, without depending on its
 /// controllers. AMC sets one at startup on `QaDeskRuntime.host`.
 abstract class QaDeskHost {
@@ -18,9 +20,13 @@ abstract class QaDeskHost {
   /// Fires when [busyProjectPaths] changes.
   Listenable get changes;
 
-  /// The signed-in team member, or null without Firebase: the demo-account
-  /// vault is then kept on this machine only.
+  /// The signed-in team member, or null when AMC is not signed in to a team:
+  /// the demo-account vault is then kept on this machine only.
   QaTeamContext? get team => null;
+
+  /// Where [team]'s shared vault is stored, or null to keep it on this
+  /// machine.
+  VaultBackend? teamVaultBackend(String teamId) => null;
 }
 
 /// Who is signed in to AMC's team, for the shared demo-account vault.

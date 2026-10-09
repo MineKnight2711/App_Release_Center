@@ -108,12 +108,6 @@ class ResourceDiscoveryService extends GetxService {
 
     if (_isIgnoredCandidateName(basename)) return null;
 
-    if (lower == 'android/app/google-services.json' ||
-        basename == 'googleservice-info.plist'.toLowerCase() ||
-        basename == 'firebase_app_id_file.json') {
-      return ResourceTargetKind.firebaseConfig;
-    }
-
     if (_isPropertiesPath(lower, basename)) {
       return ResourceTargetKind.properties;
     }
@@ -188,8 +182,9 @@ class ResourceDiscoveryService extends GetxService {
     return switch (kind) {
       ResourceTargetKind.envFile ||
       ResourceTargetKind.properties => _probeKeyValueSource(source),
-      ResourceTargetKind.fastlaneServiceAccount ||
-      ResourceTargetKind.firebaseConfig => _probeStructuredSource(source),
+      ResourceTargetKind.fastlaneServiceAccount => _probeStructuredSource(
+        source,
+      ),
       ResourceTargetKind.signingKey ||
       ResourceTargetKind.appStoreKey => _probeKeyValueSource(source),
     };

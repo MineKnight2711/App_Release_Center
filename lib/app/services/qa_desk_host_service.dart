@@ -1,6 +1,9 @@
 import 'package:app_management_center/app/controllers/home_controller.dart';
+import 'package:app_management_center/app/data/amc_api_client.dart';
 import 'package:app_management_center/app/models/auth_models.dart';
+import 'package:app_management_center/app/modules/qa_desk/services/account_vault.dart';
 import 'package:app_management_center/app/modules/qa_desk/services/qa_desk_host.dart';
+import 'package:app_management_center/app/services/amc_vault_backend.dart';
 import 'package:app_management_center/app/services/auth_service.dart';
 import 'package:app_management_center/app/services/release_runner_service.dart';
 import 'package:flutter/foundation.dart';
@@ -15,8 +18,10 @@ class AmcQaDeskHost extends ChangeNotifier implements QaDeskHost {
   AmcQaDeskHost({
     required ReleaseRunnerService runner,
     required HomeController Function() home,
+    AmcApiClient? api,
   }) : _runner = runner,
-       _home = home {
+       _home = home,
+       _api = api {
     _workers = [
       ever<bool>(runner.isRunning, (_) => notifyListeners()),
       ever<bool>(runner.isWorkflowRunning, (_) => notifyListeners()),
@@ -25,6 +30,7 @@ class AmcQaDeskHost extends ChangeNotifier implements QaDeskHost {
 
   final ReleaseRunnerService _runner;
   final HomeController Function() _home;
+  final AmcApiClient? _api;
   late final List<Worker> _workers;
 
   @override
@@ -57,6 +63,12 @@ class AmcQaDeskHost extends ChangeNotifier implements QaDeskHost {
       email: profile.email,
       isAdmin: profile.role == TeamRole.admin,
     );
+  }
+
+  @override
+  VaultBackend? teamVaultBackend(String teamId) {
+    final api = _api;
+    return api == null ? null : AmcVaultBackend(api: api, teamId: teamId);
   }
 
   @override

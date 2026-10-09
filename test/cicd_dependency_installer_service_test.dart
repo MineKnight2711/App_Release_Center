@@ -117,7 +117,7 @@ void main() {
       platform: CiCdSetupPlatform.windows,
       checks: [
         _installed('winget', 'Windows Package Manager', CiCdSetupGroup.core),
-        _missing('firebase-cli', 'Firebase CLI', CiCdSetupGroup.optionalTools),
+        _missing('github-cli', 'GitHub CLI', CiCdSetupGroup.optionalTools),
       ],
     );
 
@@ -131,10 +131,7 @@ void main() {
     );
 
     expect(withoutOptional, isEmpty);
-    expect(
-      withOptional.map((step) => step.id),
-      contains('install-firebase-cli'),
-    );
+    expect(withOptional.map((step) => step.id), contains('install-github-cli'));
   });
 
   test('runs install step through ReleaseRunnerService', () async {

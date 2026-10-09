@@ -200,7 +200,7 @@ void main() {
     expect(environment.enabledVariables.containsKey('APP_KEYS'), isFalse);
   });
 
-  test('drops inline values too large for a Firestore document', () {
+  test('drops inline values too large for a team database item', () {
     final service = ApiToolPostmanCollectionImportService(
       now: () => DateTime.utc(2026, 9, 8),
     );
