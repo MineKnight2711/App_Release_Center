@@ -1,5 +1,6 @@
 import 'package:app_management_center/app/data/release_center_connect.dart';
 import 'package:app_management_center/app/services/ch_play_credential_store_service.dart';
+import 'package:app_management_center/app/services/mobile_control_credential_store_service.dart';
 import 'package:app_management_center/app/services/notification_credential_store_service.dart';
 import 'package:app_management_center/app/services/project_store_service.dart';
 import 'package:app_management_center/app/services/release_runner_service.dart';
@@ -31,13 +32,16 @@ void main() {
     Get.put<ReleaseCenterConnect>(connect);
     Get.put<NotificationCredentialStoreService>(credentials);
     Get.put<RemoteControlService>(
-      RemoteControlService(
+      await RemoteControlService(
         store: store,
         catalog: catalog,
         runner: runner,
         connect: connect,
         credentialStore: credentials,
-      ),
+        mobileCredentialStore: MobileControlCredentialStoreService(
+          secureStore: _MemorySecureKeyValueStore(),
+        ),
+      ).init(),
     );
 
     await tester.pumpWidget(const GetMaterialApp(home: MobileControlView()));

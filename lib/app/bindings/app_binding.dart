@@ -1,7 +1,16 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:app_management_center/app/controllers/app_shell_controller.dart';
 import 'package:app_management_center/app/controllers/flowfin_controller.dart';
 import 'package:app_management_center/app/controllers/home_controller.dart';
 import 'package:app_management_center/app/data/release_center_connect.dart';
+import 'package:app_management_center/app/modules/bundle_check/services/app_bundle_project_source.dart';
+import 'package:app_management_center/app/modules/bundle_check/services/bundle_check_service.dart';
+import 'package:app_management_center/app/modules/bundle_check/services/bundle_check_store.dart';
+import 'package:app_management_center/app/modules/bundle_check/telegram/telegram_intake_service.dart';
+import 'package:app_management_center/app/modules/bundle_check/telegram/telegram_intake_store.dart';
+import 'package:app_management_center/app/modules/qa_desk/services/qa_desk_runtime.dart';
 import 'package:app_management_center/app/services/android_cicd_clone_service.dart';
 import 'package:app_management_center/app/services/android_keystore_generation_service.dart';
 import 'package:app_management_center/app/services/api_monitor_service.dart';
@@ -10,6 +19,8 @@ import 'package:app_management_center/app/services/api_tool_service.dart';
 import 'package:app_management_center/app/services/app_store_credential_store_service.dart';
 import 'package:app_management_center/app/services/app_store_project_inspector_service.dart';
 import 'package:app_management_center/app/services/app_store_version_check_service.dart';
+import 'package:app_management_center/app/services/app_lock_service.dart';
+import 'package:app_management_center/app/services/remote_unlock_session_service.dart';
 import 'package:app_management_center/app/services/auth_service.dart';
 import 'package:app_management_center/app/services/ch_play_credential_store_service.dart';
 import 'package:app_management_center/app/services/ch_play_project_inspector_service.dart';
@@ -23,6 +34,8 @@ import 'package:app_management_center/app/services/gemini_env_service.dart';
 import 'package:app_management_center/app/services/git_inspector_service.dart';
 import 'package:app_management_center/app/services/google_drive_credential_store_service.dart';
 import 'package:app_management_center/app/services/google_drive_release_upload_service.dart';
+import 'package:app_management_center/app/services/machine_power_service.dart';
+import 'package:app_management_center/app/services/mobile_control_credential_store_service.dart';
 import 'package:app_management_center/app/services/notification_credential_store_service.dart';
 import 'package:app_management_center/app/services/project_store_service.dart';
 import 'package:app_management_center/app/services/release_apk_artifact_service.dart';
@@ -41,7 +54,9 @@ import 'package:app_management_center/app/services/script_catalog_service.dart';
 import 'package:app_management_center/app/services/theme_service.dart';
 import 'package:app_management_center/app/services/telegram_credential_store_service.dart';
 import 'package:app_management_center/app/services/telegram_release_notification_service.dart';
+import 'package:app_management_center/app/services/qa_desk_host_service.dart';
 import 'package:get/get.dart';
+import 'package:path/path.dart' as p;
 
 class AppBinding extends Bindings {
   static Future<void> initServices({bool firebaseEnabled = false}) async {
@@ -183,16 +198,44 @@ class AppBinding extends Bindings {
       ),
       permanent: true,
     );
-    Get.put<RemoteControlService>(
-      RemoteControlService(
+    Get.put<MachinePowerService>(MachinePowerService(), permanent: true);
+    Get.put<MobileControlCredentialStoreService>(
+      MobileControlCredentialStoreService(),
+      permanent: true,
+    );
+    // Async because the control token now comes from secure storage, and the
+    // phone decides between the pairing form and the console from it.
+    await Get.putAsync<RemoteControlService>(
+      () => RemoteControlService(
         store: Get.find<ProjectStoreService>(),
         catalog: Get.find<ScriptCatalogService>(),
         runner: Get.find<ReleaseRunnerService>(),
         connect: Get.find<ReleaseCenterConnect>(),
         credentialStore: Get.find<NotificationCredentialStoreService>(),
-      ),
+        mobileCredentialStore: Get.find<MobileControlCredentialStoreService>(),
+        power: Get.find<MachinePowerService>(),
+      ).init(),
       permanent: true,
     );
+    // Phone only. The desktop sits behind the Windows sign-in and the Firebase
+    // auth gate already, so a second biometric prompt there would guard nothing
+    // that is not guarded; the phone has no gate of its own at all.
+    if (Platform.isAndroid || Platform.isIOS) {
+      await Get.putAsync<AppLockService>(
+        () => AppLockService(
+          store: Get.find<ProjectStoreService>(),
+          authenticator: LocalAuthBiometricAuthenticator(),
+        ).init(),
+        permanent: true,
+      );
+      await Get.putAsync<RemoteUnlockSessionService>(
+        () => RemoteUnlockSessionService(
+          store: Get.find<ProjectStoreService>(),
+          lock: Get.find<AppLockService>(),
+        ).init(),
+        permanent: true,
+      );
+    }
     Get.put<ChPlayProjectInspectorService>(
       ChPlayProjectInspectorService(),
       permanent: true,
@@ -239,6 +282,35 @@ class AppBinding extends Bindings {
       ),
       permanent: true,
     );
+    if (!Platform.isAndroid && !Platform.isIOS) {
+      await _registerAabBot();
+    }
+  }
+
+  /// The Telegram AAB bot lives for the whole app, not the checker page: it
+  /// answers the group whether or not that page is open.
+  static Future<void> _registerAabBot() async {
+    final bundleStore = await BundleCheckStore.forApp();
+    final root = await bundleStore.root;
+    final telegram = Get.find<TelegramReleaseNotificationService>();
+    final credentials = Get.find<TelegramCredentialStoreService>();
+    final intake = TelegramIntakeService(
+      store: TelegramIntakeStore(
+        root: Directory(p.join(root.path, 'telegram')),
+      ),
+      checker: BundleCheckService(
+        store: bundleStore,
+        projects: AppBundleProjectSource(),
+      ),
+      readToken: telegram.readBotToken,
+      releaseSettings: () => telegram.settings,
+      saveReleaseSettings: telegram.saveSettings,
+      readServerCredentials: credentials.readLocalServerCredentials,
+    );
+    Get.put<TelegramIntakeService>(intake, permanent: true);
+    // Not awaited: starting a local server can take seconds, and nothing at
+    // startup waits on the bot.
+    unawaited(intake.init());
   }
 
   @override
@@ -285,7 +357,12 @@ class AppBinding extends Bindings {
         resourceCatalogExcel: Get.find<ResourceCatalogExcelService>(),
         cicdDoctor: Get.find<CiCdDependencyDoctorService>(),
         cicdInstaller: Get.find<CiCdDependencyInstallerService>(),
+        machineShutdown: Get.find<MachinePowerService>(),
       ),
+    );
+    QaDeskRuntime.host = AmcQaDeskHost(
+      runner: Get.find<ReleaseRunnerService>(),
+      home: () => Get.find<HomeController>(),
     );
   }
 }

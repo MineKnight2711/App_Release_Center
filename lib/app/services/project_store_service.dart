@@ -1,6 +1,8 @@
 import 'dart:convert';
 
 import 'package:app_management_center/app/models/api_tool.dart';
+import 'package:app_management_center/app/models/app_lock.dart';
+import 'package:app_management_center/app/models/remote_unlock_session.dart';
 import 'package:app_management_center/app/models/auth_models.dart';
 import 'package:app_management_center/app/models/app_store_project.dart';
 import 'package:app_management_center/app/models/ch_play_project.dart';
@@ -26,6 +28,8 @@ class ProjectStoreService extends GetxService implements AuthSessionStore {
   static const _linkedNotificationDevicesKey = 'linked_notification_devices';
   static const _remoteControlSettingsKey = 'remote_control_settings';
   static const _mobileControlSettingsKey = 'mobile_control_settings';
+  static const _appLockSettingsKey = 'app_lock_settings';
+  static const _remoteUnlockSessionKey = 'remote_unlock_session';
   static const _telegramReleaseSettingsKey = 'telegram_release_settings';
   static const _googleDriveReleaseSettingsKey = 'google_drive_release_settings';
   static const _flowFinSettingsKey = 'flowfin_settings';
@@ -426,6 +430,44 @@ class ProjectStoreService extends GetxService implements AuthSessionStore {
     return const MobileControlSettings();
   }
 
+  AppLockSettings get appLockSettings {
+    final entry = _preferences.getString(_appLockSettingsKey);
+    if (entry == null || entry.trim().isEmpty) {
+      return const AppLockSettings();
+    }
+
+    try {
+      final json = jsonDecode(entry);
+      if (json is Map<String, Object?>) {
+        return AppLockSettings.fromJson(json);
+      }
+    } catch (_) {
+      // Ignore invalid entries and fall back to defaults.
+    }
+
+    return const AppLockSettings();
+  }
+
+  /// The marker for a saved Windows password. Never the password itself —
+  /// that is in secure storage, and preferences are a plain file on disk.
+  RemoteUnlockSession get remoteUnlockSession {
+    final entry = _preferences.getString(_remoteUnlockSessionKey);
+    if (entry == null || entry.trim().isEmpty) {
+      return const RemoteUnlockSession.none();
+    }
+
+    try {
+      final json = jsonDecode(entry);
+      if (json is Map<String, Object?>) {
+        return RemoteUnlockSession.fromJson(json);
+      }
+    } catch (_) {
+      // Ignore invalid entries and fall back to defaults.
+    }
+
+    return const RemoteUnlockSession.none();
+  }
+
   Future<void> saveProjectPath(String path) async {
     final normalizedPath = p.normalize(path);
     final lowerPath = normalizedPath.toLowerCase();
@@ -650,5 +692,23 @@ class ProjectStoreService extends GetxService implements AuthSessionStore {
       _mobileControlSettingsKey,
       jsonEncode(settings.toJson()),
     );
+  }
+
+  Future<void> saveAppLockSettings(AppLockSettings settings) async {
+    await _preferences.setString(
+      _appLockSettingsKey,
+      jsonEncode(settings.toJson()),
+    );
+  }
+
+  Future<void> saveRemoteUnlockSession(RemoteUnlockSession session) async {
+    await _preferences.setString(
+      _remoteUnlockSessionKey,
+      jsonEncode(session.toJson()),
+    );
+  }
+
+  Future<void> clearRemoteUnlockSession() async {
+    await _preferences.remove(_remoteUnlockSessionKey);
   }
 }

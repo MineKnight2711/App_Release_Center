@@ -13,6 +13,19 @@ if (-not $installDirectory.Equals(
   throw "Refusing to remove an unexpected directory: $installDirectory"
 }
 
+$remoteUnlockUninstaller = Join-Path `
+  $installDirectory `
+  'uninstall_remote_unlock.ps1'
+if (Test-Path -LiteralPath $remoteUnlockUninstaller -PathType Leaf) {
+  & powershell.exe `
+    -NoProfile `
+    -ExecutionPolicy Bypass `
+    -File $remoteUnlockUninstaller
+  if ($LASTEXITCODE -ne 0) {
+    throw "Remote unlock removal failed with exit code $LASTEXITCODE."
+  }
+}
+
 Get-Process -Name 'app_management_center' -ErrorAction SilentlyContinue |
   Stop-Process -Force
 
@@ -27,6 +40,13 @@ if (Test-Path -LiteralPath $startMenuDirectory) {
 }
 if (Test-Path -LiteralPath $desktopShortcut) {
   Remove-Item -LiteralPath $desktopShortcut -Force
+}
+# Left behind, this would point Startup at a deleted executable on every login.
+$startupShortcut = Join-Path `
+  ([Environment]::GetFolderPath('Startup')) `
+  'App Management Center.lnk'
+if (Test-Path -LiteralPath $startupShortcut) {
+  Remove-Item -LiteralPath $startupShortcut -Force
 }
 
 $uninstallKey = `

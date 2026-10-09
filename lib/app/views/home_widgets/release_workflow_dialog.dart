@@ -168,15 +168,11 @@ class _ReleaseWorkflowDialogState extends State<_ReleaseWorkflowDialog> {
               ),
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
-                color: AppCyberTheme.isCyber
-                    ? AppCyberTheme.electricBlue.withValues(alpha: 0.58)
-                    : AppCyberTheme.lineBlue,
+                color: AppCyberTheme.palette.dialogBorder,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: AppCyberTheme.electricBlue.withValues(
-                    alpha: AppCyberTheme.isCyber ? 0.22 : 0.08,
-                  ),
+                  color: AppCyberTheme.palette.dialogGlowColor,
                   blurRadius: 38,
                   spreadRadius: -8,
                 ),
@@ -385,6 +381,7 @@ class _ReleaseWorkflowDialogState extends State<_ReleaseWorkflowDialog> {
                   ),
                 ),
               ],
+              const _ShutdownAfterDeployOption(),
               if (_localError != null) ...[
                 const SizedBox(height: 14),
                 _WorkflowMessage(
@@ -1346,7 +1343,7 @@ class _ReleaseProgressBar extends StatelessWidget {
       builder: (_, value, _) => DecoratedBox(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(99),
-          boxShadow: running && AppCyberTheme.isCyber
+          boxShadow: running && AppCyberTheme.palette.hasGlow
               ? [
                   BoxShadow(
                     color: AppCyberTheme.electricBlue.withValues(alpha: 0.22),
@@ -1392,7 +1389,7 @@ class _ReleaseHeaderMark extends StatelessWidget {
               color: color.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(9),
               border: Border.all(color: color.withValues(alpha: 0.48)),
-              boxShadow: AppCyberTheme.isCyber && running
+              boxShadow: AppCyberTheme.palette.hasGlow && running
                   ? [
                       BoxShadow(
                         color: color.withValues(alpha: 0.18),

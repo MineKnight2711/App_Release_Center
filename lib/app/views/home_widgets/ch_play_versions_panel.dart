@@ -361,23 +361,26 @@ class _StoreVersionMetric extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = AppCyberTheme.palette;
     final borderColor = highlighted
-        ? (AppCyberTheme.isCyber
-              ? AppCyberTheme.electricBlue.withValues(alpha: 0.75)
-              : const Color(0xFF1570EF))
-        : (AppCyberTheme.isCyber
-              ? AppCyberTheme.electricBlue.withValues(alpha: 0.25)
-              : AppCyberTheme.lineBlue);
+        ? (palette.hasGlow
+              ? palette.accent.withValues(alpha: 0.75)
+              : palette.accentBorder)
+        : (palette.hasGlow
+              ? palette.accent.withValues(alpha: 0.25)
+              : palette.line);
     final backgroundColor = highlighted
-        ? (AppCyberTheme.isCyber
-              ? AppCyberTheme.electricBlue.withValues(alpha: 0.12)
-              : const Color(0xFFEFF8FF))
-        : AppCyberTheme.panelBackgroundStrong.withValues(alpha: 0.62);
+        ? (palette.hasGlow
+              ? palette.accent.withValues(alpha: 0.12)
+              : palette.accentSoft)
+        : (palette.hasGlow
+              ? palette.panelStrong.withValues(alpha: 0.62)
+              : (palette.isDark
+                    ? palette.panelStrong
+                    : palette.panelStrong.withValues(alpha: 0.62)));
     final iconColor = highlighted
-        ? (AppCyberTheme.isCyber
-              ? AppCyberTheme.neonGreen
-              : const Color(0xFF1570EF))
-        : AppCyberTheme.textMuted;
+        ? (palette.hasGlow ? palette.accentAlt : palette.accentBorder)
+        : palette.textMuted;
 
     return Container(
       constraints: const BoxConstraints(minHeight: 44),
@@ -505,22 +508,18 @@ class _ChPlayProjectCard extends GetView<HomeController> {
                     width: 30,
                     height: 30,
                     decoration: BoxDecoration(
-                      color: AppCyberTheme.isCyber
-                          ? AppCyberTheme.neonGreen.withValues(alpha: 0.12)
-                          : const Color(0xFFEFF8F0),
+                      color: AppCyberTheme.palette.successSoft,
                       borderRadius: BorderRadius.circular(6),
                       border: Border.all(
-                        color: AppCyberTheme.isCyber
-                            ? AppCyberTheme.neonGreen.withValues(alpha: 0.55)
-                            : const Color(0xFFB7D7C2),
+                        color: AppCyberTheme.palette.successBorder,
                       ),
                     ),
                     child: Icon(
                       Icons.android_outlined,
                       size: 17,
-                      color: AppCyberTheme.isCyber
-                          ? AppCyberTheme.neonGreen
-                          : AppCyberTheme.textMuted,
+                      color: AppCyberTheme.palette.hasGlow
+                          ? AppCyberTheme.palette.success
+                          : AppCyberTheme.palette.textMuted,
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -647,22 +646,18 @@ class _ChPlayProjectCard extends GetView<HomeController> {
               width: 28,
               height: 28,
               decoration: BoxDecoration(
-                color: AppCyberTheme.isCyber
-                    ? AppCyberTheme.neonGreen.withValues(alpha: 0.12)
-                    : const Color(0xFFEFF8F0),
+                color: AppCyberTheme.palette.successSoft,
                 borderRadius: BorderRadius.circular(6),
                 border: Border.all(
-                  color: AppCyberTheme.isCyber
-                      ? AppCyberTheme.neonGreen.withValues(alpha: 0.55)
-                      : const Color(0xFFB7D7C2),
+                  color: AppCyberTheme.palette.successBorder,
                 ),
               ),
               child: Icon(
                 Icons.android_outlined,
                 size: 16,
-                color: AppCyberTheme.isCyber
-                    ? AppCyberTheme.neonGreen
-                    : AppCyberTheme.textMuted,
+                color: AppCyberTheme.palette.hasGlow
+                    ? AppCyberTheme.palette.success
+                    : AppCyberTheme.palette.textMuted,
               ),
             ),
             const SizedBox(width: 7),
@@ -901,22 +896,18 @@ class _AppStoreProjectCard extends GetView<HomeController> {
                     width: 30,
                     height: 30,
                     decoration: BoxDecoration(
-                      color: AppCyberTheme.isCyber
-                          ? AppCyberTheme.electricBlue.withValues(alpha: 0.12)
-                          : const Color(0xFFEFF6FF),
+                      color: AppCyberTheme.palette.infoSoft,
                       borderRadius: BorderRadius.circular(6),
                       border: Border.all(
-                        color: AppCyberTheme.isCyber
-                            ? AppCyberTheme.electricBlue.withValues(alpha: 0.55)
-                            : const Color(0xFFBFD7F5),
+                        color: AppCyberTheme.palette.infoBorder,
                       ),
                     ),
                     child: Icon(
                       Icons.phone_iphone_outlined,
                       size: 17,
-                      color: AppCyberTheme.isCyber
-                          ? AppCyberTheme.electricBlue
-                          : AppCyberTheme.textMuted,
+                      color: AppCyberTheme.palette.hasGlow
+                          ? AppCyberTheme.palette.info
+                          : AppCyberTheme.palette.textMuted,
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -1051,22 +1042,18 @@ class _AppStoreProjectCard extends GetView<HomeController> {
               width: 28,
               height: 28,
               decoration: BoxDecoration(
-                color: AppCyberTheme.isCyber
-                    ? AppCyberTheme.electricBlue.withValues(alpha: 0.12)
-                    : const Color(0xFFEFF6FF),
+                color: AppCyberTheme.palette.infoSoft,
                 borderRadius: BorderRadius.circular(6),
                 border: Border.all(
-                  color: AppCyberTheme.isCyber
-                      ? AppCyberTheme.electricBlue.withValues(alpha: 0.55)
-                      : const Color(0xFFBFD7F5),
+                  color: AppCyberTheme.palette.infoBorder,
                 ),
               ),
               child: Icon(
                 Icons.phone_iphone_outlined,
                 size: 16,
-                color: AppCyberTheme.isCyber
-                    ? AppCyberTheme.electricBlue
-                    : AppCyberTheme.textMuted,
+                color: AppCyberTheme.palette.hasGlow
+                    ? AppCyberTheme.palette.info
+                    : AppCyberTheme.palette.textMuted,
               ),
             ),
             const SizedBox(width: 7),
@@ -1297,9 +1284,7 @@ Future<ChPlayProject?> _showChPlayProjectDialog(
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),
               side: BorderSide(
-                color: AppCyberTheme.isCyber
-                    ? AppCyberTheme.electricBlue.withValues(alpha: 0.4)
-                    : AppCyberTheme.lineBlue,
+                color: AppCyberTheme.palette.cardBorder,
               ),
             ),
             title: _PanelTitle(
@@ -1431,9 +1416,7 @@ Future<AppStoreProject?> _showAppStoreProjectDialog(
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(10),
           side: BorderSide(
-            color: AppCyberTheme.isCyber
-                ? AppCyberTheme.electricBlue.withValues(alpha: 0.4)
-                : AppCyberTheme.lineBlue,
+            color: AppCyberTheme.palette.cardBorder,
           ),
         ),
         title: _PanelTitle(
@@ -1549,9 +1532,7 @@ Future<void> _showChPlayCredentialsDialog(
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),
               side: BorderSide(
-                color: AppCyberTheme.isCyber
-                    ? AppCyberTheme.electricBlue.withValues(alpha: 0.4)
-                    : AppCyberTheme.lineBlue,
+                color: AppCyberTheme.palette.cardBorder,
               ),
             ),
             title: const _PanelTitle(
@@ -1854,9 +1835,7 @@ Future<void> _showAppStoreCredentialsDialog(
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),
               side: BorderSide(
-                color: AppCyberTheme.isCyber
-                    ? AppCyberTheme.electricBlue.withValues(alpha: 0.4)
-                    : AppCyberTheme.lineBlue,
+                color: AppCyberTheme.palette.cardBorder,
               ),
             ),
             title: const _PanelTitle(

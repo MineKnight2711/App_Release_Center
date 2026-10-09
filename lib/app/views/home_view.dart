@@ -7,6 +7,12 @@ import 'dart:ui' show ImageFilter;
 import 'package:app_management_center/app/controllers/app_shell_controller.dart';
 import 'package:app_management_center/app/controllers/flowfin_controller.dart';
 import 'package:app_management_center/app/controllers/home_controller.dart';
+import 'package:app_management_center/app/modules/bundle_check/views/bundle_check_view.dart';
+import 'package:app_management_center/app/modules/mail_cleaner/views/mail_cleaner_view.dart';
+import 'package:app_management_center/app/modules/plan_studio/views/plan_studio_view.dart';
+import 'package:app_management_center/app/modules/qa_desk/services/qa_desk_runtime.dart';
+import 'package:app_management_center/app/modules/qa_desk/views/qa_desk_view.dart';
+import 'package:app_management_center/app/modules/qa_desk/views/qa_shell_status.dart';
 import 'package:app_management_center/app/models/api_tool.dart';
 import 'package:app_management_center/app/models/app_store_credentials.dart';
 import 'package:app_management_center/app/models/app_store_project.dart';
@@ -32,11 +38,13 @@ import 'package:app_management_center/app/services/api_tool_repository_service.d
 import 'package:app_management_center/app/services/api_tool_service.dart';
 import 'package:app_management_center/app/services/auth_service.dart';
 import 'package:app_management_center/app/services/git_inspector_service.dart';
+import 'package:app_management_center/app/services/machine_power_service.dart';
 import 'package:app_management_center/app/services/project_store_service.dart';
 import 'package:app_management_center/app/services/release_runner_service.dart';
 import 'package:app_management_center/app/services/release_workflow_service.dart';
 import 'package:app_management_center/app/services/remote_control_service.dart';
 import 'package:app_management_center/app/services/theme_service.dart';
+import 'package:app_management_center/app/services/windows_auto_start_service.dart';
 import 'package:app_management_center/app/theme/cyber_theme.dart';
 import 'package:app_management_center/app/views/team_management_dialog.dart';
 import 'package:file_selector/file_selector.dart' as file_selector;
@@ -182,6 +190,14 @@ class _HomeScaffoldState extends State<_HomeScaffold> {
                       ? const _CommandPalette()
                       : const SizedBox.shrink(),
                 ),
+                // Last in the stack so nothing can cover the cancel button:
+                // whoever is at the machine outranks whoever holds the phone.
+                const Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  child: _PendingPowerBanner(),
+                ),
               ],
             ),
           ),
@@ -259,6 +275,93 @@ const _paletteActivators = <SingleActivator>[
   SingleActivator(LogicalKeyboardKey.keyP, control: true),
   SingleActivator(LogicalKeyboardKey.keyP, meta: true),
 ];
+
+/// Shows a shutdown or restart a phone has queued, with a way out.
+///
+/// The phone can also cancel, but someone sitting at the machine should never
+/// have to find their phone to stop it losing their work.
+class _PendingPowerBanner extends StatefulWidget {
+  const _PendingPowerBanner();
+
+  @override
+  State<_PendingPowerBanner> createState() => _PendingPowerBannerState();
+}
+
+class _PendingPowerBannerState extends State<_PendingPowerBanner> {
+  Timer? _ticker;
+
+  @override
+  void initState() {
+    super.initState();
+    _ticker = Timer.periodic(
+      const Duration(seconds: 1),
+      (_) => mounted ? setState(() {}) : null,
+    );
+  }
+
+  @override
+  void dispose() {
+    _ticker?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!Get.isRegistered<RemoteControlService>()) {
+      return const SizedBox.shrink();
+    }
+    final remote = Get.find<RemoteControlService>();
+
+    return Obx(() {
+      final pending = remote.pendingPowerCommand.value;
+      if (pending == null) return const SizedBox.shrink();
+
+      final remaining = pending.remaining();
+      final label = pending.action == MachinePowerAction.restart
+          ? 'Khởi động lại'
+          : 'Tắt máy';
+
+      return Material(
+        color: Colors.transparent,
+        child: Container(
+          margin: const EdgeInsets.all(12),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: AppCyberTheme.palette.danger,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Row(
+            children: [
+              const Icon(
+                Icons.power_settings_new_outlined,
+                color: Colors.white,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Điện thoại yêu cầu $label. Còn ${remaining.inSeconds} giây.',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              FilledButton.icon(
+                onPressed: () => unawaited(remote.cancelPendingPowerCommand()),
+                style: FilledButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: AppCyberTheme.palette.danger,
+                ),
+                icon: const Icon(Icons.undo_outlined),
+                label: const Text('Huỷ ngay'),
+              ),
+            ],
+          ),
+        ),
+      );
+    });
+  }
+}
 
 class _AccountHud extends StatelessWidget {
   const _AccountHud();

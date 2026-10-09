@@ -213,7 +213,7 @@ class _OptionsTabButton extends StatelessWidget {
     final backgroundColor = selected
         ? AppCyberTheme.electricBlue.withValues(alpha: 0.14)
         : AppCyberTheme.panelBackgroundStrong.withValues(
-            alpha: AppCyberTheme.isCyber ? 0.34 : 0.82,
+            alpha: AppCyberTheme.palette.panelAlphaMuted,
           );
     final foregroundColor = selected
         ? AppCyberTheme.electricBlue
@@ -236,7 +236,7 @@ class _OptionsTabButton extends StatelessWidget {
               color: backgroundColor,
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: borderColor),
-              boxShadow: selected && AppCyberTheme.isCyber
+              boxShadow: selected && AppCyberTheme.palette.hasGlow
                   ? [
                       BoxShadow(
                         color: AppCyberTheme.electricBlue.withValues(
@@ -348,9 +348,32 @@ class _ReleaseOptions extends GetView<HomeController> {
             const SizedBox(height: 12),
           ],
           const _CustomScriptArguments(),
+          const _ShutdownAfterDeployOption(),
         ],
       );
     });
+  }
+}
+
+class _ShutdownAfterDeployOption extends GetView<HomeController> {
+  const _ShutdownAfterDeployOption();
+
+  @override
+  Widget build(BuildContext context) {
+    if (!controller.machineShutdown.isSupported) return const SizedBox.shrink();
+    return Obx(
+      () => CheckboxListTile(
+        value: controller.shutdownAfterDeploy.value,
+        onChanged: (value) =>
+            controller.shutdownAfterDeploy.value = value ?? false,
+        contentPadding: EdgeInsets.zero,
+        controlAffinity: ListTileControlAffinity.leading,
+        title: const Text('Shutdown máy sau khi deploy xong'),
+        subtitle: const Text(
+          'Chỉ tắt máy khi toàn bộ deploy thành công. Hãy lưu công việc trước khi chạy.',
+        ),
+      ),
+    );
   }
 }
 
@@ -939,7 +962,11 @@ class _CiCdStatusChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: AppCyberTheme.isCyber ? 0.13 : 0.08),
+        color: color.withValues(
+          alpha: AppCyberTheme.palette.hasGlow
+              ? 0.13
+              : (AppCyberTheme.palette.isDark ? 0.14 : 0.08),
+        ),
         borderRadius: BorderRadius.circular(6),
         border: Border.all(color: color.withValues(alpha: 0.5)),
       ),
@@ -3393,6 +3420,35 @@ class _RemoteControlOptions extends GetView<HomeController> {
             title: const Text('Trung chuyển lệnh từ điện thoại'),
             subtitle: Text(remote.agentStatus.value),
           ),
+          const _AutoStartOption(),
+          SwitchListTile(
+            value: settings.allowPowerControl,
+            onChanged: settings.enabled ? remote.setAllowPowerControl : null,
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Cho phép tắt, khởi động lại, ngủ, khóa máy'),
+            subtitle: const Text(
+              'Chỉ điện thoại ghép sau khi bật mới có quyền này.',
+            ),
+          ),
+          SwitchListTile(
+            value: settings.allowWindowControl,
+            onChanged: settings.enabled ? remote.setAllowWindowControl : null,
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Cho phép điều khiển cửa sổ và ứng dụng'),
+            subtitle: const Text(
+              'Đóng, thu nhỏ cửa sổ và mở ứng dụng trong danh sách cho phép.',
+            ),
+          ),
+          SwitchListTile(
+            value: settings.allowRemoteUnlock,
+            onChanged: settings.enabled ? remote.setAllowRemoteUnlock : null,
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Cho phép mở khóa Windows từ điện thoại'),
+            subtitle: const Text(
+              'Yêu cầu Credential Provider và điện thoại phải được ghép lại '
+              'sau khi bật.',
+            ),
+          ),
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -3406,6 +3462,40 @@ class _RemoteControlOptions extends GetView<HomeController> {
                 onPressed: () => _showAllowedRootsDialog(context),
                 icon: const Icon(Icons.folder_special_outlined),
                 label: const Text('Thư mục cho phép'),
+              ),
+              OutlinedButton.icon(
+                onPressed: () => _showAllowedAppsDialog(context),
+                icon: const Icon(Icons.apps_outlined),
+                label: const Text('Ứng dụng cho phép'),
+              ),
+              OutlinedButton.icon(
+                onPressed: settings.enabled
+                    ? () async {
+                        try {
+                          await remote.installRemoteUnlockProvider();
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Đã cài bộ mở khóa Windows thành công.',
+                              ),
+                            ),
+                          );
+                        } catch (error) {
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(error.toString()),
+                              backgroundColor: Theme.of(
+                                context,
+                              ).colorScheme.error,
+                            ),
+                          );
+                        }
+                      }
+                    : null,
+                icon: const Icon(Icons.key_outlined),
+                label: const Text('Cài mở khóa Windows'),
               ),
             ],
           ),
@@ -3445,7 +3535,17 @@ class _RemoteControlOptions extends GetView<HomeController> {
   }
 
   Future<void> _showControlPairingDialog(BuildContext context) async {
-    final session = await controller.createPhonePairing();
+    // The grant is fixed when the pairing is made: a phone linked today keeps
+    // what was enabled today, even if these switches change later.
+    final settings = remote.settings.value;
+    final session = await controller.createPhonePairing(
+      scopes: [
+        'run',
+        if (settings.allowPowerControl) 'power',
+        if (settings.allowWindowControl) 'window',
+        if (settings.allowRemoteUnlock) 'unlock',
+      ],
+    );
     if (session == null || !context.mounted) return;
     await showDialog<void>(
       context: context,
@@ -3458,6 +3558,63 @@ class _RemoteControlOptions extends GetView<HomeController> {
       context: context,
       builder: (_) => const _AllowedRootsDialog(),
     );
+  }
+
+  Future<void> _showAllowedAppsDialog(BuildContext context) async {
+    await showDialog<void>(
+      context: context,
+      builder: (_) => const _AllowedAppsDialog(),
+    );
+  }
+}
+
+/// Without this the agent never returns after a reboot, so a machine restarted
+/// from the phone simply disappears. The shortcut on disk is the state, which
+/// is why this reads it rather than a stored preference.
+class _AutoStartOption extends StatefulWidget {
+  const _AutoStartOption();
+
+  @override
+  State<_AutoStartOption> createState() => _AutoStartOptionState();
+}
+
+class _AutoStartOptionState extends State<_AutoStartOption> {
+  final _autoStart = WindowsAutoStartService();
+  late bool _enabled = _autoStart.isEnabled();
+  String _error = '';
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_autoStart.isSupported) return const SizedBox.shrink();
+
+    return SwitchListTile(
+      value: _enabled,
+      onChanged: (value) => unawaited(_apply(value)),
+      contentPadding: EdgeInsets.zero,
+      title: const Text('Tự khởi động cùng Windows'),
+      subtitle: Text(
+        _error.isNotEmpty
+            ? _error
+            : 'Cần bật để điện thoại còn thấy máy sau khi khởi động lại.',
+      ),
+    );
+  }
+
+  Future<void> _apply(bool value) async {
+    try {
+      await _autoStart.setEnabled(value);
+      if (!mounted) return;
+      setState(() {
+        _enabled = _autoStart.isEnabled();
+        _error = '';
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _enabled = _autoStart.isEnabled();
+        _error = 'Không đổi được: $error';
+      });
+    }
   }
 }
 
@@ -3494,11 +3651,7 @@ class _AllowedRootsDialogState extends State<_AllowedRootsDialog> {
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(10),
-        side: BorderSide(
-          color: AppCyberTheme.isCyber
-              ? AppCyberTheme.electricBlue.withValues(alpha: 0.4)
-              : AppCyberTheme.lineBlue,
-        ),
+        side: BorderSide(color: AppCyberTheme.palette.cardBorder),
       ),
       title: const _PanelTitle(
         icon: Icons.folder_special_outlined,
@@ -3528,6 +3681,95 @@ class _AllowedRootsDialogState extends State<_AllowedRootsDialog> {
         FilledButton.icon(
           onPressed: () async {
             await remote.saveAllowedRoots(
+              _controller.text.split(RegExp(r'\r?\n')),
+            );
+            if (context.mounted) Navigator.of(context).pop();
+          },
+          icon: const Icon(Icons.save_outlined),
+          label: const Text('Lưu'),
+        ),
+      ],
+    );
+  }
+}
+
+class _AllowedAppsDialog extends StatefulWidget {
+  const _AllowedAppsDialog();
+
+  @override
+  State<_AllowedAppsDialog> createState() => _AllowedAppsDialogState();
+}
+
+class _AllowedAppsDialogState extends State<_AllowedAppsDialog> {
+  late final TextEditingController _controller;
+
+  RemoteControlService get remote => Get.find<RemoteControlService>();
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(
+      text: remote.settings.value.allowedApps.join('\n'),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: AppCyberTheme.panelBackgroundStrong,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: BorderSide(color: AppCyberTheme.palette.cardBorder),
+      ),
+      title: const _PanelTitle(
+        icon: Icons.apps_outlined,
+        title: 'Ứng dụng cho phép',
+      ),
+      content: SizedBox(
+        width: 460,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Điện thoại chỉ mở được các ứng dụng liệt kê ở đây.',
+              style: AppCyberTheme.dataTextStyle(
+                size: 10.8,
+                color: AppCyberTheme.textMuted,
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _controller,
+              minLines: 6,
+              maxLines: 10,
+              style: AppCyberTheme.dataTextStyle(
+                size: 11.5,
+                color: AppCyberTheme.textPrimary,
+              ),
+              decoration: const InputDecoration(
+                labelText: 'Mỗi dòng một đường dẫn .exe',
+                alignLabelWithHint: true,
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        OutlinedButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Huỷ'),
+        ),
+        FilledButton.icon(
+          onPressed: () async {
+            await remote.saveAllowedApps(
               _controller.text.split(RegExp(r'\r?\n')),
             );
             if (context.mounted) Navigator.of(context).pop();
@@ -3801,11 +4043,7 @@ class _PhonePairingDialogState extends State<_PhonePairingDialog> {
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(10),
-        side: BorderSide(
-          color: AppCyberTheme.isCyber
-              ? AppCyberTheme.electricBlue.withValues(alpha: 0.4)
-              : AppCyberTheme.lineBlue,
-        ),
+        side: BorderSide(color: AppCyberTheme.palette.cardBorder),
       ),
       titlePadding: const EdgeInsets.fromLTRB(20, 16, 20, 6),
       contentPadding: const EdgeInsets.fromLTRB(20, 8, 20, 8),

@@ -28,6 +28,7 @@ import 'package:app_management_center/app/services/gemini_env_service.dart';
 import 'package:app_management_center/app/services/git_inspector_service.dart';
 import 'package:app_management_center/app/services/google_drive_credential_store_service.dart';
 import 'package:app_management_center/app/services/google_drive_release_upload_service.dart';
+import 'package:app_management_center/app/services/mobile_control_credential_store_service.dart';
 import 'package:app_management_center/app/services/notification_credential_store_service.dart';
 import 'package:app_management_center/app/services/project_store_service.dart';
 import 'package:app_management_center/app/services/release_apk_artifact_service.dart';
@@ -228,6 +229,32 @@ void main() {
       find.byKey(const Key('command-palette-item-goto.options:resources')),
       findsOneWidget,
     );
+  });
+
+  testWidgets('reaches QA Desk from the project panel, menu and palette', (
+    tester,
+  ) async {
+    await _pumpHome(tester, harness);
+
+    // Plan Studio and QA Desk sit together as the project's own tools.
+    expect(find.byKey(const Key('project-tool-plan-studio')), findsOneWidget);
+    expect(find.byKey(const Key('project-tool-qa-desk')), findsOneWidget);
+
+    await _pressPaletteShortcut(tester);
+    await tester.enterText(
+      find.byKey(const Key('command-palette-query')),
+      'QA:',
+    );
+    await tester.pumpAndSettle();
+    for (final id in const ['qa.run', 'qa.rerunFailed', 'qa.lastReport']) {
+      expect(find.byKey(Key('command-palette-item-$id')), findsOneWidget);
+    }
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('automation-menu')));
+    await tester.pumpAndSettle();
+    expect(find.text('Chạy suite test của nhiều dự án.'), findsOneWidget);
   });
 
   testWidgets('lists project-scoped Fastlane lanes as commands', (
@@ -2894,6 +2921,9 @@ class _Harness {
       runner: runner,
       connect: connect,
       credentialStore: notificationCredentials,
+      mobileCredentialStore: MobileControlCredentialStoreService(
+        secureStore: secureStore,
+      ),
     );
     final chPlayInspector = ChPlayProjectInspectorService();
     final chPlayCredentialStore = ChPlayCredentialStoreService(

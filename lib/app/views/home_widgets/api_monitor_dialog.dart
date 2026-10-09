@@ -175,15 +175,11 @@ class _ApiMonitorDialogState extends State<_ApiMonitorDialog> {
               ),
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
-                color: AppCyberTheme.isCyber
-                    ? AppCyberTheme.electricBlue.withValues(alpha: 0.58)
-                    : AppCyberTheme.lineBlue,
+                color: AppCyberTheme.palette.dialogBorder,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: AppCyberTheme.electricBlue.withValues(
-                    alpha: AppCyberTheme.isCyber ? 0.22 : 0.08,
-                  ),
+                  color: AppCyberTheme.palette.dialogGlowColor,
                   blurRadius: 38,
                   spreadRadius: -8,
                 ),

@@ -31,6 +31,7 @@ import 'package:app_management_center/app/services/cicd_dependency_installer_ser
 import 'package:app_management_center/app/services/command_notification_service.dart';
 import 'package:app_management_center/app/services/gemini_env_service.dart';
 import 'package:app_management_center/app/services/google_drive_release_upload_service.dart';
+import 'package:app_management_center/app/services/machine_power_service.dart';
 import 'package:app_management_center/app/services/project_store_service.dart';
 import 'package:app_management_center/app/services/release_apk_artifact_service.dart';
 import 'package:app_management_center/app/services/release_installer_artifact_service.dart';
@@ -88,6 +89,7 @@ class HomeController extends GetxController {
     CiCdDependencyDoctorService? cicdDoctor,
     CiCdDependencyInstallerService? cicdInstaller,
     Uuid? uuid,
+    MachinePowerService? machineShutdown,
   }) : releaseWorkflow =
            releaseWorkflow ??
            ReleaseWorkflowService(
@@ -114,6 +116,7 @@ class HomeController extends GetxController {
           passwordStore: passwordStore,
         );
     _uuid = uuid ?? const Uuid();
+    this.machineShutdown = machineShutdown ?? MachinePowerService();
   }
 
   final ProjectStoreService store;
@@ -144,6 +147,19 @@ class HomeController extends GetxController {
   late final ResourceCatalogPasswordStoreService resourceCatalogPasswords;
   late final ResourceCatalogExcelService resourceCatalogExcel;
   late final Uuid _uuid;
+  late final MachinePowerService machineShutdown;
+  final shutdownAfterDeploy = false.obs;
+
+  Future<void> _shutdownAfterSuccessfulDeploy(bool succeeded) async {
+    if (!succeeded || !shutdownAfterDeploy.value || runner.isBusy) return;
+    shutdownAfterDeploy.value = false;
+    try {
+      runner.appendSystemLog('Deploy thành công. Đang shutdown máy...');
+      await machineShutdown.shutdown();
+    } catch (error) {
+      runner.appendSystemLog('Không thể shutdown máy: $error');
+    }
+  }
 
   final project = Rxn<ReleaseProject>();
   final recentPaths = <String>[].obs;
@@ -1439,6 +1455,9 @@ class HomeController extends GetxController {
     if (currentProject != null) {
       await _refreshProjectSnapshot(currentProject.path);
     }
+    await _shutdownAfterSuccessfulDeploy(
+      result.isCompleted && !result.hasWarning,
+    );
     return result;
   }
 
@@ -1448,10 +1467,16 @@ class HomeController extends GetxController {
     if (currentProject != null) {
       await _refreshProjectSnapshot(currentProject.path);
     }
+    await _shutdownAfterSuccessfulDeploy(
+      result.isCompleted && !result.hasWarning,
+    );
     return result;
   }
 
-  Future<void> cancelAutomatedRelease() => releaseWorkflow.cancel();
+  Future<void> cancelAutomatedRelease() {
+    shutdownAfterDeploy.value = false;
+    return releaseWorkflow.cancel();
+  }
 
   Future<void> openReleaseArtifact(String path) async {
     final file = File(path);
@@ -1983,8 +2008,10 @@ class HomeController extends GetxController {
 
     try {
       await telegramReleaseNotifications.saveBotToken(token);
+      // copyWith keeps settings owned elsewhere, such as the Bot API server
+      // the AAB checker moved the bot to.
       await telegramReleaseNotifications.saveSettings(
-        TelegramReleaseSettings(
+        telegramReleaseNotifications.settings.copyWith(
           autoSendEnabled: targetAutoSend,
           chatId: chatId,
         ),
@@ -2324,10 +2351,12 @@ class HomeController extends GetxController {
     _syncNotificationStateFromStore();
   }
 
-  Future<NotificationPairingSession?> createPhonePairing() async {
+  Future<NotificationPairingSession?> createPhonePairing({
+    List<String> scopes = const ['run'],
+  }) async {
     await saveNotificationConfiguration();
     try {
-      final session = await notifications.createPairingSession();
+      final session = await notifications.createPairingSession(scopes: scopes);
       notificationStatus.value = 'Mã ghép đã sẵn sàng.';
       return session;
     } catch (error) {
@@ -2432,6 +2461,7 @@ class HomeController extends GetxController {
   }
 
   Future<void> stopRun() async {
+    shutdownAfterDeploy.value = false;
     await runner.stop();
   }
 
@@ -2681,6 +2711,7 @@ class HomeController extends GetxController {
       runner.finishWorkflow(success: succeeded);
       await _refreshProjectSnapshot(currentProject.path);
     }
+    await _shutdownAfterSuccessfulDeploy(succeeded);
   }
 
   Future<void> _deliverReleaseInstaller(

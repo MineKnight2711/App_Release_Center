@@ -39,7 +39,7 @@ class _ApiToolEnvTokenChip extends StatelessWidget {
           ),
           borderRadius: BorderRadius.circular(6),
           border: Border.all(color: color.withValues(alpha: 0.66)),
-          boxShadow: floating && AppCyberTheme.isCyber
+          boxShadow: floating && AppCyberTheme.palette.hasGlow
               ? [
                   BoxShadow(
                     color: color.withValues(alpha: 0.24),
@@ -499,7 +499,7 @@ class _ApiToolRequestTile extends StatelessWidget {
 Color _apiToolMethodColor(ApiToolMethod method) {
   return switch (method) {
     ApiToolMethod.get =>
-      AppCyberTheme.isCyber ? const Color(0xFF00F3FF) : const Color(0xFF10B981),
+      AppCyberTheme.palette.hasGlow ? AppCyberTheme.palette.accent : const Color(0xFF10B981),
     ApiToolMethod.post => const Color(0xFFF59E0B),
     ApiToolMethod.put => const Color(0xFF3B82F6),
     ApiToolMethod.patch => const Color(0xFF8B5CF6),
@@ -799,9 +799,7 @@ class _ApiToolResponseHero extends StatelessWidget {
     if (statusCode >= 500) return const Color(0xFFEF4444);
     if (statusCode >= 400) return const Color(0xFFF59E0B);
     if (statusCode >= 200 && statusCode < 300) {
-      return AppCyberTheme.isCyber
-          ? AppCyberTheme.neonGreen
-          : const Color(0xFF10B981);
+      return AppCyberTheme.palette.success;
     }
     return AppCyberTheme.electricBlue;
   }

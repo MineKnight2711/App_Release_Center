@@ -113,6 +113,47 @@ service cloud.firestore {
         allow read: if isActiveMember(teamId);
         allow write: if canEditApiTools(teamId);
       }
+
+      // QA Desk demo-account vault. Account secrets are encrypted on the
+      // client with the team passphrase; these rules decide who may read the
+      // ciphertext, who may change it, and who may hold an account.
+      match /qaVault/{docId} {
+        allow read: if isActiveMember(teamId);
+        allow write: if isAdmin(teamId);
+      }
+
+      match /qaAccounts/{accountId} {
+        allow read: if isActiveMember(teamId);
+        allow write: if isAdmin(teamId);
+      }
+
+      // The last login result, written by whoever ran with the account.
+      match /qaAccountStatus/{accountId} {
+        allow read, write: if isActiveMember(teamId);
+      }
+
+      // A lease is taken or renewed only in one's own name, and only while
+      // it is free, already one's own, or expired by server time.
+      match /qaAccountLeases/{accountId} {
+        allow read: if isActiveMember(teamId);
+        allow create: if isActiveMember(teamId) &&
+          request.resource.data.holderUid == request.auth.uid;
+        allow update: if isActiveMember(teamId) &&
+          request.resource.data.holderUid == request.auth.uid &&
+          (resource.data.holderUid == request.auth.uid ||
+            resource.data.expiresAt < request.time);
+        allow delete: if isActiveMember(teamId) &&
+          (resource.data.holderUid == request.auth.uid ||
+            resource.data.expiresAt < request.time);
+      }
+
+      // Append-only: who changed, revealed or used which account.
+      match /qaAccountAudit/{eventId} {
+        allow read: if isAdmin(teamId);
+        allow create: if isActiveMember(teamId) &&
+          request.resource.data.uid == request.auth.uid;
+        allow update, delete: if false;
+      }
     }
   }
 }

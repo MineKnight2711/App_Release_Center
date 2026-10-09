@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:app_management_center/app/services/machine_power_service.dart';
 
 import 'package:archive/archive_io.dart';
 import 'package:app_management_center/app/controllers/home_controller.dart';
@@ -32,6 +33,35 @@ import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  for (final enabled in [false, true]) {
+    for (final exitCode in [0, 1]) {
+      test('shutdown enabled=$enabled deploy exit=$exitCode', () async {
+        final shutdown = _FakeMachineShutdownService();
+        final harness = await _ControllerHarness.create(
+          machineShutdown: shutdown,
+        );
+        addTearDown(harness.dispose);
+        final script = await harness.createDeployScript(exitCode: exitCode);
+        harness.controller.playUploadChoice.value = PlayUploadChoice.skip;
+        harness.controller.shutdownAfterDeploy.value = enabled;
+        await harness.controller.runScript(script);
+        expect(shutdown.calls, enabled && exitCode == 0 ? 1 : 0);
+        if (enabled && exitCode == 0) {
+          expect(harness.controller.shutdownAfterDeploy.value, isFalse);
+        }
+      });
+    }
+  }
+
+  test('stop disarms shutdown', () async {
+    final shutdown = _FakeMachineShutdownService();
+    final harness = await _ControllerHarness.create(machineShutdown: shutdown);
+    addTearDown(harness.dispose);
+    harness.controller.shutdownAfterDeploy.value = true;
+    await harness.controller.stopRun();
+    expect(harness.controller.shutdownAfterDeploy.value, isFalse);
+    expect(shutdown.calls, 0);
+  });
   test('auto sends only after successful generation when enabled', () async {
     final harness = await _ControllerHarness.create();
     addTearDown(harness.dispose);
@@ -528,6 +558,16 @@ void main() {
   });
 }
 
+class _FakeMachineShutdownService extends MachinePowerService {
+  int calls = 0;
+  @override
+  bool get isSupported => true;
+  @override
+  Future<void> shutdown() async {
+    calls++;
+  }
+}
+
 class _ControllerHarness {
   const _ControllerHarness({
     required this.root,
@@ -547,7 +587,9 @@ class _ControllerHarness {
   final GoogleDriveCredentialStoreService googleDriveCredentials;
   final _FakeGoogleDriveApiClient googleDriveApiClient;
 
-  static Future<_ControllerHarness> create() async {
+  static Future<_ControllerHarness> create({
+    MachinePowerService? machineShutdown,
+  }) async {
     SharedPreferences.setMockInitialValues({});
     final root = await Directory.systemTemp.createTemp(
       'app_management_center_telegram_controller_',
@@ -592,6 +634,7 @@ class _ControllerHarness {
       secureStore: _MemorySecureKeyValueStore(),
     );
     final controller = HomeController(
+      machineShutdown: machineShutdown ?? _FakeMachineShutdownService(),
       store: store,
       catalog: ScriptCatalogService(),
       androidCicdCloner: AndroidCicdCloneService(),

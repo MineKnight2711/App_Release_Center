@@ -1,0 +1,4 @@
+LIBRARY "amc_remote_unlock_provider"
+EXPORTS
+  DllCanUnloadNow PRIVATE
+  DllGetClassObject PRIVATE

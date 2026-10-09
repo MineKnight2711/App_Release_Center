@@ -275,11 +275,7 @@ class _PullRemoteBranchDialogState extends State<_PullRemoteBranchDialog> {
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(10),
-        side: BorderSide(
-          color: AppCyberTheme.isCyber
-              ? AppCyberTheme.electricBlue.withValues(alpha: 0.4)
-              : AppCyberTheme.lineBlue,
-        ),
+        side: BorderSide(color: AppCyberTheme.palette.cardBorder),
       ),
       titlePadding: const EdgeInsets.fromLTRB(20, 16, 20, 6),
       contentPadding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
@@ -416,11 +412,7 @@ Future<bool?> _showAndroidCicdCloneDialog(
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(10),
-          side: BorderSide(
-            color: AppCyberTheme.isCyber
-                ? AppCyberTheme.electricBlue.withValues(alpha: 0.4)
-                : AppCyberTheme.lineBlue,
-          ),
+          side: BorderSide(color: AppCyberTheme.palette.cardBorder),
         ),
         titlePadding: const EdgeInsets.fromLTRB(20, 16, 20, 6),
         contentPadding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
@@ -489,17 +481,13 @@ Future<bool?> _showAndroidCicdCloneDialog(
               Expanded(
                 child: DecoratedBox(
                   decoration: BoxDecoration(
-                    color: AppCyberTheme.isCyber
-                        ? AppCyberTheme.panelBackgroundStrong.withValues(
-                            alpha: 0.7,
+                    color: AppCyberTheme.palette.isDark
+                        ? AppCyberTheme.palette.panelStrong.withValues(
+                            alpha: AppCyberTheme.palette.hasGlow ? 0.7 : 0.9,
                           )
                         : const Color(0xFFFAFBFC),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: AppCyberTheme.isCyber
-                          ? AppCyberTheme.electricBlue.withValues(alpha: 0.28)
-                          : AppCyberTheme.lineBlue,
-                    ),
+                    border: Border.all(color: AppCyberTheme.palette.cardBorder),
                   ),
                   child: ListView.separated(
                     padding: const EdgeInsets.all(8),
@@ -563,11 +551,7 @@ class _AndroidKeystoreGenerationDialogState
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(10),
-        side: BorderSide(
-          color: AppCyberTheme.isCyber
-              ? AppCyberTheme.electricBlue.withValues(alpha: 0.4)
-              : AppCyberTheme.lineBlue,
-        ),
+        side: BorderSide(color: AppCyberTheme.palette.cardBorder),
       ),
       titlePadding: const EdgeInsets.fromLTRB(20, 16, 20, 6),
       contentPadding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
@@ -730,8 +714,12 @@ enum _AutomationMenuAction {
   apiTool,
   apiMonitor,
   flowFin,
-  themeDefault,
+  mailCleaner,
+  bundleCheck,
+  qaDesk,
+  themeConsole,
   themeCyber,
+  themeDefault,
   cloneAndroidCicd,
   cloneAndroidCicdFallback,
   generateAndroidJks,
@@ -752,10 +740,21 @@ Future<void> _runAutomationMenuAction(
       await showApiMonitorDialog(context);
     case _AutomationMenuAction.flowFin:
       await showFlowFinDialog(context);
-    case _AutomationMenuAction.themeDefault:
-      Get.find<ThemeService>().setChoice(AppThemeChoice.defaultTheme);
+    case _AutomationMenuAction.mailCleaner:
+      await showMailCleaner(context);
+    case _AutomationMenuAction.bundleCheck:
+      await showBundleCheck(context);
+    case _AutomationMenuAction.qaDesk:
+      await showQaDesk(
+        context,
+        projectPath: Get.find<HomeController>().project.value?.path,
+      );
+    case _AutomationMenuAction.themeConsole:
+      Get.find<ThemeService>().setChoice(AppThemeChoice.console);
     case _AutomationMenuAction.themeCyber:
       Get.find<ThemeService>().setChoice(AppThemeChoice.cyber);
+    case _AutomationMenuAction.themeDefault:
+      Get.find<ThemeService>().setChoice(AppThemeChoice.defaultTheme);
     case _AutomationMenuAction.cloneAndroidCicd:
       await _runExtendedAction(context, _ExtendedAction.cloneAndroidCicd);
     case _AutomationMenuAction.cloneAndroidCicdFallback:
@@ -807,11 +806,7 @@ class _AutomationMenuButton extends GetView<HomeController> {
         constraints: const BoxConstraints(minWidth: 280, maxWidth: 360),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
-          side: BorderSide(
-            color: AppCyberTheme.isCyber
-                ? AppCyberTheme.electricBlue.withValues(alpha: 0.42)
-                : AppCyberTheme.lineBlue,
-          ),
+          side: BorderSide(color: AppCyberTheme.palette.cardBorder),
         ),
         itemBuilder: (context) => [
           const PopupMenuItem(
@@ -838,21 +833,47 @@ class _AutomationMenuButton extends GetView<HomeController> {
               subtitle: 'Ví, ngân sách và giao dịch.',
             ),
           ),
-          const PopupMenuDivider(),
-          PopupMenuItem(
-            value: theme == AppThemeChoice.cyber
-                ? _AutomationMenuAction.themeDefault
-                : _AutomationMenuAction.themeCyber,
+          const PopupMenuItem(
+            value: _AutomationMenuAction.mailCleaner,
             child: _ExtendedMenuItem(
-              icon: theme == AppThemeChoice.cyber
-                  ? AppThemeChoice.defaultTheme.icon
-                  : AppThemeChoice.cyber.icon,
-              title: theme == AppThemeChoice.cyber
-                  ? 'Đổi sang giao diện Default'
-                  : 'Đổi sang giao diện Cyber',
-              subtitle: 'Đang dùng ${theme.label}.',
+              icon: Icons.mark_email_unread_outlined,
+              title: 'Dọn hộp thư',
+              subtitle: 'Quét IMAP và xoá thư rác theo nhóm tiêu đề.',
             ),
           ),
+          const PopupMenuItem(
+            value: _AutomationMenuAction.bundleCheck,
+            child: _ExtendedMenuItem(
+              icon: Icons.fact_check_outlined,
+              title: 'Kiểm tra AAB',
+              subtitle: 'Build đúng không, đủ env không.',
+            ),
+          ),
+          const PopupMenuItem(
+            value: _AutomationMenuAction.qaDesk,
+            child: _ExtendedMenuItem(
+              icon: Icons.science_outlined,
+              title: 'QA Desk · Kiểm thử',
+              subtitle: 'Chạy suite test của nhiều dự án.',
+            ),
+          ),
+          const PopupMenuDivider(),
+          for (final choice in AppThemeChoice.values)
+            PopupMenuItem(
+              value: switch (choice) {
+                AppThemeChoice.console => _AutomationMenuAction.themeConsole,
+                AppThemeChoice.cyber => _AutomationMenuAction.themeCyber,
+                AppThemeChoice.defaultTheme =>
+                  _AutomationMenuAction.themeDefault,
+              },
+              child: _ExtendedMenuItem(
+                icon: choice.icon,
+                title: 'Đổi sang giao diện ${choice.label}',
+                subtitle: theme == choice
+                    ? 'Đang dùng ${theme.label}.'
+                    : 'Chuyển sang ${choice.label}.',
+              ),
+            ),
           const PopupMenuDivider(),
           PopupMenuItem(
             value: _AutomationMenuAction.cloneAndroidCicd,
@@ -1030,14 +1051,8 @@ class _AndroidCicdChangeRow extends StatelessWidget {
 
   Color _actionColor(BuildContext context, AndroidCicdFileAction action) {
     return switch (action) {
-      AndroidCicdFileAction.add =>
-        AppCyberTheme.isCyber
-            ? AppCyberTheme.neonGreen
-            : const Color(0xFF039855),
-      AndroidCicdFileAction.overwrite =>
-        AppCyberTheme.isCyber
-            ? AppCyberTheme.electricBlue
-            : const Color(0xFF1570EF),
+      AndroidCicdFileAction.add => AppCyberTheme.palette.success,
+      AndroidCicdFileAction.overwrite => AppCyberTheme.palette.info,
       AndroidCicdFileAction.skip => Theme.of(context).colorScheme.error,
     };
   }

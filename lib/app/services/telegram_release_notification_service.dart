@@ -417,7 +417,7 @@ class TelegramReleaseNotificationService extends GetxService {
     }
 
     final response = await _httpClient.postMultipartFile(
-      Uri.https('api.telegram.org', '/bot$token/sendDocument'),
+      telegramMethodUri(currentSettings.apiBaseUrl, token, 'sendDocument'),
       fields: {'chat_id': chatId, 'caption': caption},
       fileField: 'document',
       file: file,
@@ -450,7 +450,7 @@ class TelegramReleaseNotificationService extends GetxService {
     }
 
     final response = await _httpClient.postJson(
-      Uri.https('api.telegram.org', '/bot$token/sendMessage'),
+      telegramMethodUri(currentSettings.apiBaseUrl, token, 'sendMessage'),
       {'chat_id': chatId, 'text': text},
     );
     _ensureTelegramSuccess(response, token);

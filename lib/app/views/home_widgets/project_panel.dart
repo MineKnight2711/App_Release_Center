@@ -28,6 +28,37 @@ class _ProjectPanel extends GetView<HomeController> {
                 ),
               ),
               const SizedBox(height: 16),
+              const _PanelTitle(
+                icon: Icons.handyman_outlined,
+                title: 'Công cụ dự án',
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  key: const Key('project-tool-plan-studio'),
+                  onPressed: () => showPlanStudio(
+                    context,
+                    projectPath: controller.project.value?.path,
+                  ),
+                  icon: const Icon(Icons.view_kanban_outlined),
+                  label: const Text('Plan Studio · Công việc'),
+                ),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  key: const Key('project-tool-qa-desk'),
+                  onPressed: () => showQaDesk(
+                    context,
+                    projectPath: controller.project.value?.path,
+                  ),
+                  icon: const Icon(Icons.science_outlined),
+                  label: const Text('QA Desk · Kiểm thử'),
+                ),
+              ),
+              const SizedBox(height: 12),
               Obx(() {
                 final project = controller.project.value;
                 final error = controller.projectError.value;
@@ -198,9 +229,7 @@ class _RecentProjectTile extends GetView<HomeController> {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
         side: BorderSide(
-          color: AppCyberTheme.isCyber
-              ? AppCyberTheme.electricBlue.withValues(alpha: 0.42)
-              : AppCyberTheme.lineBlue,
+          color: AppCyberTheme.palette.cardBorder,
         ),
       ),
       items: const [
@@ -365,9 +394,7 @@ Future<_ProjectStoreSetupSelection?> _showProjectSetupSelectionDialog(
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),
               side: BorderSide(
-                color: AppCyberTheme.isCyber
-                    ? AppCyberTheme.electricBlue.withValues(alpha: 0.4)
-                    : AppCyberTheme.lineBlue,
+                color: AppCyberTheme.palette.cardBorder,
               ),
             ),
             title: const _PanelTitle(

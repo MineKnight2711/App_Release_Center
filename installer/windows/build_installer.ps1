@@ -103,7 +103,10 @@ function Assert-PayloadArchive {
 
   $requiredEntries = @(
     'app_management_center.exe',
+    'amc_remote_unlock_provider.dll',
     'flutter_windows.dll',
+    'install_remote_unlock.ps1',
+    'uninstall_remote_unlock.ps1',
     'data/app.so',
     'data/icudtl.dat',
     'data/flutter_assets/AssetManifest.bin',
@@ -203,6 +206,14 @@ Copy-Item `
   -Destination (Join-Path $payloadDirectory 'uninstall.ps1') `
   -Force
 Copy-Item `
+  -LiteralPath (Join-Path $PSScriptRoot 'install_remote_unlock.ps1') `
+  -Destination (Join-Path $payloadDirectory 'install_remote_unlock.ps1') `
+  -Force
+Copy-Item `
+  -LiteralPath (Join-Path $PSScriptRoot 'uninstall_remote_unlock.ps1') `
+  -Destination (Join-Path $payloadDirectory 'uninstall_remote_unlock.ps1') `
+  -Force
+Copy-Item `
   -LiteralPath (Join-Path $PSScriptRoot 'install.ps1') `
   -Destination (Join-Path $stageDirectory 'install.ps1') `
   -Force
@@ -228,6 +239,9 @@ if (Test-Path -LiteralPath $targetPath) {
 }
 
 $sourceDirectory = $stageDirectory.TrimEnd('\') + '\'
+# No FinishMessage: IExpress shows it whatever install.ps1 returns, which
+# announced success over a failed install. install.ps1 reports a failure
+# itself, and a successful install opens the app.
 $sed = @"
 [Version]
 Class=IEXPRESS
@@ -264,7 +278,7 @@ SourceFiles0=$sourceDirectory
 [Strings]
 InstallPrompt=Install App Management Center $Version for the current user?
 DisplayLicense=
-FinishMessage=App Management Center $Version was installed successfully.
+FinishMessage=
 TargetName=$targetPath
 FriendlyName=App Management Center Setup
 AppLaunched=powershell.exe -NoProfile -ExecutionPolicy Bypass -File install.ps1

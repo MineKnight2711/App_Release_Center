@@ -111,11 +111,16 @@ class CommandNotificationService extends GetxService
     return _credentialStore.saveApiToken(token);
   }
 
-  Future<NotificationPairingSession> createPairingSession() async {
+  /// [scopes] is what the phone linked by this pairing will be allowed to do.
+  /// The relay copies it onto the device and ignores anything the phone asks
+  /// for, so this call is the only place the grant is decided.
+  Future<NotificationPairingSession> createPairingSession({
+    List<String> scopes = const ['run'],
+  }) async {
     final currentSettings = _requireConfiguredSettings();
     final response = await _httpClient.postJson(
       _endpoint(currentSettings, 'pairings'),
-      {'source': 'desktop', 'app': 'app_management_center'},
+      {'source': 'desktop', 'app': 'app_management_center', 'scopes': scopes},
       headers: await _headers(),
     );
     _ensureOk(response, 'create pairing');
@@ -289,6 +294,13 @@ class CommandNotificationService extends GetxService
 
   void _ensureOk(NotificationHttpResponse response, String action) {
     if (response.isOk) return;
+    // The relay answers a bad or missing desktop token with a bare
+    // 'Unauthorized.', which says nothing about which credential it means.
+    // Naming it here is what separates "the relay is down" from "this token
+    // belongs to the relay we stopped using".
+    if (response.statusCode == 401) {
+      throw const NotificationTokenException();
+    }
     throw NotificationRequestException(
       action,
       response.statusCode,
@@ -306,6 +318,21 @@ class CommandNotificationService extends GetxService
     }
     return null;
   }
+}
+
+/// The relay refused the desktop's API token.
+///
+/// Its own wording is used instead of the relay's because the endpoint and the
+/// token are configured in two different places: a token that was right for
+/// one relay is simply wrong for the next, and the fix is always to re-enter
+/// it rather than to retry.
+class NotificationTokenException implements Exception {
+  const NotificationTokenException();
+
+  @override
+  String toString() =>
+      'Relay từ chối API token của máy tính (HTTP 401). '
+      'Nhập lại token của relay trong phần Thông báo rồi lưu lại.';
 }
 
 class NotificationConfigurationException implements Exception {

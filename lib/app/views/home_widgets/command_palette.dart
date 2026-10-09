@@ -181,7 +181,21 @@ List<_PaletteCommand> _buildPaletteCommands({
 
   String projectGate() => !hasProject ? noProject : (isBusy ? busy : '');
 
+  // Only known once QA Desk has been opened this session; before that there
+  // is nothing running.
+  final qaRunning = QaDeskRuntime.current?.controller.isRunning ?? false;
+
   final commands = <_PaletteCommand>[
+    _PaletteCommand(
+      id: 'tool.planStudio',
+      group: 'Công cụ',
+      icon: Icons.view_kanban_outlined,
+      title: 'Plan Studio · Công việc',
+      subtitle: 'Plan, task và note trên bảng kéo thả',
+      keywords: const ['kanban', 'ticket', 'plan', 'task', 'note', 'ollama'],
+      run: (context) =>
+          showPlanStudio(context, projectPath: controller.project.value?.path),
+    ),
     _PaletteCommand(
       id: 'project.choose',
       group: 'Dự án',
@@ -334,6 +348,93 @@ List<_PaletteCommand> _buildPaletteCommands({
       run: (_) => Get.find<ApiMonitorService>().copyDashboardUrl(),
     ),
     _PaletteCommand(
+      id: 'tool.mailCleaner',
+      group: 'Công cụ',
+      icon: Icons.mark_email_unread_outlined,
+      title: 'Dọn hộp thư',
+      subtitle: 'Quét IMAP, gom nhóm tiêu đề và xoá hàng loạt',
+      keywords: const ['mail', 'email', 'imap', 'quota', 'rac', 'gmail'],
+      run: (context) => showMailCleaner(context),
+    ),
+    _PaletteCommand(
+      id: 'tool.bundleCheck',
+      group: 'Công cụ',
+      icon: Icons.fact_check_outlined,
+      title: 'Kiểm tra AAB',
+      subtitle: 'Soi chữ ký, version, env, Firebase trong file .aab',
+      keywords: const [
+        'aab',
+        'bundle',
+        'apk',
+        'env',
+        'chu ky',
+        'release',
+        'kiem tra',
+      ],
+      run: (context) => showBundleCheck(context),
+    ),
+    _PaletteCommand(
+      id: 'tool.qaDesk',
+      group: 'Công cụ',
+      icon: Icons.science_outlined,
+      title: 'QA Desk · Kiểm thử',
+      subtitle: 'Chạy suite test của nhiều dự án, xem kết quả và báo cáo',
+      keywords: const [
+        'qa',
+        'test',
+        'suite',
+        'kiem thu',
+        'appium',
+        'playwright',
+        'mang yeu',
+      ],
+      run: (context) =>
+          showQaDesk(context, projectPath: controller.project.value?.path),
+    ),
+    _PaletteCommand(
+      id: 'qa.run',
+      group: 'QA Desk',
+      icon: Icons.play_circle_outline,
+      title: 'QA: chạy các suite đã chọn',
+      subtitle: 'Mở QA Desk và chạy lựa chọn đã lưu',
+      keywords: const ['qa', 'test', 'chay', 'suite'],
+      enabled: !qaRunning,
+      disabledReason: 'QA Desk đang có lượt chạy',
+      run: (context) => showQaDesk(
+        context,
+        projectPath: controller.project.value?.path,
+        intent: QaDeskIntent.run,
+      ),
+    ),
+    _PaletteCommand(
+      id: 'qa.rerunFailed',
+      group: 'QA Desk',
+      icon: Icons.replay,
+      title: 'QA: chạy lại suite lỗi của lượt gần nhất',
+      subtitle: 'Chỉ các suite lỗi; lựa chọn đã lưu giữ nguyên',
+      keywords: const ['qa', 'test', 'chay lai', 'loi', 'rerun', 'failed'],
+      enabled: !qaRunning,
+      disabledReason: 'QA Desk đang có lượt chạy',
+      run: (context) => showQaDesk(
+        context,
+        projectPath: controller.project.value?.path,
+        intent: QaDeskIntent.rerunFailed,
+      ),
+    ),
+    _PaletteCommand(
+      id: 'qa.lastReport',
+      group: 'QA Desk',
+      icon: Icons.assignment_outlined,
+      title: 'QA: báo cáo issue của lượt gần nhất',
+      subtitle: 'Mỗi suite lỗi thành một task để copy',
+      keywords: const ['qa', 'bao cao', 'issue', 'task', 'report'],
+      run: (context) => showQaDesk(
+        context,
+        projectPath: controller.project.value?.path,
+        intent: QaDeskIntent.lastReport,
+      ),
+    ),
+    _PaletteCommand(
       id: 'tool.flowfin',
       group: 'Công cụ',
       icon: Icons.account_balance_wallet_outlined,
@@ -353,6 +454,25 @@ List<_PaletteCommand> _buildPaletteCommands({
         run: (context) => showTeamManagementDialog(context),
       ),
   ]);
+
+  for (final choice in AppThemeChoice.values) {
+    commands.add(
+      _PaletteCommand(
+        id: 'theme.${choice.name}',
+        group: 'Giao diện',
+        icon: choice.icon,
+        title: 'Giao diện: ${choice.label}',
+        subtitle: 'Đổi sang giao diện ${choice.label}',
+        keywords: [
+          'theme',
+          'giao dien',
+          choice.name,
+          choice.label.toLowerCase(),
+        ],
+        run: (_) async => Get.find<ThemeService>().setChoice(choice),
+      ),
+    );
+  }
 
   commands.addAll([
     _PaletteCommand(
@@ -897,7 +1017,7 @@ class _CommandPaletteBar extends StatelessWidget {
               borderRadius: BorderRadius.circular(8),
               border: border,
               color: AppCyberTheme.panelBackgroundStrong.withValues(
-                alpha: AppCyberTheme.isCyber ? 0.34 : 0.82,
+                alpha: AppCyberTheme.palette.panelAlphaMuted,
               ),
             ),
             child: compact

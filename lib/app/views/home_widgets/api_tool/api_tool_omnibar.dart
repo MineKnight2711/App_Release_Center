@@ -98,7 +98,7 @@ mixin _ApiToolOmnibarSection on _ApiToolDialogCore {
         border: Border.all(
           color: AppCyberTheme.electricBlue.withValues(alpha: 0.34),
         ),
-        boxShadow: AppCyberTheme.isCyber
+        boxShadow: AppCyberTheme.palette.hasGlow
             ? [
                 BoxShadow(
                   color: AppCyberTheme.electricBlue.withValues(alpha: 0.12),
