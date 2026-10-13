@@ -10,7 +10,7 @@ import 'package:get/get.dart';
 /// such a token here and scrubs it from preferences.
 class MobileControlCredentialStoreService extends GetxService {
   MobileControlCredentialStoreService({SecureKeyValueStore? secureStore})
-    : _secureStore = secureStore ?? FlutterSecureKeyValueStore();
+    : _secureStore = secureStore ?? SecureKeyValueStore.platform();
 
   final SecureKeyValueStore _secureStore;
 

@@ -3,7 +3,7 @@ import 'package:get/get.dart';
 
 class TelegramCredentialStoreService extends GetxService {
   TelegramCredentialStoreService({SecureKeyValueStore? secureStore})
-    : _secureStore = secureStore ?? FlutterSecureKeyValueStore();
+    : _secureStore = secureStore ?? SecureKeyValueStore.platform();
 
   final SecureKeyValueStore _secureStore;
 

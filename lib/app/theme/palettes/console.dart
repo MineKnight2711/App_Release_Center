@@ -47,7 +47,6 @@ const consolePalette = AppPalette(
   hasScanlines: false,
   hasCornerBrackets: false,
   pulseOnActive: false,
-  backdropBlurSigma: 8.0,
   scrimAlpha: 0.6,
   brightness: Brightness.dark,
 

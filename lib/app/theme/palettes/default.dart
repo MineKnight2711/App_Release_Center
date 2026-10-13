@@ -47,7 +47,6 @@ const defaultPalette = AppPalette(
   hasScanlines: false,
   hasCornerBrackets: false,
   pulseOnActive: false,
-  backdropBlurSigma: 0.0,
   scrimAlpha: 0.3,
   brightness: Brightness.light,
 

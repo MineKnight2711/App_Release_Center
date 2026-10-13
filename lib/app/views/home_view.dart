@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 import 'dart:io';
-import 'dart:ui' show ImageFilter;
 
 import 'package:app_management_center/app/controllers/app_shell_controller.dart';
 import 'package:app_management_center/app/controllers/flowfin_controller.dart';
@@ -141,7 +140,11 @@ class _HomeScaffoldState extends State<_HomeScaffold> {
             ),
             body: Stack(
               children: [
-                Positioned.fill(child: _HudBackdrop()),
+                // Static: kept on its own layer so no repaint above it
+                // re-records the full-window grid.
+                const Positioned.fill(
+                  child: RepaintBoundary(child: _HudBackdrop()),
+                ),
                 SafeArea(
                   child: LayoutBuilder(
                     builder: (context, constraints) {
@@ -284,14 +287,40 @@ const _paletteActivators = <SingleActivator>[
 ///
 /// The phone can also cancel, but someone sitting at the machine should never
 /// have to find their phone to stop it losing their work.
-class _PendingPowerBanner extends StatefulWidget {
+class _PendingPowerBanner extends StatelessWidget {
   const _PendingPowerBanner();
 
   @override
-  State<_PendingPowerBanner> createState() => _PendingPowerBannerState();
+  Widget build(BuildContext context) {
+    if (!Get.isRegistered<RemoteControlService>()) {
+      return const SizedBox.shrink();
+    }
+    final remote = Get.find<RemoteControlService>();
+
+    return Obx(() {
+      final pending = remote.pendingPowerCommand.value;
+      if (pending == null) return const SizedBox.shrink();
+      return _PendingPowerCountdown(
+        pending: pending,
+        onCancel: () => unawaited(remote.cancelPendingPowerCommand()),
+      );
+    });
+  }
 }
 
-class _PendingPowerBannerState extends State<_PendingPowerBanner> {
+/// Ticks only while a command is pending: a timer left running for the whole
+/// session drew a full frame every second with nothing to show.
+class _PendingPowerCountdown extends StatefulWidget {
+  const _PendingPowerCountdown({required this.pending, required this.onCancel});
+
+  final PendingPowerCommand pending;
+  final VoidCallback onCancel;
+
+  @override
+  State<_PendingPowerCountdown> createState() => _PendingPowerCountdownState();
+}
+
+class _PendingPowerCountdownState extends State<_PendingPowerCountdown> {
   Timer? _ticker;
 
   @override
@@ -311,59 +340,47 @@ class _PendingPowerBannerState extends State<_PendingPowerBanner> {
 
   @override
   Widget build(BuildContext context) {
-    if (!Get.isRegistered<RemoteControlService>()) {
-      return const SizedBox.shrink();
-    }
-    final remote = Get.find<RemoteControlService>();
+    final pending = widget.pending;
+    final remaining = pending.remaining();
+    final label = pending.action == MachinePowerAction.restart
+        ? 'Khởi động lại'
+        : 'Tắt máy';
 
-    return Obx(() {
-      final pending = remote.pendingPowerCommand.value;
-      if (pending == null) return const SizedBox.shrink();
-
-      final remaining = pending.remaining();
-      final label = pending.action == MachinePowerAction.restart
-          ? 'Khởi động lại'
-          : 'Tắt máy';
-
-      return Material(
-        color: Colors.transparent,
-        child: Container(
-          margin: const EdgeInsets.all(12),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(
-            color: AppCyberTheme.palette.danger,
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Row(
-            children: [
-              const Icon(
-                Icons.power_settings_new_outlined,
-                color: Colors.white,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'Điện thoại yêu cầu $label. Còn ${remaining.inSeconds} giây.',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              FilledButton.icon(
-                onPressed: () => unawaited(remote.cancelPendingPowerCommand()),
-                style: FilledButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: AppCyberTheme.palette.danger,
-                ),
-                icon: const Icon(Icons.undo_outlined),
-                label: const Text('Huỷ ngay'),
-              ),
-            ],
-          ),
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        margin: const EdgeInsets.all(12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: AppCyberTheme.palette.danger,
+          borderRadius: BorderRadius.circular(10),
         ),
-      );
-    });
+        child: Row(
+          children: [
+            const Icon(Icons.power_settings_new_outlined, color: Colors.white),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Điện thoại yêu cầu $label. Còn ${remaining.inSeconds} giây.',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            FilledButton.icon(
+              onPressed: widget.onCancel,
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: AppCyberTheme.palette.danger,
+              ),
+              icon: const Icon(Icons.undo_outlined),
+              label: const Text('Huỷ ngay'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

@@ -3210,6 +3210,7 @@ class _ResourceFindingTile extends StatelessWidget {
 
     return _HudCardShell(
       active: selected,
+      pulse: false,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -3687,6 +3688,7 @@ class _RemoteControlOptions extends GetView<HomeController> {
           const SizedBox(height: 10),
           _HudCardShell(
             active: settings.enabled,
+            pulse: false,
             padding: const EdgeInsets.all(10),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -4034,6 +4036,7 @@ class _NotificationOptions extends GetView<HomeController> {
                   padding: const EdgeInsets.only(bottom: 8),
                   child: _HudCardShell(
                     active: selected,
+                    pulse: false,
                     padding: const EdgeInsets.symmetric(
                       horizontal: 8,
                       vertical: 7,

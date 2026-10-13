@@ -31,6 +31,12 @@ class _GlobalCommandProgressState extends State<GlobalCommandProgress>
 
   @override
   Widget build(BuildContext context) {
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    // The charge wave ticks every vsync; keep it from repainting the page.
+    return RepaintBoundary(child: _buildBar(context, reduceMotion));
+  }
+
+  Widget _buildBar(BuildContext context, bool reduceMotion) {
     return Obx(() {
       final runner = widget.runner;
       final progress = runner.overallProgress.value.clamp(0.0, 1.0);
@@ -52,7 +58,7 @@ class _GlobalCommandProgressState extends State<GlobalCommandProgress>
           ? 'BƯỚC $currentStep/$totalSteps'
           : 'SẴN SÀNG';
       final percent = '${(progress * 100).round()}%';
-      _syncChargeAnimation(isRunning);
+      _syncChargeAnimation(isRunning && !reduceMotion);
 
       return Semantics(
         container: true,
@@ -338,21 +344,13 @@ class _Panel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = AppCyberTheme.palette;
-    if (palette.backdropBlurSigma <= 0) {
-      return Container(
-        padding: padding,
-        decoration: AppCyberTheme.panelDecoration(),
-        child: child,
-      );
-    }
-
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(
-          sigmaX: palette.backdropBlurSigma,
-          sigmaY: palette.backdropBlurSigma,
-        ),
+    // No BackdropFilter here: panels sit on a static backdrop and the console
+    // panels are opaque, yet the blur re-ran over every panel on every frame.
+    // On a 240 Hz Windows laptop that kept the GPU near 90%. The boundary
+    // stops one panel's repaint from re-recording the other two.
+    return RepaintBoundary(
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
         child: DecoratedBox(
           decoration: AppCyberTheme.panelDecoration(),
           child: Stack(
@@ -398,11 +396,16 @@ class _HudCardShell extends StatelessWidget {
   const _HudCardShell({
     required this.child,
     this.active = false,
+    bool? pulse,
     this.padding = const EdgeInsets.all(10),
-  });
+  }) : pulse = pulse ?? active;
 
   final Widget child;
   final bool active;
+
+  /// Whether an active card also pulses. Pass false for states that can last
+  /// all session, such as a selection: a pulse repaints every vsync.
+  final bool pulse;
   final EdgeInsets padding;
 
   @override
@@ -411,7 +414,7 @@ class _HudCardShell extends StatelessWidget {
         MediaQuery.maybeOf(context)?.disableAnimations ?? false;
     final palette = AppCyberTheme.palette;
     return _PulseGlow(
-      enabled: active && palette.pulseOnActive && !reduceMotion,
+      enabled: active && pulse && palette.pulseOnActive && !reduceMotion,
       child: AnimatedContainer(
         duration: reduceMotion
             ? Duration.zero
@@ -539,13 +542,15 @@ class _StatusPill extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (running)
-              SizedBox(
-                width: 12,
-                height: 12,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation(
-                    AppCyberTheme.neonGreen.withValues(alpha: 0.95),
+              RepaintBoundary(
+                child: SizedBox(
+                  width: 12,
+                  height: 12,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation(
+                      AppCyberTheme.neonGreen.withValues(alpha: 0.95),
+                    ),
                   ),
                 ),
               )
@@ -791,19 +796,14 @@ class _GlowOrb extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ClipOval(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-        child: Container(
-          width: size,
-          height: size,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: RadialGradient(
-              colors: [color, color.withValues(alpha: 0)],
-            ),
-          ),
-        ),
+    // The radial fade is already soft; blurring the gradient behind it cost a
+    // full-size GPU pass per frame for no visible difference.
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: RadialGradient(colors: [color, color.withValues(alpha: 0)]),
       ),
     );
   }
@@ -857,28 +857,34 @@ class _PulseGlowState extends State<_PulseGlow>
 
   @override
   Widget build(BuildContext context) {
-    if (!widget.enabled) return widget.child;
-
-    return AnimatedBuilder(
-      animation: _controller ?? const AlwaysStoppedAnimation(0),
-      builder: (context, child) {
-        final t = Curves.easeInOutSine.transform(_controller?.value ?? 0);
-        return DecoratedBox(
-          decoration: BoxDecoration(
-            boxShadow: [
-              BoxShadow(
-                color: AppCyberTheme.electricBlue.withValues(
-                  alpha: 0.12 + (t * 0.22),
-                ),
-                blurRadius: 14 + (t * 18),
-                spreadRadius: -8 + (t * 5),
-              ),
-            ],
-          ),
-          child: child,
-        );
-      },
-      child: widget.child,
+    // The same shape whether or not it pulses: the pulse now stops whenever
+    // the window loses focus, and a different shape would rebuild the card,
+    // dropping anything typed into it. The boundary keeps each tick to this
+    // card instead of the whole panel.
+    return RepaintBoundary(
+      child: AnimatedBuilder(
+        animation: _controller ?? const AlwaysStoppedAnimation(0),
+        builder: (context, child) {
+          final t = Curves.easeInOutSine.transform(_controller?.value ?? 0);
+          return DecoratedBox(
+            decoration: BoxDecoration(
+              boxShadow: widget.enabled
+                  ? [
+                      BoxShadow(
+                        color: AppCyberTheme.electricBlue.withValues(
+                          alpha: 0.12 + (t * 0.22),
+                        ),
+                        blurRadius: 14 + (t * 18),
+                        spreadRadius: -8 + (t * 5),
+                      ),
+                    ]
+                  : const [],
+            ),
+            child: child,
+          );
+        },
+        child: widget.child,
+      ),
     );
   }
 }

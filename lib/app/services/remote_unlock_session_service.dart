@@ -38,7 +38,7 @@ class RemoteUnlockSessionService extends GetxService {
     DateTime Function()? now,
   }) : _store = store,
        _lock = lock,
-       _secureStore = secureStore ?? FlutterSecureKeyValueStore(),
+       _secureStore = secureStore ?? SecureKeyValueStore.platform(),
        _now = now ?? DateTime.now;
 
   final ProjectStoreService _store;

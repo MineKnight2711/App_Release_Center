@@ -73,7 +73,6 @@ void main() {
         expect(palette.textFaint.a, greaterThan(0));
 
         // Capabilities
-        expect(palette.backdropBlurSigma, greaterThanOrEqualTo(0));
         expect(palette.scrimAlpha, inInclusiveRange(0.0, 1.0));
       }
     });

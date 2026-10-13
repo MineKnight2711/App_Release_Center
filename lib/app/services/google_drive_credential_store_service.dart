@@ -3,7 +3,7 @@ import 'package:get/get.dart';
 
 class GoogleDriveCredentialStoreService extends GetxService {
   GoogleDriveCredentialStoreService({SecureKeyValueStore? secureStore})
-    : _secureStore = secureStore ?? FlutterSecureKeyValueStore();
+    : _secureStore = secureStore ?? SecureKeyValueStore.platform();
 
   final SecureKeyValueStore _secureStore;
 

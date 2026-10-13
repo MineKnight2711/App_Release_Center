@@ -166,6 +166,7 @@ class _RecentProjectTile extends GetView<HomeController> {
             onTap: () => controller.loadProject(path),
             child: _HudCardShell(
               active: selected,
+              pulse: false,
               child: Row(
                 children: [
                   Icon(

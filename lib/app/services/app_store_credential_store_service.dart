@@ -4,7 +4,7 @@ import 'package:get/get.dart';
 
 class AppStoreCredentialStoreService extends GetxService {
   AppStoreCredentialStoreService({SecureKeyValueStore? secureStore})
-    : _secureStore = secureStore ?? FlutterSecureKeyValueStore();
+    : _secureStore = secureStore ?? SecureKeyValueStore.platform();
 
   final SecureKeyValueStore _secureStore;
 
