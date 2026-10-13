@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math';
 
+import 'package:app_management_center/app/services/encrypted_file_secret_store.dart';
 import 'package:cryptography/cryptography.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
@@ -20,8 +22,8 @@ abstract interface class SecretStore {
   Future<void> delete(String key);
 }
 
-/// Windows secure storage (DPAPI) or the macOS keychain, as AMC keeps its
-/// other credentials.
+/// Windows secure storage (DPAPI), or on macOS the encrypted file AMC keeps
+/// its other credentials in (the keychain prompts ad-hoc signed builds).
 class SecureSecretStore implements SecretStore {
   const SecureSecretStore([
     this._storage = const FlutterSecureStorage(
@@ -32,15 +34,20 @@ class SecureSecretStore implements SecretStore {
 
   final FlutterSecureStorage _storage;
 
+  static EncryptedFileSecretStore? get _macStore =>
+      Platform.isMacOS ? EncryptedFileSecretStore.shared : null;
+
   @override
-  Future<String?> read(String key) => _storage.read(key: key);
+  Future<String?> read(String key) =>
+      _macStore?.read(key) ?? _storage.read(key: key);
 
   @override
   Future<void> write(String key, String value) =>
-      _storage.write(key: key, value: value);
+      _macStore?.write(key, value) ?? _storage.write(key: key, value: value);
 
   @override
-  Future<void> delete(String key) => _storage.delete(key: key);
+  Future<void> delete(String key) =>
+      _macStore?.delete(key) ?? _storage.delete(key: key);
 }
 
 class MemorySecretStore implements SecretStore {

@@ -4,7 +4,7 @@ import 'package:get/get.dart';
 /// Keeps the App Management Center session token in the OS secure store.
 class AuthTokenStoreService extends GetxService {
   AuthTokenStoreService({SecureKeyValueStore? secureStore})
-    : _secureStore = secureStore ?? FlutterSecureKeyValueStore();
+    : _secureStore = secureStore ?? SecureKeyValueStore.platform();
 
   final SecureKeyValueStore _secureStore;
   String? _cachedToken;

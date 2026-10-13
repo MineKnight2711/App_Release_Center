@@ -28,5 +28,9 @@
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<!-- Flutter 3.47.6 Impeller can crash in Canvas::SetupRenderPass when the
+	     window is resized. Use Skia for the distributable macOS app. -->
+	<key>FLTEnableImpeller</key>
+	<false/>
 </dict>
 </plist>

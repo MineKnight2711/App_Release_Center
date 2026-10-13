@@ -673,6 +673,44 @@ Windows installer > Build/Send Installer. Installers up to Telegram's 50 MB Bot
 API document limit are uploaded directly. Larger installers are uploaded with
 the existing Google Drive connection and sent to Telegram as a Drive link.
 
+## macOS Installer
+
+```bash
+installer/macos/build_installer.sh
+```
+
+The DMG is written to `build/installer`. By default the app keeps Flutter's
+ad-hoc signature: it runs on the Mac that built it, but Gatekeeper blocks it on
+every other Mac ("Apple could not verify ...") until each user selects Open
+Anyway in System Settings > Privacy & Security. The DMG carries those steps in
+`Huong-dan-cai-dat.txt`.
+
+To ship a DMG that opens normally, sign it with a Developer ID and notarize it.
+This needs a paid Apple Developer Program team; only its Account Holder can
+create the Developer ID Application certificate.
+
+```bash
+# Once: store notarization credentials in the keychain. It prompts for an
+# app-specific password; an App Store Connect API key works too.
+xcrun notarytool store-credentials amc-notary \
+  --apple-id <apple-id> --team-id <TEAMID>
+
+AMC_MACOS_SIGN_IDENTITY="Developer ID Application: <Name> (<TEAMID>)" \
+AMC_NOTARY_PROFILE=amc-notary \
+  installer/macos/build_installer.sh
+```
+
+The script re-signs the app with the hardened runtime, notarizes the DMG and
+staples the ticket so it also opens offline.
+
+On macOS, AMC keeps credentials in an encrypted file
+(`~/Library/Application Support/vn.tommyhuyn.arc/secrets.json`) instead of the
+keychain, which asked ad-hoc signed builds for the login password after every
+update. Its key derives from the Mac's hardware UUID, so the file does not
+decrypt on another Mac: after moving to a new machine, enter the credentials
+again. Secrets left in the keychain by older builds move over the first time
+they are read (one last password prompt each) and are then deleted there.
+
 ## Checks
 
 ```powershell

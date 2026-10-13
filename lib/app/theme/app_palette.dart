@@ -49,7 +49,6 @@ class AppPalette {
     required this.hasScanlines,
     required this.hasCornerBrackets,
     required this.pulseOnActive,
-    required this.backdropBlurSigma,
     required this.scrimAlpha,
     required this.brightness,
 
@@ -103,7 +102,6 @@ class AppPalette {
   final bool hasScanlines;
   final bool hasCornerBrackets;
   final bool pulseOnActive;
-  final double backdropBlurSigma;
   final double scrimAlpha;
   final Brightness brightness;
 

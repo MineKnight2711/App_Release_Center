@@ -49,6 +49,7 @@ import 'package:app_management_center/app/services/script_catalog_service.dart';
 import 'package:app_management_center/app/services/telegram_credential_store_service.dart';
 import 'package:app_management_center/app/services/telegram_release_notification_service.dart';
 import 'package:app_management_center/app/services/theme_service.dart';
+import 'package:app_management_center/app/theme/cyber_theme.dart';
 import 'package:app_management_center/app/services/app_settings_service.dart';
 import 'package:app_management_center/app/views/app_display_scale.dart';
 import 'package:app_management_center/app/views/home_view.dart';
@@ -353,6 +354,20 @@ void main() {
     );
     expect(find.text('Sẵn sàng'), findsOneWidget);
     expect(find.text('SẴN SÀNG  |  0%'), findsOneWidget);
+  });
+
+  testWidgets('stops drawing frames once idle with a project selected', (
+    tester,
+  ) async {
+    // The cyber theme pulses active cards; a selection used to pulse forever.
+    Get.find<ThemeService>().choice.value = AppThemeChoice.cyber;
+    addTearDown(() => AppCyberTheme.activate(AppThemeChoice.console));
+    harness.controller.recentPaths.assignAll([harness.projectDirectory.path]);
+
+    await _pumpHome(tester, harness);
+
+    expect(AppCyberTheme.isCyber, isTrue);
+    expect(tester.binding.hasScheduledFrame, isFalse);
   });
 
   testWidgets('updates charging progress during a workflow', (tester) async {

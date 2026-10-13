@@ -1,0 +1,49 @@
+name: Desktop release installers
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - 'codex/desktop-release-*'
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-2022
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          flutter-version: '3.47.6'
+          channel: stable
+          cache: true
+      - name: Resolve dependencies
+        run: flutter pub get
+      - name: Check installer contracts
+        run: flutter test test/release_installer_artifact_service_test.dart
+      - name: Build Windows release
+        run: flutter build windows --release
+      - name: Package installer
+        shell: powershell
+        run: ./installer/windows/build_installer.ps1
+      - name: Check application starts
+        shell: powershell
+        run: |
+          $app = Start-Process -FilePath './build/windows/x64/runner/Release/app_management_center.exe' -PassThru
+          try {
+            Start-Sleep -Seconds 15
+            $app.Refresh()
+            if ($app.HasExited) { throw "Application exited during startup: $($app.ExitCode)" }
+          } finally {
+            if (-not $app.HasExited) { Stop-Process -Id $app.Id -Force }
+          }
+      - name: Upload Windows installer
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: AMC-Windows-Installer
+          path: build/installer/AppManagementCenter_Setup_*.exe
+          if-no-files-found: error
+          retention-days: 14

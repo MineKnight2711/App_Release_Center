@@ -74,7 +74,7 @@ class MailCleanerSettings {
 /// standalone tool promised: a password that lives no longer than the session.
 class MailCleanerSettingsStore {
   MailCleanerSettingsStore({SecureKeyValueStore? secureStore})
-    : _secureStore = secureStore ?? FlutterSecureKeyValueStore();
+    : _secureStore = secureStore ?? SecureKeyValueStore.platform();
 
   final SecureKeyValueStore _secureStore;
 

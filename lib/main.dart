@@ -14,6 +14,7 @@ import 'package:app_management_center/app/views/app_display_scale.dart';
 import 'package:app_management_center/app/views/app_lock_gate.dart';
 import 'package:app_management_center/app/views/auth_gate.dart';
 import 'package:app_management_center/app/views/mobile_control_view.dart';
+import 'package:app_management_center/app/views/pause_motion_when_inactive.dart';
 import 'package:desktop_webview_window/desktop_webview_window.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -94,9 +95,11 @@ class AppManagementCenterApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       initialBinding: AppBinding(),
       theme: themeService.themeData,
-      builder: (context, child) => AppDisplayScale(
-        settings: Get.find<AppSettingsService>(),
-        child: child ?? const SizedBox.shrink(),
+      builder: (context, child) => PauseMotionWhenInactive(
+        child: AppDisplayScale(
+          settings: Get.find<AppSettingsService>(),
+          child: child ?? const SizedBox.shrink(),
+        ),
       ),
       home: Platform.isAndroid || Platform.isIOS
           ? const AppLockGate(child: MobileControlView())

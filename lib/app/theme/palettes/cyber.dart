@@ -47,7 +47,6 @@ const cyberPalette = AppPalette(
   hasScanlines: true,
   hasCornerBrackets: true,
   pulseOnActive: true,
-  backdropBlurSigma: 18.0,
   scrimAlpha: 0.7,
   brightness: Brightness.dark,
 

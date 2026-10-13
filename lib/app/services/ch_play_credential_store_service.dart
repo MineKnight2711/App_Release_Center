@@ -1,11 +1,37 @@
+import 'dart:io';
+
 import 'package:app_management_center/app/models/ch_play_credentials.dart';
+import 'package:app_management_center/app/services/encrypted_file_secret_store.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:get/get.dart';
 
 abstract class SecureKeyValueStore {
+  /// macOS keeps credentials in an encrypted file, since its keychain asks
+  /// ad-hoc signed builds for the password after every update; see
+  /// [EncryptedFileSecretStore]. Elsewhere flutter_secure_storage never asks.
+  factory SecureKeyValueStore.platform() => Platform.isMacOS
+      ? const _EncryptedFileKeyValueStore()
+      : FlutterSecureKeyValueStore();
+
   Future<String?> read({required String key});
   Future<void> write({required String key, required String value});
   Future<void> delete({required String key});
+}
+
+class _EncryptedFileKeyValueStore implements SecureKeyValueStore {
+  const _EncryptedFileKeyValueStore();
+
+  @override
+  Future<String?> read({required String key}) =>
+      EncryptedFileSecretStore.shared.read(key);
+
+  @override
+  Future<void> write({required String key, required String value}) =>
+      EncryptedFileSecretStore.shared.write(key, value);
+
+  @override
+  Future<void> delete({required String key}) =>
+      EncryptedFileSecretStore.shared.delete(key);
 }
 
 class FlutterSecureKeyValueStore implements SecureKeyValueStore {
@@ -38,7 +64,7 @@ class FlutterSecureKeyValueStore implements SecureKeyValueStore {
 
 class ChPlayCredentialStoreService extends GetxService {
   ChPlayCredentialStoreService({SecureKeyValueStore? secureStore})
-    : _secureStore = secureStore ?? FlutterSecureKeyValueStore();
+    : _secureStore = secureStore ?? SecureKeyValueStore.platform();
 
   final SecureKeyValueStore _secureStore;
 
