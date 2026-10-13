@@ -47,5 +47,5 @@ dmg_path="$output_dir/AppManagementCenter_v${version}_${platform}.dmg"
 hdiutil create -volname 'App Management Center' -srcfolder "$stage_dir" \
   -ov -format UDZO "$dmg_path"
 hdiutil verify "$dmg_path"
-shasum -a 256 "$dmg_path" > "$dmg_path.sha256"
+(cd "$output_dir" && shasum -a 256 "$(basename "$dmg_path")" > "$(basename "$dmg_path").sha256")
 echo "Installer created: $dmg_path"
