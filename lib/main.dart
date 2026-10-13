@@ -13,6 +13,7 @@ import 'package:app_management_center/app/services/app_settings_service.dart';
 import 'package:app_management_center/app/views/app_display_scale.dart';
 import 'package:app_management_center/app/views/app_lock_gate.dart';
 import 'package:app_management_center/app/views/auth_gate.dart';
+import 'package:app_management_center/app/views/frame_pacing.dart';
 import 'package:app_management_center/app/views/mobile_control_view.dart';
 import 'package:app_management_center/app/views/pause_motion_when_inactive.dart';
 import 'package:desktop_webview_window/desktop_webview_window.dart';
@@ -20,7 +21,11 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 Future<void> main(List<String> args) async {
-  WidgetsFlutterBinding.ensureInitialized();
+  if (Platform.isAndroid || Platform.isIOS) {
+    WidgetsFlutterBinding.ensureInitialized();
+  } else {
+    PacedFramesBinding.ensureInitialized();
+  }
   if (args.contains('--plan-reminder-window')) {
     runApp(const ReminderPopupApp());
     return;

@@ -370,6 +370,45 @@ void main() {
     expect(tester.binding.hasScheduledFrame, isFalse);
   });
 
+  testWidgets('builds only the on-screen rows of a long log', (tester) async {
+    // One text of the whole log re-laid out every line on each chunk of
+    // output, so a long build got slower the longer it ran.
+    harness.controller.runner.logLines.assignAll([
+      for (var index = 0; index < 1500; index++) 'build line $index',
+    ]);
+
+    await _pumpHome(tester, harness);
+
+    expect(find.text('build line 1499'), findsOneWidget);
+    expect(find.text('build line 0'), findsNothing);
+    expect(find.textContaining('build line ').evaluate().length, lessThan(100));
+
+    // New output shows up without a scroll animation to catch up with it.
+    harness.controller.runner.appendSystemLog('build line 1500');
+    await tester.pump();
+    expect(find.text('build line 1500'), findsOneWidget);
+    expect(tester.binding.hasScheduledFrame, isFalse);
+
+    String? copiedText;
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+          if (call.method == 'Clipboard.setData') {
+            copiedText =
+                (call.arguments as Map<Object?, Object?>)['text'] as String?;
+          }
+          return null;
+        });
+    addTearDown(() {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, null);
+    });
+
+    await tester.tap(find.byKey(const Key('copy-home-log')));
+    await tester.pump();
+    expect(copiedText, startsWith('build line 1\n'));
+    expect(copiedText, endsWith('build line 1500'));
+  });
+
   testWidgets('updates charging progress during a workflow', (tester) async {
     await _pumpHome(tester, harness);
 

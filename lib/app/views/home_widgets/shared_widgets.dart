@@ -655,6 +655,53 @@ class _MetaChip extends StatelessWidget {
   }
 }
 
+/// Command output, one row per line, built only for the rows on screen.
+///
+/// Logs used to be a single [SelectableText] of every line joined together,
+/// so each chunk of output re-laid out the whole log. Near the runner's
+/// 1500-line cap a long build spent most of every frame on text layout, and
+/// got slower the longer it ran. The list is reversed so it stays on the
+/// newest line without a scroll animation per chunk, and shrink-wraps so a
+/// short log still reads from the top.
+class _LogLines extends StatelessWidget {
+  const _LogLines({
+    required this.lines,
+    required this.style,
+    this.padding = EdgeInsets.zero,
+    this.emptyLabel = 'Chưa có output.',
+    this.emptyStyle,
+  });
+
+  final List<String> lines;
+  final TextStyle style;
+  final EdgeInsets padding;
+  final String emptyLabel;
+  final TextStyle? emptyStyle;
+
+  @override
+  Widget build(BuildContext context) {
+    if (lines.isEmpty) {
+      return Padding(
+        padding: padding,
+        child: Text(emptyLabel, style: emptyStyle ?? style),
+      );
+    }
+    return SelectionArea(
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: ListView.builder(
+          reverse: true,
+          shrinkWrap: true,
+          padding: padding,
+          itemCount: lines.length,
+          itemBuilder: (context, index) =>
+              Text(lines[lines.length - 1 - index], style: style),
+        ),
+      ),
+    );
+  }
+}
+
 class _PanelSplitter extends StatelessWidget {
   const _PanelSplitter({super.key, required this.axis, required this.onDelta});
 
@@ -860,7 +907,9 @@ class _PulseGlowState extends State<_PulseGlow>
     // The same shape whether or not it pulses: the pulse now stops whenever
     // the window loses focus, and a different shape would rebuild the card,
     // dropping anything typed into it. The boundary keeps each tick to this
-    // card instead of the whole panel.
+    // card instead of the whole panel. Only the glow's strength breathes: a
+    // blur radius that changed every frame could never reuse the blur drawn
+    // for the previous one, so each frame built a new one on the GPU.
     return RepaintBoundary(
       child: AnimatedBuilder(
         animation: _controller ?? const AlwaysStoppedAnimation(0),
@@ -874,8 +923,8 @@ class _PulseGlowState extends State<_PulseGlow>
                         color: AppCyberTheme.electricBlue.withValues(
                           alpha: 0.12 + (t * 0.22),
                         ),
-                        blurRadius: 14 + (t * 18),
-                        spreadRadius: -8 + (t * 5),
+                        blurRadius: 24,
+                        spreadRadius: -5,
                       ),
                     ]
                   : const [],
