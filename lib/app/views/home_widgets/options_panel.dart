@@ -1748,6 +1748,12 @@ class _ResourceCollectorOptions extends GetView<HomeController> {
           .where((finding) => selectedIds.contains(finding.id))
           .length;
       final hasSigningFindings = controller.resourceSigningFindings.isNotEmpty;
+      final storedKeys = controller.resourceStoredKeys.value;
+      final storedKeyCount = controller.resourceIncludeStoredKeys.value
+          ? storedKeys.labels.length
+          : 0;
+      final canExport = controller.canExportResourceBundle;
+      final bundleHasKeys = controller.resourceBundleHasKeys;
 
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1879,28 +1885,93 @@ class _ResourceCollectorOptions extends GetView<HomeController> {
                   _ResourceSigningCredentialOptions(isBusy: isBusy),
                   const SizedBox(height: 10),
                 ],
-                Row(
-                  children: [
-                    Expanded(
-                      child: FilledButton.icon(
-                        key: const Key('resource-export-bundle'),
-                        onPressed: controller.canExportResourceBundle
-                            ? _export
-                            : null,
-                        icon: controller.isExportingResources.value
-                            ? const SizedBox.square(
-                                dimension: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : const Icon(Icons.archive_outlined),
-                        label: Text(
-                          selectedCount > 0 ? 'Zip $selectedCount' : 'Zip',
-                        ),
+                if (storedKeys.hasAppStoreIds)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Text(
+                      'ID App Store ghi vào gói: ${storedKeys.appStoreIdSummary}',
+                      key: const Key('resource-app-store-ids'),
+                      style: AppCyberTheme.dataTextStyle(
+                        size: 10.4,
+                        color: AppCyberTheme.textMuted,
+                        weight: FontWeight.w600,
                       ),
                     ),
-                  ],
+                  ),
+                if (storedKeys.hasStoredSecrets)
+                  CheckboxListTile(
+                    key: const Key('resource-include-stored-keys'),
+                    value: controller.resourceIncludeStoredKeys.value,
+                    onChanged: isBusy
+                        ? null
+                        : (value) => controller.setResourceIncludeStoredKeys(
+                            value ?? false,
+                          ),
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                    controlAffinity: ListTileControlAffinity.leading,
+                    title: const Text('Kèm key lưu trong AMC'),
+                    subtitle: Text(storedKeys.labels.join(' · ')),
+                  ),
+                const SizedBox(height: 8),
+                _ResourceArchivePasswordFields(
+                  key: const Key('resource-archive-password-fields'),
+                  isBusy: isBusy,
+                  bundleHasKeys: bundleHasKeys,
+                ),
+                const SizedBox(height: 10),
+                ListenableBuilder(
+                  listenable: Listenable.merge([
+                    controller.resourceArchivePasswordController,
+                    controller.resourceArchivePasswordConfirmController,
+                  ]),
+                  builder: (context, _) {
+                    final locked = controller
+                        .resourceArchivePasswordController
+                        .text
+                        .isNotEmpty;
+                    return Row(
+                      children: [
+                        Expanded(
+                          child: FilledButton.icon(
+                            key: const Key('resource-export-bundle'),
+                            onPressed:
+                                canExport &&
+                                    controller.resourceArchivePasswordError ==
+                                        null
+                                ? _export
+                                : null,
+                            icon: controller.isExportingResources.value
+                                ? const SizedBox.square(
+                                    dimension: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : Icon(
+                                    locked
+                                        ? Icons.lock_outline
+                                        : Icons.archive_outlined,
+                                  ),
+                            label: Text(
+                              selectedCount + storedKeyCount > 0
+                                  ? 'Zip ${selectedCount + storedKeyCount}'
+                                  : 'Zip',
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Mỗi gói kèm README hướng dẫn setup release Android và iOS.',
+                  style: AppCyberTheme.dataTextStyle(
+                    size: 10.2,
+                    color: AppCyberTheme.textMuted,
+                    weight: FontWeight.w600,
+                  ),
                 ),
               ],
             ),
@@ -2857,9 +2928,7 @@ class _ResourceSigningCredentialOptions extends GetView<HomeController> {
                 : controller.setResourceIncludeSigningCredentials,
             contentPadding: EdgeInsets.zero,
             title: const Text('Kèm thông tin ký'),
-            subtitle: const Text(
-              'Thêm signing_credentials.txt vào file ZIP thường.',
-            ),
+            subtitle: const Text('Thêm signing_credentials.txt vào file ZIP.'),
           ),
           if (signingFindings.isNotEmpty) ...[
             DropdownButtonFormField<String>(
@@ -2943,6 +3012,136 @@ class _ResourceSigningCredentialOptions extends GetView<HomeController> {
         ],
       );
     });
+  }
+}
+
+/// Optional zip password. The text stays in [HomeController]'s controllers,
+/// never in settings.
+class _ResourceArchivePasswordFields extends StatefulWidget {
+  const _ResourceArchivePasswordFields({
+    super.key,
+    required this.isBusy,
+    required this.bundleHasKeys,
+  });
+
+  final bool isBusy;
+  final bool bundleHasKeys;
+
+  @override
+  State<_ResourceArchivePasswordFields> createState() =>
+      _ResourceArchivePasswordFieldsState();
+}
+
+class _ResourceArchivePasswordFieldsState
+    extends State<_ResourceArchivePasswordFields> {
+  bool _revealed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = Get.find<HomeController>();
+    final password = controller.resourceArchivePasswordController;
+    final confirmation = controller.resourceArchivePasswordConfirmController;
+    final fieldStyle = AppCyberTheme.dataTextStyle(
+      size: 11.5,
+      color: AppCyberTheme.textPrimary,
+    );
+
+    return ListenableBuilder(
+      listenable: Listenable.merge([password, confirmation]),
+      builder: (context, _) {
+        final hasPassword =
+            password.text.isNotEmpty || confirmation.text.isNotEmpty;
+        final passwordError = password.text.isEmpty
+            ? null
+            : validateResourceArchivePassword(password.text, password.text);
+        final confirmationError =
+            passwordError == null && confirmation.text.isNotEmpty
+            ? controller.resourceArchivePasswordError
+            : null;
+        final showWarning = !hasPassword && widget.bundleHasKeys;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              key: const Key('resource-archive-password'),
+              controller: password,
+              enabled: !widget.isBusy,
+              obscureText: !_revealed,
+              enableSuggestions: false,
+              autocorrect: false,
+              style: fieldStyle,
+              decoration: InputDecoration(
+                labelText: 'Mật khẩu zip (tuỳ chọn)',
+                prefixIcon: const Icon(Icons.lock_outline),
+                errorText: passwordError,
+                suffixIcon: IconButton(
+                  key: const Key('resource-archive-password-visibility'),
+                  tooltip: _revealed ? 'Ẩn mật khẩu' : 'Hiện mật khẩu',
+                  onPressed: () => setState(() => _revealed = !_revealed),
+                  icon: Icon(
+                    _revealed
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
+                  ),
+                ),
+              ),
+            ),
+            if (hasPassword) ...[
+              const SizedBox(height: 8),
+              TextField(
+                key: const Key('resource-archive-password-confirm'),
+                controller: confirmation,
+                enabled: !widget.isBusy,
+                obscureText: !_revealed,
+                enableSuggestions: false,
+                autocorrect: false,
+                style: fieldStyle,
+                decoration: InputDecoration(
+                  labelText: 'Nhập lại mật khẩu zip',
+                  prefixIcon: const Icon(Icons.password_outlined),
+                  errorText: confirmationError,
+                ),
+              ),
+            ],
+            const SizedBox(height: 6),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (showWarning) ...[
+                  Icon(
+                    Icons.warning_amber_outlined,
+                    size: 14,
+                    color: AppCyberTheme.warning,
+                  ),
+                  const SizedBox(width: 6),
+                ],
+                Expanded(
+                  child: Text(
+                    hasPassword
+                        ? 'Mã hoá AES-256. README setup nằm trong zip; file '
+                              '<tên>.README.md cạnh zip ghi cách mở bằng 7-Zip, '
+                              'Keka hoặc The Unarchiver.'
+                        : showWarning
+                        ? 'Gói có key ký hoặc key store mà chưa đặt mật khẩu: '
+                              'ai có file zip cũng đọc được.'
+                        : 'Để trống thì xuất zip không mã hoá.',
+                    key: const Key('resource-archive-password-note'),
+                    style: AppCyberTheme.dataTextStyle(
+                      size: 10.2,
+                      color: showWarning
+                          ? AppCyberTheme.warning
+                          : AppCyberTheme.textMuted,
+                      weight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        );
+      },
+    );
   }
 }
 
@@ -4199,6 +4398,7 @@ String _formatRemaining(Duration duration) {
 
 IconData _resourcePresetIcon(ResourceCollectionPreset preset) {
   return switch (preset) {
+    ResourceCollectionPreset.release => Icons.rocket_launch_outlined,
     ResourceCollectionPreset.allRecommended =>
       Icons.auto_awesome_motion_outlined,
     ResourceCollectionPreset.envOnly => Icons.tune_outlined,

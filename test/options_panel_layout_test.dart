@@ -2,10 +2,12 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:archive/archive.dart' show ZipDecoder;
 import 'package:app_management_center/app/controllers/app_shell_controller.dart';
 import 'package:app_management_center/app/controllers/home_controller.dart';
 import 'package:app_management_center/app/data/release_center_connect.dart';
 import 'package:app_management_center/app/models/api_tool.dart';
+import 'package:app_management_center/app/models/app_store_credentials.dart';
 import 'package:app_management_center/app/models/app_store_project.dart';
 import 'package:app_management_center/app/models/ch_play_project.dart';
 import 'package:app_management_center/app/models/cicd_dependency.dart';
@@ -2827,12 +2829,250 @@ void main() {
           .onPressed,
       isNotNull,
     );
-    expect(find.byKey(const Key('resource-passphrase')), findsNothing);
+    // The zip password is optional; left empty the zip stays plain.
+    expect(find.byKey(const Key('resource-archive-password')), findsOneWidget);
+    expect(
+      find.byKey(const Key('resource-archive-password-confirm')),
+      findsNothing,
+    );
     expect(find.byKey(const Key('resource-environment')), findsNothing);
 
     harness.controller.setResourcePreset(ResourceCollectionPreset.custom);
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.byKey(const Key('resource-kind-signingKey')), findsOneWidget);
+  });
+
+  testWidgets('uses the project .p8.txt instead of a second stored copy', (
+    tester,
+  ) async {
+    const pem = '-----BEGIN PRIVATE KEY-----\nAQID\n-----END PRIVATE KEY-----';
+    final keyDirectory = Directory(
+      '${harness.projectDirectory.path}${Platform.pathSeparator}keystore',
+    )..createSync();
+    File(
+      '${keyDirectory.path}${Platform.pathSeparator}AuthKey_KIT123.p8.txt',
+    ).writeAsStringSync('$pem\n');
+    final ios = AppStoreProject(
+      id: 'ios-kit-txt',
+      path: harness.projectDirectory.path,
+      displayName: 'Kit app',
+      bundleId: 'com.example.kit',
+    );
+    harness.controller.appStoreProjects.assignAll([ios]);
+    await tester.runAsync(
+      () => Get.find<AppStoreCredentialStoreService>().save(
+        ios.id,
+        const AppStoreCredentials(
+          p8PrivateKey: pem,
+          keyId: 'KIT123',
+          issuerId: 'issuer',
+          teamId: 'TEAM42',
+        ),
+      ),
+    );
+    await _pumpHome(tester, harness);
+    await tester.ensureVisible(find.byKey(const Key('options-tab-resources')));
+    await tester.tap(
+      find.byKey(const Key('options-tab-resources')).hitTestable(),
+    );
+    await tester.pump(const Duration(milliseconds: 500));
+    harness.controller.setResourcePanelMode(ResourcePanelMode.collector);
+    harness.controller.setResourcePreset(ResourceCollectionPreset.release);
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.runAsync(harness.controller.scanResources);
+    await tester.pump();
+
+    expect(
+      harness.controller.resourceFindings.map(
+        (finding) => finding.relativePath,
+      ),
+      contains('keystore/AuthKey_KIT123.p8.txt'),
+    );
+    final stored = harness.controller.resourceStoredKeys.value;
+    expect(stored.hasAppStoreKey, isFalse);
+    expect(stored.projectAppStoreKeyPath, 'keystore/AuthKey_KIT123.p8.txt');
+    expect(find.byKey(const Key('resource-include-stored-keys')), findsNothing);
+    expect(
+      find.text(
+        'ID App Store ghi vào gói: Key ID KIT123 · Issuer ID ✓ · Team ID TEAM42',
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('offers App Store keys kept in AMC for the release kit', (
+    tester,
+  ) async {
+    File(
+      '${harness.projectDirectory.path}${Platform.pathSeparator}.env',
+    ).writeAsStringSync('API_KEY=secret-value\n');
+    final ios = AppStoreProject(
+      id: 'ios-kit',
+      path: harness.projectDirectory.path,
+      displayName: 'Kit app',
+      bundleId: 'com.example.kit',
+    );
+    harness.controller.appStoreProjects.assignAll([ios]);
+    await tester.runAsync(
+      () => Get.find<AppStoreCredentialStoreService>().save(
+        ios.id,
+        const AppStoreCredentials(
+          p8PrivateKey: 'PRIVATE KEY FIXTURE',
+          keyId: 'KIT123',
+          issuerId: 'issuer',
+        ),
+      ),
+    );
+    await _pumpHome(tester, harness);
+    await tester.ensureVisible(find.byKey(const Key('options-tab-resources')));
+    await tester.tap(
+      find.byKey(const Key('options-tab-resources')).hitTestable(),
+    );
+    await tester.pump(const Duration(milliseconds: 500));
+    harness.controller.setResourcePanelMode(ResourcePanelMode.collector);
+    harness.controller.setResourcePreset(ResourceCollectionPreset.release);
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('resource-preset-selector')),
+        matching: find.text('Release'),
+      ),
+      findsOneWidget,
+    );
+    await tester.runAsync(harness.controller.scanResources);
+    await tester.pump();
+
+    expect(
+      find.byKey(const Key('resource-include-stored-keys')),
+      findsOneWidget,
+    );
+    expect(find.text('.p8 App Store (KIT123)'), findsOneWidget);
+    expect(find.byKey(const Key('resource-app-store-ids')), findsOneWidget);
+    expect(find.text('Zip 2'), findsOneWidget);
+    expect(
+      find.text('Mỗi gói kèm README hướng dẫn setup release Android và iOS.'),
+      findsOneWidget,
+    );
+
+    await tester.ensureVisible(
+      find.byKey(const Key('resource-include-stored-keys')),
+    );
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.byKey(const Key('resource-include-stored-keys')));
+    await tester.pump();
+    expect(harness.controller.resourceIncludeStoredKeys.value, isFalse);
+    expect(find.text('Zip 1'), findsOneWidget);
+  });
+
+  testWidgets('locks the resource zip with a password that is never saved', (
+    tester,
+  ) async {
+    final sep = Platform.pathSeparator;
+    final project = harness.projectDirectory.path;
+    File('$project$sep.env').writeAsStringSync('API_KEY=secret-value\n');
+    Directory('$project${sep}android${sep}app').createSync(recursive: true);
+    File(
+      '$project${sep}android${sep}app${sep}upload.jks',
+    ).writeAsBytesSync([1, 2, 3]);
+    await _pumpHome(tester, harness);
+    await tester.ensureVisible(find.byKey(const Key('options-tab-resources')));
+    await tester.tap(
+      find.byKey(const Key('options-tab-resources')).hitTestable(),
+    );
+    await tester.pump(const Duration(milliseconds: 500));
+    harness.controller.setResourcePanelMode(ResourcePanelMode.collector);
+    harness.controller.setResourcePreset(ResourceCollectionPreset.release);
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.runAsync(harness.controller.scanResources);
+    await tester.pump();
+
+    final passwordField = find.byKey(const Key('resource-archive-password'));
+    final confirmField = find.byKey(
+      const Key('resource-archive-password-confirm'),
+    );
+    String note() => tester
+        .widget<Text>(find.byKey(const Key('resource-archive-password-note')))
+        .data!;
+    bool obscured(Finder field) => tester.widget<TextField>(field).obscureText;
+    bool canZip() =>
+        tester
+            .widget<FilledButton>(
+              find.byKey(const Key('resource-export-bundle')),
+            )
+            .onPressed !=
+        null;
+
+    // A keystore in the bundle without a password gets a warning, not a block.
+    expect(confirmField, findsNothing);
+    expect(obscured(passwordField), isTrue);
+    expect(note(), contains('chưa đặt mật khẩu'));
+    expect(canZip(), isTrue);
+
+    await tester.ensureVisible(passwordField);
+    await tester.enterText(passwordField, 'short');
+    await tester.pump();
+    expect(find.text('Mật khẩu zip cần ít nhất 8 ký tự.'), findsOneWidget);
+    expect(note(), contains('AES-256'));
+    expect(canZip(), isFalse);
+
+    await tester.enterText(passwordField, 'kit-Pass-2026');
+    await tester.pump();
+    expect(confirmField, findsOneWidget);
+    expect(obscured(confirmField), isTrue);
+    expect(canZip(), isFalse);
+
+    await tester.enterText(confirmField, 'kit-Pass-2025');
+    await tester.pump();
+    expect(find.text('Mật khẩu xác nhận không khớp.'), findsOneWidget);
+    expect(canZip(), isFalse);
+
+    await tester.enterText(confirmField, 'kit-Pass-2026');
+    await tester.pump();
+    expect(find.text('Mật khẩu xác nhận không khớp.'), findsNothing);
+    expect(canZip(), isTrue);
+
+    final visibility = find.byKey(
+      const Key('resource-archive-password-visibility'),
+    );
+    await tester.ensureVisible(visibility);
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(visibility);
+    await tester.pump();
+    expect(obscured(passwordField), isFalse);
+    expect(obscured(confirmField), isFalse);
+
+    final exportRoot = (await tester.runAsync(
+      () => Directory.systemTemp.createTemp('arc_locked_export_'),
+    ))!;
+    addTearDown(() => exportRoot.deleteSync(recursive: true));
+    harness.controller.resourceTargetPathController.text = exportRoot.path;
+    final result = (await tester.runAsync(harness.controller.exportResources))!;
+    await tester.pump();
+
+    expect(result.isLocked, isTrue);
+    final bytes = (await tester.runAsync(
+      () => File(result.archivePath).readAsBytes(),
+    ))!;
+    final archive = ZipDecoder().decodeBytes(bytes, password: 'kit-Pass-2026');
+    expect(
+      utf8.decode(archive.findFile('release_app/.env')!.content),
+      contains('secret-value'),
+    );
+    expect(File(result.guidePath!).existsSync(), isTrue);
+    expect(harness.controller.resourceStatus.value, contains('AES-256'));
+
+    // Cleared after the export and never written to settings.
+    expect(harness.controller.resourceArchivePasswordController.text, isEmpty);
+    expect(
+      harness.controller.resourceArchivePasswordConfirmController.text,
+      isEmpty,
+    );
+    expect(confirmField, findsNothing);
+    final prefs = (await tester.runAsync(SharedPreferences.getInstance))!;
+    expect(
+      prefs.getKeys().map((key) => '${prefs.get(key)}').join('\n'),
+      isNot(contains('kit-Pass-2026')),
+    );
   });
 
   testWidgets('shows signing credential status and manual resource fields', (
