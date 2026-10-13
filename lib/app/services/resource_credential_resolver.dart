@@ -138,22 +138,37 @@ class ResourceCredentialResolver extends GetxService {
     for (final entry in files) {
       if (!entry.file.existsSync()) continue;
       final properties = await _readProperties(entry.file);
-      final keyAlias = _firstValue(properties, const ['keyalias', 'alias']);
+      // Names seen in project Gradle files, including the ALLIAS typo.
+      final keyAlias = _firstValue(properties, const [
+        'keyalias',
+        'alias',
+        'allias',
+        'releasekeyalias',
+        'androidkeyalias',
+      ]);
       final storePassword = _firstValue(properties, const [
         'storepassword',
         'androidstorepassword',
         'releaseStorePassword',
+        'keystorepassword',
+        'jkspassword',
       ]);
       final keyPassword = _effectiveKeyPassword(
-        _firstValue(properties, const ['keypassword', 'androidkeypassword']),
+        _firstValue(properties, const [
+          'keypassword',
+          'androidkeypassword',
+          'releasekeypassword',
+        ]),
         storePassword,
       );
-      final sourcePathHint = _firstValue(properties, const [
-        'storefile',
-        'androidjkspath',
-        'jkspath',
-        'keystorepath',
-      ]);
+      final sourcePathHint =
+          _firstValue(properties, const [
+            'storefile',
+            'androidjkspath',
+            'jkspath',
+            'keystorepath',
+          ]) ??
+          _firstValueEndingWith(properties, const ['jkspath', 'keystorepath']);
 
       if (_hasText(keyAlias) ||
           _hasText(storePassword) ||
@@ -232,21 +247,54 @@ class ResourceCredentialResolver extends GetxService {
     String sourceRoot,
   ) {
     final hintedPath = candidate.sourcePathHint?.trim();
-    if (hintedPath == null || hintedPath.isEmpty) {
-      return findings.length == 1 ? [findings.single] : const [];
-    }
-
-    final paths = _candidateAbsolutePaths(
-      hintedPath: hintedPath,
-      pathBases: candidate.pathBases,
-      sourceRoot: sourceRoot,
-    );
-    final matches = findings.where((finding) {
-      final findingPath = p.normalize(p.absolute(finding.sourcePath));
-      return paths.any((path) => p.equals(path, findingPath));
-    }).toList();
+    final paths = hintedPath == null || hintedPath.isEmpty
+        ? const <String>{}
+        : _candidateAbsolutePaths(
+            hintedPath: hintedPath,
+            pathBases: candidate.pathBases,
+            sourceRoot: sourceRoot,
+          );
+    final references = {
+      ...paths.where((path) => File(path).existsSync()),
+      for (final finding in findings)
+        if (paths.any(
+          (path) => p.equals(path, p.normalize(p.absolute(finding.sourcePath))),
+        ))
+          finding.sourcePath,
+    };
+    // Copies of the hinted keystore elsewhere in the project share its
+    // credentials.
+    final matches = findings
+        .where(
+          (finding) => references.any(
+            (reference) => _sameContent(reference, finding.sourcePath),
+          ),
+        )
+        .toList();
     if (matches.isNotEmpty) return matches;
-    return findings.length == 1 ? [findings.single] : const [];
+    return _allSameContent(findings) ? findings : const [];
+  }
+
+  bool _allSameContent(List<ResourceFinding> findings) {
+    if (findings.isEmpty) return false;
+    return findings.every(
+      (finding) => _sameContent(findings.first.sourcePath, finding.sourcePath),
+    );
+  }
+
+  bool _sameContent(String first, String second) {
+    if (p.equals(p.normalize(first), p.normalize(second))) return true;
+    try {
+      final a = File(first), b = File(second);
+      if (a.lengthSync() != b.lengthSync()) return false;
+      final left = a.readAsBytesSync(), right = b.readAsBytesSync();
+      for (var index = 0; index < left.length; index++) {
+        if (left[index] != right[index]) return false;
+      }
+      return true;
+    } on FileSystemException {
+      return false;
+    }
   }
 
   Set<String> _candidateAbsolutePaths({
@@ -329,6 +377,19 @@ class ResourceCredentialResolver extends GetxService {
     for (final key in keys.map(_canonicalKey)) {
       final value = properties[key];
       if (_hasText(value)) return value!.trim();
+    }
+    return null;
+  }
+
+  /// For project-specific names such as `VNETRIP_JKS_PATH`.
+  String? _firstValueEndingWith(
+    Map<String, String> properties,
+    List<String> suffixes,
+  ) {
+    for (final entry in properties.entries) {
+      if (suffixes.any(entry.key.endsWith) && _hasText(entry.value)) {
+        return entry.value.trim();
+      }
     }
     return null;
   }

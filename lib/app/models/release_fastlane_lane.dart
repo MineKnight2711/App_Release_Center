@@ -3,13 +3,16 @@ class ReleaseFastlaneLane {
     required this.name,
     this.platform,
     this.description,
+    this.workingDirectory,
   });
 
   final String name;
   final String? platform;
   final String? description;
+  final String? workingDirectory;
 
-  String get key => 'fastlane:${platform ?? 'default'}:$name';
+  String get key =>
+      'fastlane:${platform ?? 'default'}:$name${workingDirectory == null ? '' : ':$workingDirectory'}';
 
   String get label {
     return name

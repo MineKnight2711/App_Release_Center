@@ -30,9 +30,11 @@ class _StoreVersionsPanel extends GetView<HomeController> {
                   selectedProject.path,
                 );
                 if (chPlayProjects.isEmpty && appStoreProjects.isEmpty) {
-                  return _StoreVersionsSetupPrompt(
-                    project: selectedProject,
-                    compact: compact,
+                  return SingleChildScrollView(
+                    child: _StoreVersionsSetupPrompt(
+                      project: selectedProject,
+                      compact: compact,
+                    ),
                   );
                 }
 
@@ -55,7 +57,10 @@ class _StoreVersionsPanel extends GetView<HomeController> {
                     itemCount: cards.length,
                     separatorBuilder: (_, _) => const SizedBox(width: 8),
                     itemBuilder: (context, index) {
-                      return SizedBox(width: cardWidth, child: cards[index]);
+                      return SizedBox(
+                        width: cardWidth,
+                        child: SingleChildScrollView(child: cards[index]),
+                      );
                     },
                   );
                 }
@@ -648,9 +653,7 @@ class _ChPlayProjectCard extends GetView<HomeController> {
               decoration: BoxDecoration(
                 color: AppCyberTheme.palette.successSoft,
                 borderRadius: BorderRadius.circular(6),
-                border: Border.all(
-                  color: AppCyberTheme.palette.successBorder,
-                ),
+                border: Border.all(color: AppCyberTheme.palette.successBorder),
               ),
               child: Icon(
                 Icons.android_outlined,
@@ -965,6 +968,14 @@ class _AppStoreProjectCard extends GetView<HomeController> {
                       value: currentSnapshot.testFlightDisplay,
                     ),
                   ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: _StoreVersionMetric(
+                      icon: Icons.storefront_outlined,
+                      label: 'App Store',
+                      value: currentSnapshot.liveVersion ?? '-',
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: 7),
@@ -1005,6 +1016,11 @@ class _AppStoreProjectCard extends GetView<HomeController> {
                       icon: Icons.business_outlined,
                       label: 'In-house',
                     ),
+                  if (currentSnapshot.appStoreState != null)
+                    _MetaChip(
+                      icon: Icons.rate_review_outlined,
+                      label: currentSnapshot.appStoreState!,
+                    ),
                 ],
               ),
               if (currentSnapshot.message.isNotEmpty) ...[
@@ -1044,9 +1060,7 @@ class _AppStoreProjectCard extends GetView<HomeController> {
               decoration: BoxDecoration(
                 color: AppCyberTheme.palette.infoSoft,
                 borderRadius: BorderRadius.circular(6),
-                border: Border.all(
-                  color: AppCyberTheme.palette.infoBorder,
-                ),
+                border: Border.all(color: AppCyberTheme.palette.infoBorder),
               ),
               child: Icon(
                 Icons.phone_iphone_outlined,
@@ -1119,6 +1133,16 @@ class _AppStoreProjectActions extends GetView<HomeController> {
           mainAxisSize: MainAxisSize.min,
           children: [
             IconButton(
+              tooltip: 'Release TestFlight / App Store',
+              visualDensity: VisualDensity.compact,
+              constraints: const BoxConstraints.tightFor(width: 30, height: 30),
+              padding: EdgeInsets.zero,
+              onPressed: isRunning
+                  ? null
+                  : () => showIosReleaseDialog(context, controller, project),
+              icon: const Icon(Icons.rocket_launch_outlined, size: 18),
+            ),
+            IconButton(
               tooltip: 'Làm mới',
               visualDensity: VisualDensity.compact,
               constraints: const BoxConstraints.tightFor(width: 30, height: 30),
@@ -1169,6 +1193,16 @@ class _AppStoreProjectActions extends GetView<HomeController> {
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+          IconButton(
+            tooltip: 'Release TestFlight / App Store',
+            visualDensity: VisualDensity.compact,
+            constraints: const BoxConstraints.tightFor(width: 32, height: 32),
+            padding: EdgeInsets.zero,
+            onPressed: isRunning
+                ? null
+                : () => showIosReleaseDialog(context, controller, project),
+            icon: const Icon(Icons.rocket_launch_outlined),
+          ),
           IconButton(
             tooltip: 'Làm mới',
             visualDensity: VisualDensity.compact,
@@ -1283,9 +1317,7 @@ Future<ChPlayProject?> _showChPlayProjectDialog(
             surfaceTintColor: Colors.transparent,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),
-              side: BorderSide(
-                color: AppCyberTheme.palette.cardBorder,
-              ),
+              side: BorderSide(color: AppCyberTheme.palette.cardBorder),
             ),
             title: _PanelTitle(
               icon: Icons.shop_two_outlined,
@@ -1415,9 +1447,7 @@ Future<AppStoreProject?> _showAppStoreProjectDialog(
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(10),
-          side: BorderSide(
-            color: AppCyberTheme.palette.cardBorder,
-          ),
+          side: BorderSide(color: AppCyberTheme.palette.cardBorder),
         ),
         title: _PanelTitle(
           icon: Icons.phone_iphone_outlined,
@@ -1531,9 +1561,7 @@ Future<void> _showChPlayCredentialsDialog(
             surfaceTintColor: Colors.transparent,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),
-              side: BorderSide(
-                color: AppCyberTheme.palette.cardBorder,
-              ),
+              side: BorderSide(color: AppCyberTheme.palette.cardBorder),
             ),
             title: const _PanelTitle(
               icon: Icons.vpn_key_outlined,
@@ -1834,9 +1862,7 @@ Future<void> _showAppStoreCredentialsDialog(
             surfaceTintColor: Colors.transparent,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),
-              side: BorderSide(
-                color: AppCyberTheme.palette.cardBorder,
-              ),
+              side: BorderSide(color: AppCyberTheme.palette.cardBorder),
             ),
             title: const _PanelTitle(
               icon: Icons.vpn_key_outlined,
@@ -1857,15 +1883,28 @@ Future<void> _showAppStoreCredentialsDialog(
                         suffixIcon: IconButton(
                           tooltip: 'Nhập .p8',
                           onPressed: () async {
-                            final content = await controller
-                                .pickAppStoreP8Content();
-                            if (content == null) return;
-                            setState(() {
-                              p8PrivateKey = content;
-                              p8Label = 'Đã nhập private key .p8';
-                              p8Controller.text = p8Label;
-                              validationError = null;
-                            });
+                            try {
+                              final content = await controller
+                                  .pickAppStoreP8Content();
+                              if (!dialogContext.mounted || content == null) {
+                                return;
+                              }
+                              setState(() {
+                                p8PrivateKey = content;
+                                p8Label = 'Đã nhập private key .p8';
+                                p8Controller.text = p8Label;
+                                validationError = null;
+                              });
+                            } on FormatException catch (error) {
+                              if (!dialogContext.mounted) return;
+                              setState(() => validationError = error.message);
+                            } catch (_) {
+                              if (!dialogContext.mounted) return;
+                              setState(() {
+                                validationError =
+                                    'Không đọc được file .p8. Hãy chọn lại file.';
+                              });
+                            }
                           },
                           icon: const Icon(Icons.file_upload_outlined),
                         ),

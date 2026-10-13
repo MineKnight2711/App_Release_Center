@@ -455,6 +455,18 @@ List<_PaletteCommand> _buildPaletteCommands({
       ),
   ]);
 
+  commands.add(
+    _PaletteCommand(
+      id: 'app.settings',
+      group: 'Giao diện',
+      icon: Icons.settings_outlined,
+      title: 'Cài đặt ứng dụng',
+      subtitle: 'Theme, cỡ chữ, kích thước giao diện và cài đặt chung',
+      keywords: const ['settings', 'cai dat', 'font', 'zoom', 'giao dien'],
+      run: showAppSettings,
+    ),
+  );
+
   for (final choice in AppThemeChoice.values) {
     commands.add(
       _PaletteCommand(

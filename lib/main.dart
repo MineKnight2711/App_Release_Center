@@ -9,6 +9,8 @@ import 'package:app_management_center/app/bindings/app_binding.dart';
 import 'package:app_management_center/app/config/backend_config.dart';
 import 'package:app_management_center/app/services/legacy_storage_migration_service.dart';
 import 'package:app_management_center/app/services/theme_service.dart';
+import 'package:app_management_center/app/services/app_settings_service.dart';
+import 'package:app_management_center/app/views/app_display_scale.dart';
 import 'package:app_management_center/app/views/app_lock_gate.dart';
 import 'package:app_management_center/app/views/auth_gate.dart';
 import 'package:app_management_center/app/views/mobile_control_view.dart';
@@ -92,6 +94,10 @@ class AppManagementCenterApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       initialBinding: AppBinding(),
       theme: themeService.themeData,
+      builder: (context, child) => AppDisplayScale(
+        settings: Get.find<AppSettingsService>(),
+        child: child ?? const SizedBox.shrink(),
+      ),
       home: Platform.isAndroid || Platform.isIOS
           ? const AppLockGate(child: MobileControlView())
           : AuthGate(

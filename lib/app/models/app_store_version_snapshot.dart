@@ -42,6 +42,9 @@ class AppStoreVersionSnapshot {
   const AppStoreVersionSnapshot({
     this.localVersion,
     this.testFlightBuildNumber,
+    this.liveVersion,
+    this.editVersion,
+    this.appStoreState,
     this.status = AppStoreComparisonStatus.notChecked,
     this.message = '',
     this.lastCheckedAt,
@@ -50,6 +53,7 @@ class AppStoreVersionSnapshot {
 
   final AppStoreLocalVersion? localVersion;
   final int? testFlightBuildNumber;
+  final String? liveVersion, editVersion, appStoreState;
   final AppStoreComparisonStatus status;
   final String message;
   final DateTime? lastCheckedAt;
@@ -62,6 +66,9 @@ class AppStoreVersionSnapshot {
     AppStoreLocalVersion? localVersion,
     bool clearLocalVersion = false,
     int? testFlightBuildNumber,
+    String? liveVersion,
+    String? editVersion,
+    String? appStoreState,
     bool clearTestFlightBuildNumber = false,
     AppStoreComparisonStatus? status,
     String? message,
@@ -77,6 +84,9 @@ class AppStoreVersionSnapshot {
           ? null
           : testFlightBuildNumber ?? this.testFlightBuildNumber,
       status: status ?? this.status,
+      liveVersion: liveVersion ?? this.liveVersion,
+      editVersion: editVersion ?? this.editVersion,
+      appStoreState: appStoreState ?? this.appStoreState,
       message: message ?? this.message,
       lastCheckedAt: clearLastCheckedAt
           ? null

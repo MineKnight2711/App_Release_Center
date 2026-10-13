@@ -2,6 +2,17 @@
 
 Desktop release automation console with an Android remote-control surface.
 
+## Cài đặt ứng dụng
+
+Mở nút bánh răng **Cài đặt** cạnh menu công cụ trên desktop hoặc trên thanh
+tiêu đề của điện thoại. Có thể tìm **Cài đặt ứng dụng** trong command palette.
+Chọn theme Console, Cyber hoặc Default; chỉnh **Cỡ chữ** từ 80–160% và
+**Kích thước giao diện** từ 80–140% (widget, nút, biểu tượng, khoảng cách và chữ).
+Hai tùy chọn kết hợp với nhau, áp dụng ngay cho các trang và hộp thoại trong
+cửa sổ chính, tự lưu trên từng thiết bị và có nút đặt lại kích thước về 100%.
+Tùy chọn khởi động cùng Windows và khóa sinh trắc học trên điện thoại cũng nằm
+trong Cài đặt; các thiết lập release theo dự án vẫn ở bảng Tuỳ chọn.
+
 ## Plan Studio
 
 **Reminders:** open any Plan, Task, or Note → **Nhắc hẹn**. Choose a date/time,

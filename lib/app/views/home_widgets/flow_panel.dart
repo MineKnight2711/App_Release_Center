@@ -661,7 +661,8 @@ class _FlowPanelHeader extends GetView<HomeController> {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final width = constraints.maxWidth;
+        final textScale = MediaQuery.textScalerOf(context).scale(12) / 12;
+        final width = constraints.maxWidth / textScale;
         // Two thresholds, dropping the least load-bearing things first: the
         // panel title and the search bar's label (both icons still say what
         // they are), then the status pill, which the bottom progress dock
@@ -695,6 +696,8 @@ class _FlowPanelHeader extends GetView<HomeController> {
                 ),
               ),
             const SizedBox(width: 4),
+            const AppSettingsButton(),
+            const SizedBox(width: 4),
             _AutomationMenuButton(
               onSelected: (action) => _runAutomationMenuAction(context, action),
             ),
@@ -717,9 +720,6 @@ enum _AutomationMenuAction {
   mailCleaner,
   bundleCheck,
   qaDesk,
-  themeConsole,
-  themeCyber,
-  themeDefault,
   cloneAndroidCicd,
   cloneAndroidCicdFallback,
   generateAndroidJks,
@@ -749,12 +749,6 @@ Future<void> _runAutomationMenuAction(
         context,
         projectPath: Get.find<HomeController>().project.value?.path,
       );
-    case _AutomationMenuAction.themeConsole:
-      Get.find<ThemeService>().setChoice(AppThemeChoice.console);
-    case _AutomationMenuAction.themeCyber:
-      Get.find<ThemeService>().setChoice(AppThemeChoice.cyber);
-    case _AutomationMenuAction.themeDefault:
-      Get.find<ThemeService>().setChoice(AppThemeChoice.defaultTheme);
     case _AutomationMenuAction.cloneAndroidCicd:
       await _runExtendedAction(context, _ExtendedAction.cloneAndroidCicd);
     case _AutomationMenuAction.cloneAndroidCicdFallback:
@@ -775,7 +769,7 @@ Future<void> _runAutomationMenuAction(
   }
 }
 
-/// The header's single overflow menu: tools, theme, and the project actions
+/// The header's single overflow menu: tools and the project actions
 /// that need a project open.
 class _AutomationMenuButton extends GetView<HomeController> {
   const _AutomationMenuButton({required this.onSelected});
@@ -784,10 +778,7 @@ class _AutomationMenuButton extends GetView<HomeController> {
 
   @override
   Widget build(BuildContext context) {
-    final themeService = Get.find<ThemeService>();
-
     return Obx(() {
-      final theme = themeService.choice.value;
       // Project actions run commands in the checked-out repo; the tools above
       // them do not, so only the lower half is gated.
       final projectActionsEnabled =
@@ -857,23 +848,6 @@ class _AutomationMenuButton extends GetView<HomeController> {
               subtitle: 'Chạy suite test của nhiều dự án.',
             ),
           ),
-          const PopupMenuDivider(),
-          for (final choice in AppThemeChoice.values)
-            PopupMenuItem(
-              value: switch (choice) {
-                AppThemeChoice.console => _AutomationMenuAction.themeConsole,
-                AppThemeChoice.cyber => _AutomationMenuAction.themeCyber,
-                AppThemeChoice.defaultTheme =>
-                  _AutomationMenuAction.themeDefault,
-              },
-              child: _ExtendedMenuItem(
-                icon: choice.icon,
-                title: 'Đổi sang giao diện ${choice.label}',
-                subtitle: theme == choice
-                    ? 'Đang dùng ${theme.label}.'
-                    : 'Chuyển sang ${choice.label}.',
-              ),
-            ),
           const PopupMenuDivider(),
           PopupMenuItem(
             value: _AutomationMenuAction.cloneAndroidCicd,

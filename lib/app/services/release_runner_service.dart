@@ -104,14 +104,15 @@ class ReleaseRunnerService extends GetxService {
     bool clearLog = false,
     bool allowDuringWorkflow = false,
   }) async {
-    if (!project.androidDirectory.existsSync()) {
-      _append('Dự án không có thư mục android.');
+    final laneDirectory = Directory(
+      lane.workingDirectory ?? project.androidDirectory.path,
+    );
+    if (!laneDirectory.existsSync()) {
+      _append('Không có thư mục ${laneDirectory.path}.');
       return -1;
     }
 
-    final gemfile = File(
-      p.join(project.androidDirectory.path, 'fastlane', 'Gemfile'),
-    );
+    final gemfile = File(p.join(laneDirectory.path, 'fastlane', 'Gemfile'));
     final bundleExecutable = gemfile.existsSync() ? _bundleExecutable() : null;
     final fastlaneEnvironment = Map<String, String>.from(environment);
     if (bundleExecutable != null) {
@@ -124,7 +125,7 @@ class ReleaseRunnerService extends GetxService {
         args,
         bundleExecutable: bundleExecutable,
       ),
-      workingDirectory: project.androidDirectory.path,
+      workingDirectory: laneDirectory.path,
       statusLabel: lane.name,
       activePath: lane.key,
       projectName: project.name,
@@ -143,14 +144,15 @@ class ReleaseRunnerService extends GetxService {
     bool clearLog = false,
     bool allowDuringWorkflow = false,
   }) {
-    if (!project.androidDirectory.existsSync()) {
-      _append('Dự án không có thư mục android.');
+    final laneDirectory = Directory(
+      lane.workingDirectory ?? project.androidDirectory.path,
+    );
+    if (!laneDirectory.existsSync()) {
+      _append('Không có thư mục ${laneDirectory.path}.');
       return Future.value(const CommandRunResult(exitCode: -1));
     }
 
-    final gemfile = File(
-      p.join(project.androidDirectory.path, 'fastlane', 'Gemfile'),
-    );
+    final gemfile = File(p.join(laneDirectory.path, 'fastlane', 'Gemfile'));
     final bundleExecutable = gemfile.existsSync() ? _bundleExecutable() : null;
     final fastlaneEnvironment = Map<String, String>.from(environment);
     if (bundleExecutable != null) {
@@ -163,7 +165,7 @@ class ReleaseRunnerService extends GetxService {
         args,
         bundleExecutable: bundleExecutable,
       ),
-      workingDirectory: project.androidDirectory.path,
+      workingDirectory: laneDirectory.path,
       statusLabel: lane.name,
       activePath: lane.key,
       projectName: project.name,

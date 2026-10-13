@@ -29,6 +29,13 @@ class ResourceDiscoveryService extends GetxService {
 
       final kind = _classify(relativePath);
       if (kind == null || !activeKinds.contains(kind)) continue;
+      // Anything but a .p8, such as AuthKey_X.p8.txt or an SDK's public.pem,
+      // only counts when it really holds a private key.
+      if (kind == ResourceTargetKind.appStoreKey &&
+          !file.path.toLowerCase().endsWith('.p8') &&
+          !await _holdsPrivateKey(file)) {
+        continue;
+      }
 
       final stat = await file.stat();
       final probe = await _probeFile(file, kind);
@@ -95,6 +102,7 @@ class ResourceDiscoveryService extends GetxService {
     Set<ResourceTargetKind> customKinds,
   ) {
     return switch (preset) {
+      ResourceCollectionPreset.release => ResourceTargetKind.values.toSet(),
       ResourceCollectionPreset.allRecommended => resourceRecommendedTargetKinds,
       ResourceCollectionPreset.envOnly => {ResourceTargetKind.envFile},
       ResourceCollectionPreset.custom => customKinds,
@@ -124,11 +132,23 @@ class ResourceDiscoveryService extends GetxService {
       return ResourceTargetKind.signingKey;
     }
 
-    if (basename.endsWith('.p8') || basename.endsWith('.pem')) {
+    if (_hasKeyExtension(basename) ||
+        basename.contains('.p8.') ||
+        basename.startsWith('authkey_')) {
       return ResourceTargetKind.appStoreKey;
     }
 
     return null;
+  }
+
+  bool _hasKeyExtension(String path) {
+    return path.endsWith('.p8') || path.endsWith('.pem');
+  }
+
+  Future<bool> _holdsPrivateKey(File file) async {
+    final source = _decodeText(await _readProbeBytes(file));
+    return source != null &&
+        RegExp(r'-----BEGIN (?:EC )?PRIVATE KEY-----').hasMatch(source);
   }
 
   bool _isEnvName(String basename) {
@@ -158,13 +178,11 @@ class ResourceDiscoveryService extends GetxService {
             lowerPath.endsWith('.json'));
   }
 
+  /// Example and template files carry placeholders, not release values.
   bool _isIgnoredCandidateName(String basename) {
-    return basename == '.env.example' ||
-        basename == '.env.sample' ||
-        basename == '.env.template' ||
-        basename == 'env.example' ||
-        basename == 'env.sample' ||
-        basename == 'env.template';
+    return basename.endsWith('.example') ||
+        basename.endsWith('.sample') ||
+        basename.endsWith('.template');
   }
 
   Future<_ResourceProbe> _probeFile(File file, ResourceTargetKind kind) async {

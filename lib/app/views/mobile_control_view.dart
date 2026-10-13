@@ -12,6 +12,7 @@ import 'package:app_management_center/app/services/wake_on_lan_service.dart';
 import 'package:app_management_center/app/services/remote_unlock_service.dart';
 import 'package:app_management_center/app/services/remote_control_service.dart';
 import 'package:app_management_center/app/theme/cyber_theme.dart';
+import 'package:app_management_center/app/views/app_settings_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -72,15 +73,18 @@ class _MobileControlViewState extends State<MobileControlView> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Obx(() {
       final mobileSettings = remote.mobileSettings.value;
       final state = remote.desktopState.value;
       final command = remote.activeMobileCommand.value;
 
       return Scaffold(
+        backgroundColor: theme.scaffoldBackgroundColor,
         appBar: AppBar(
           title: const Text('Điều khiển release'),
           actions: [
+            const AppSettingsButton(),
             IconButton(
               tooltip: 'Làm mới',
               onPressed: _isWorking ? null : () => unawaited(_refresh()),
@@ -221,8 +225,6 @@ class _MobileControlViewState extends State<MobileControlView> {
             showBlockers: _wakeFailed,
             onWake: _sendWake,
           ),
-          const SizedBox(height: 14),
-          _AppLockPanel(lock: _appLock, onChanged: () => setState(() {})),
           const SizedBox(height: 14),
           _UnlockPanel(
             state: state,
@@ -701,9 +703,6 @@ class _MobileControlViewState extends State<MobileControlView> {
       ? Get.find<RemoteUnlockSessionService>()
       : null;
 
-  AppLockService? get _appLock =>
-      Get.isRegistered<AppLockService>() ? Get.find<AppLockService>() : null;
-
   void _startWakeWatch() {
     _wakeTimer?.cancel();
     _wakeTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
@@ -809,7 +808,6 @@ class _MobileControlViewState extends State<MobileControlView> {
       if (showBusy && mounted) setState(() => _isWorking = false);
     }
   }
-
 
   void _startRefreshTimer() {
     _refreshTimer?.cancel();
@@ -1192,80 +1190,6 @@ class _WakePanel extends StatelessWidget {
         ],
       ),
     );
-  }
-}
-
-/// The app-wide biometric lock.
-///
-/// Separate from the saved Windows password and not required by it: this one
-/// guards the console itself — the log, the project list, the power controls —
-/// for anyone who wants the phone app shut when the phone is not in their hand.
-class _AppLockPanel extends StatelessWidget {
-  const _AppLockPanel({required this.lock, required this.onChanged});
-
-  final AppLockService? lock;
-  final VoidCallback onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final service = lock;
-    if (service == null) return const SizedBox.shrink();
-
-    return Obx(() {
-      final usable = service.availability.value.usable;
-      return _PanelShell(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const _SectionTitle(
-              icon: Icons.phonelink_lock_outlined,
-              title: 'Khóa ứng dụng',
-            ),
-            const SizedBox(height: 4),
-            SwitchListTile(
-              value: service.settings.value.enabled && usable,
-              onChanged: usable && !service.isPrompting.value
-                  ? (value) async {
-                      await service.setEnabled(value);
-                      onChanged();
-                    }
-                  : null,
-              contentPadding: EdgeInsets.zero,
-              dense: true,
-              title: const Text('Hỏi sinh trắc học khi mở app'),
-              subtitle: Text(
-                usable
-                    ? 'Khóa lại sau ${service.settings.value.graceSeconds} giây '
-                          'kể từ khi thoát ra nền.'
-                    : 'Máy chưa đăng ký khuôn mặt, vân tay hay mã PIN.',
-              ),
-            ),
-            if (service.settings.value.enabled && usable)
-              SwitchListTile(
-                value: service.settings.value.protectSensitiveActions,
-                onChanged: (value) async {
-                  await service.setProtectSensitiveActions(value);
-                  onChanged();
-                },
-                contentPadding: EdgeInsets.zero,
-                dense: true,
-                title: const Text('Hỏi lại khi tắt hoặc khởi động lại máy'),
-                subtitle: const Text(
-                  'Mở khóa Windows luôn hỏi, không tắt được.',
-                ),
-              ),
-            if (service.status.value.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 6),
-                child: Text(
-                  service.status.value,
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ),
-          ],
-        ),
-      );
-    });
   }
 }
 

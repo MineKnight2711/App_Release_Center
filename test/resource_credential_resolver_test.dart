@@ -76,6 +76,81 @@ void main() {
     );
   });
 
+  test('gives identical keystore copies the stored credentials', () async {
+    // emed_plus_new keeps the same keystore in two folders.
+    for (final folder in ['keystore', 'android/fastlane/keys']) {
+      await Directory(p.join(root.path, folder)).create(recursive: true);
+      await File(
+        p.join(root.path, folder, 'keystore.jks'),
+      ).writeAsBytes([7, 7, 7]);
+    }
+    await File(p.join(root.path, 'other.jks')).writeAsBytes([1]);
+    await credentialStore.save(
+      'chp-1',
+      ChPlayCredentials(
+        jksPath: p.join(root.path, 'keystore', 'keystore.jks'),
+        keyAlias: 'upload',
+        storePassword: 'store-secret',
+        keyPassword: 'key-secret',
+      ),
+    );
+
+    final findings = await _scanSigningFindings(discovery, root);
+    final resolved = await resolver.resolve(
+      sourceRoot: root.path,
+      findings: findings,
+      chPlayProjects: [
+        ChPlayProject(
+          id: 'chp-1',
+          path: root.path,
+          displayName: 'Release App',
+          applicationId: 'com.example.release',
+        ),
+      ],
+    );
+
+    final byPath = {
+      for (final finding in findings)
+        finding.relativePath: resolved[finding.id]!,
+    };
+    expect(byPath['keystore/keystore.jks']!.keyAlias, 'upload');
+    expect(byPath['android/fastlane/keys/keystore.jks']!.keyAlias, 'upload');
+    expect(
+      byPath['android/fastlane/keys/keystore.jks']!.status,
+      SigningCredentialStatus.resolved,
+    );
+    expect(byPath['other.jks']!.status, SigningCredentialStatus.missing);
+  });
+
+  test('reads Gradle-style names such as ALLIAS and *_JKS_PATH', () async {
+    await Directory(p.join(root.path, 'keystore')).create();
+    await File(p.join(root.path, 'keystore', 'release.jks')).writeAsBytes([3]);
+    await File(p.join(root.path, 'other.jks')).writeAsBytes([4]);
+    await Directory(p.join(root.path, 'android')).create();
+    await File(p.join(root.path, 'android', 'env.properties')).writeAsString(
+      'ALLIAS=upload\n'
+      'JKS_PASSWORD=jks-secret\n'
+      'VNETRIP_JKS_PATH=keystore/release.jks\n',
+    );
+
+    final findings = await _scanSigningFindings(discovery, root);
+    final resolved = await resolver.resolve(
+      sourceRoot: root.path,
+      findings: findings,
+      chPlayProjects: const [],
+    );
+
+    final entry =
+        resolved[findings
+            .firstWhere(
+              (finding) => finding.relativePath == 'keystore/release.jks',
+            )
+            .id]!;
+    expect(entry.keyAlias, 'upload');
+    expect(entry.storePassword, 'jks-secret');
+    expect(entry.keyPassword, 'jks-secret');
+  });
+
   test('falls back to android key.properties credentials', () async {
     final keyDirectory = await Directory(
       p.join(root.path, 'android', 'fastlane', 'keys'),

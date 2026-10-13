@@ -1,12 +1,17 @@
+import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
+import 'package:archive/archive.dart' show ZipDecoder;
 import 'package:app_management_center/app/controllers/app_shell_controller.dart';
 import 'package:app_management_center/app/controllers/home_controller.dart';
 import 'package:app_management_center/app/data/release_center_connect.dart';
 import 'package:app_management_center/app/models/api_tool.dart';
+import 'package:app_management_center/app/models/app_store_credentials.dart';
 import 'package:app_management_center/app/models/app_store_project.dart';
 import 'package:app_management_center/app/models/ch_play_project.dart';
 import 'package:app_management_center/app/models/cicd_dependency.dart';
+import 'package:app_management_center/app/models/ios_release.dart';
 import 'package:app_management_center/app/models/release_fastlane_lane.dart';
 import 'package:app_management_center/app/models/release_project.dart';
 import 'package:app_management_center/app/models/release_workflow.dart';
@@ -18,6 +23,7 @@ import 'package:app_management_center/app/services/api_tool_service.dart';
 import 'package:app_management_center/app/services/app_store_credential_store_service.dart';
 import 'package:app_management_center/app/services/app_store_project_inspector_service.dart';
 import 'package:app_management_center/app/services/app_store_version_check_service.dart';
+import 'package:app_management_center/app/services/ios_release_workflow_service.dart';
 import 'package:app_management_center/app/services/ch_play_credential_store_service.dart';
 import 'package:app_management_center/app/services/ch_play_project_inspector_service.dart';
 import 'package:app_management_center/app/services/ch_play_version_check_service.dart';
@@ -43,7 +49,10 @@ import 'package:app_management_center/app/services/script_catalog_service.dart';
 import 'package:app_management_center/app/services/telegram_credential_store_service.dart';
 import 'package:app_management_center/app/services/telegram_release_notification_service.dart';
 import 'package:app_management_center/app/services/theme_service.dart';
+import 'package:app_management_center/app/services/app_settings_service.dart';
+import 'package:app_management_center/app/views/app_display_scale.dart';
 import 'package:app_management_center/app/views/home_view.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -60,6 +69,7 @@ void main() {
     view.devicePixelRatio = 1;
     SharedPreferences.setMockInitialValues({});
     harness = await _Harness.create();
+    Get.put(await AppSettingsService().init());
   });
 
   tearDown(() {
@@ -71,12 +81,266 @@ void main() {
     Get.reset();
   });
 
+  group('App Store private key selection on macOS', () {
+    late FilePickerMacOS picker;
+    List<String>? selectedPaths;
+    MethodCall? pickerCall;
+
+    setUp(() {
+      picker = FilePickerMacOS();
+      FilePicker.platform = picker;
+      selectedPaths = null;
+      pickerCall = null;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(picker.methodChannel, (call) async {
+            pickerCall = call;
+            return selectedPaths;
+          });
+    });
+
+    tearDown(() {
+      FilePickerMacOS.registerWith();
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(picker.methodChannel, null);
+    });
+
+    test('imports .p8 without a native content-type filter', () async {
+      final key = File('${harness.projectDirectory.path}/AuthKey_TEST.P8');
+      const content =
+          '-----BEGIN PRIVATE KEY-----\nAQID\n-----END PRIVATE KEY-----\n';
+      await key.writeAsString(content);
+      selectedPaths = [key.path];
+
+      expect(await harness.controller.pickAppStoreP8Content(), content);
+      expect(pickerCall!.method, 'pickFiles');
+      expect(pickerCall!.arguments['allowedExtensions'], isEmpty);
+      expect(pickerCall!.arguments['allowMultiple'], isFalse);
+    });
+
+    test('imports a PEM key with the Finder-hidden .txt extension', () async {
+      final key = File('${harness.projectDirectory.path}/AuthKey_TEST.p8.txt');
+      const content =
+          '-----BEGIN PRIVATE KEY-----\nAQID\n-----END PRIVATE KEY-----\n';
+      await key.writeAsString(content);
+      selectedPaths = [key.path];
+
+      expect(await harness.controller.pickAppStoreP8Content(), content);
+    });
+
+    test('rejects invalid content even with a .p8.txt filename', () async {
+      final key = File('${harness.projectDirectory.path}/AuthKey_TEST.p8.txt');
+      await key.writeAsString('{}');
+      selectedPaths = [key.path];
+
+      await expectLater(
+        harness.controller.pickAppStoreP8Content(),
+        throwsA(isA<FormatException>()),
+      );
+    });
+
+    test('rejects another extension and handles cancellation', () async {
+      final json = File('${harness.projectDirectory.path}/credentials.json');
+      await json.writeAsString('{}');
+      selectedPaths = [json.path];
+
+      await expectLater(
+        harness.controller.pickAppStoreP8Content(),
+        throwsA(isA<FormatException>()),
+      );
+
+      selectedPaths = null;
+      expect(await harness.controller.pickAppStoreP8Content(), isNull);
+    });
+  }, skip: !Platform.isMacOS);
+
   testWidgets('keeps command input dock visible on desktop', (tester) async {
     await _pumpHome(tester, harness);
 
     expect(find.text('Gửi cho script'), findsOneWidget);
     expect(find.text('Xoá log'), findsOneWidget);
     expect(find.text('Dừng'), findsOneWidget);
+  });
+
+  testWidgets('opens iOS release setup for a project without auto scripts', (
+    tester,
+  ) async {
+    final ios = AppStoreProject(
+      id: 'ios-ui',
+      path: harness.projectDirectory.path,
+      displayName: 'iOS UI demo',
+      bundleId: 'com.example.ui',
+    );
+    harness.controller.appStoreProjects.assignAll([ios]);
+    await _pumpHome(tester, harness);
+    await _openIosRelease(tester, harness, ios);
+
+    expect(find.byKey(const Key('ios-release-dialog')), findsOneWidget);
+    expect(find.text('Release iOS — iOS UI demo'), findsOneWidget);
+    expect(find.text('Chuẩn bị release iOS'), findsOneWidget);
+    expect(find.byKey(const Key('ios-release-source')), findsOneWidget);
+    expect(find.text('Marketing version'), findsOneWidget);
+    expect(find.byKey(const Key('ios-release-notes')), findsOneWidget);
+    expect(find.byKey(const Key('ios-review-release')), findsOneWidget);
+    // Build settings live in their own dialog, not on the release screen.
+    expect(find.text('Entrypoint'), findsNothing);
+    expect(find.text('vi-VN'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('ios-release-settings')));
+    await tester.pumpAndSettle();
+    final settingsDialog = find.byKey(const Key('ios-release-settings-dialog'));
+    expect(settingsDialog, findsOneWidget);
+    expect(find.text('Xuất script iOS'), findsOneWidget);
+    expect(find.text('Locale release notes'), findsOneWidget);
+    final defaultLocale = find.widgetWithText(
+      CheckboxListTile,
+      'Dùng ngôn ngữ mặc định của App Store',
+    );
+    expect(tester.widget<CheckboxListTile>(defaultLocale).value, isFalse);
+    await tester.ensureVisible(defaultLocale);
+    await tester.tap(defaultLocale);
+    await tester.pumpAndSettle();
+    expect(find.text('Locale release notes'), findsNothing);
+    await tester.runAsync(() async {
+      await tester.tap(find.byKey(const Key('save-ios-release-settings')));
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    });
+    await tester.pumpAndSettle();
+    expect(settingsDialog, findsNothing);
+    expect(find.text('Ngôn ngữ chính App Store'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.byKey(const Key('hide-ios-release')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('ios-release-dialog')), findsNothing);
+  });
+
+  testWidgets('asks for the platform when the project ships iOS too', (
+    tester,
+  ) async {
+    harness.controller.appStoreProjects.assignAll([
+      AppStoreProject(
+        id: 'ios-choice',
+        path: harness.projectDirectory.path,
+        displayName: 'Dual app',
+        bundleId: 'com.example.dual',
+      ),
+    ]);
+    await _pumpHome(tester, harness);
+
+    await tester.tap(find.byKey(const Key('run-release-workflow')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('release-target-dialog')), findsOneWidget);
+    expect(find.byKey(const Key('release-target-ios')), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('release-target-ios')),
+        matching: find.text('com.example.dual'),
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('RUNNING'), findsNothing);
+
+    await tester.tap(find.byKey(const Key('release-target-android')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('release-target-dialog')), findsNothing);
+    expect(find.byKey(const Key('release-workflow-dialog')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('hide-release-workflow')));
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('offers the next iOS release step for a saved run', (
+    tester,
+  ) async {
+    final ios = AppStoreProject(
+      id: 'ios-monitor',
+      path: harness.projectDirectory.path,
+      displayName: 'iOS monitor demo',
+      bundleId: 'com.example.monitor',
+    );
+    final directory = Directory(
+      '${harness.projectDirectory.parent.path}/ios_history/1',
+    );
+    Future<void> saveReadyRun() async {
+      await directory.create(recursive: true);
+      final run = IosReleaseRun(
+        id: '1',
+        project: ios,
+        settings: const IosReleaseSettings(
+          teamId: 'TEAM',
+          groups: ['QA'],
+          notes: 'Sửa lỗi đăng nhập',
+        ),
+        version: '2.1.13',
+        buildNumber: 46,
+        directory: directory.path,
+        commit: 'abc1234def',
+        dirty: false,
+        createdAt: DateTime(2026, 10, 13, 9, 30),
+        status: IosReleaseStatus.ready,
+        ipaPath: '${directory.path}/app.ipa',
+        uploadAttempted: true,
+      );
+      await File(
+        '${directory.path}/manifest.json',
+      ).writeAsString(jsonEncode(run.toJson()));
+    }
+
+    await tester.runAsync(saveReadyRun);
+    harness.controller.appStoreProjects.assignAll([ios]);
+    await _pumpHome(tester, harness);
+    await _openIosRelease(tester, harness, ios);
+
+    expect(find.text('TESTFLIGHT'), findsOneWidget);
+    expect(
+      find.byKey(const Key('release-workflow-step-motion-ios-appStore')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('ios-action-draft')), findsOneWidget);
+    expect(find.byKey(const Key('ios-action-distribute')), findsOneWidget);
+    expect(find.text('Sửa lỗi đăng nhập'), findsOneWidget);
+
+    // App Store actions always show what will be sent before running.
+    await tester.tap(find.byKey(const Key('ios-action-draft')));
+    await tester.pumpAndSettle();
+    expect(find.text('Chuẩn bị App Store?'), findsOneWidget);
+    expect(find.text('2.1.13+46'), findsWidgets);
+    await tester.tap(find.text('Hủy'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('ios-release-more')));
+    await tester.pumpAndSettle();
+    expect(find.text('Làm mới trạng thái Apple'), findsOneWidget);
+    await tester.tap(find.text('Release mới'));
+    await tester.pumpAndSettle();
+    expect(find.text('Chuẩn bị release iOS'), findsOneWidget);
+    await tester.tap(find.text('Quay lại theo dõi'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('ios-action-draft')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('hide-ios-release')));
+    await tester.pumpAndSettle();
+
+    // History is kept in memory once loaded; fail the same run in place.
+    final run = harness.controller.iosRelease.history.single
+      ..status = IosReleaseStatus.failed
+      ..lastAction = 'submit'
+      ..steps = [
+        {'action': 'submit', 'status': 'failed', 'error': 'Mạng lỗi.'},
+      ];
+    harness.controller.iosRelease.history.refresh();
+    await _openIosRelease(tester, harness, ios);
+    expect(
+      run.stageStatuses()[IosReleaseStage.review],
+      ReleaseStepStatus.failed,
+    );
+    expect(find.text('FAILED'), findsWidgets);
+    expect(find.text('Mạng lỗi.'), findsOneWidget);
+    expect(find.byKey(const Key('ios-action-submit')), findsOneWidget);
+    expect(find.text('Chạy lại bước lỗi'), findsOneWidget);
+    expect(find.byKey(const Key('ios-action-new')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('hide-ios-release')));
+    await tester.pumpAndSettle();
   });
 
   testWidgets('keeps global command progress dock visible', (tester) async {
@@ -143,20 +407,22 @@ void main() {
     expect(find.byKey(const Key('automation-menu')), findsOneWidget);
   });
 
-  testWidgets('moves the tools and theme switch into the automation menu', (
-    tester,
-  ) async {
-    await _pumpHome(tester, harness);
+  testWidgets(
+    'keeps tools in the automation menu and settings in its own button',
+    (tester) async {
+      await _pumpHome(tester, harness);
 
-    await tester.tap(find.byKey(const Key('automation-menu')));
-    await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('automation-menu')));
+      await tester.pumpAndSettle();
 
-    expect(find.text('API Tool'), findsOneWidget);
-    expect(find.text('API Monitor'), findsOneWidget);
-    expect(find.text('FlowFin'), findsOneWidget);
-    expect(find.text('Đổi sang giao diện Default'), findsOneWidget);
-    expect(find.text('Tạo Android JKS'), findsOneWidget);
-  });
+      expect(find.text('API Tool'), findsOneWidget);
+      expect(find.text('API Monitor'), findsOneWidget);
+      expect(find.text('FlowFin'), findsOneWidget);
+      expect(find.text('Đổi sang giao diện Default'), findsNothing);
+      expect(find.byKey(const Key('open-app-settings')), findsOneWidget);
+      expect(find.text('Tạo Android JKS'), findsOneWidget);
+    },
+  );
 
   testWidgets('opens the command palette with Ctrl+K and closes it with Esc', (
     tester,
@@ -172,6 +438,29 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('command-palette')), findsNothing);
+  });
+
+  testWidgets('opens global settings and scales the home layout', (
+    tester,
+  ) async {
+    await _pumpHome(tester, harness);
+    final selectedProject = harness.controller.project.value;
+    await tester.tap(find.byKey(const Key('open-app-settings')));
+    await tester.pumpAndSettle();
+    expect(find.text('Cỡ chữ · 100%'), findsOneWidget);
+    expect(find.text('Kích thước giao diện · 100%'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('interface-scale-increase')));
+    await tester.pumpAndSettle();
+    final settings = Get.find<AppSettingsService>();
+    expect(settings.interfaceScale.value, 1.05);
+    unawaited(settings.setFontScale(AppSettingsService.maxFontScale));
+    unawaited(settings.setInterfaceScale(AppSettingsService.maxInterfaceScale));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Đóng'));
+    await tester.pumpAndSettle();
+    expect(harness.controller.project.value, selectedProject);
+    expect(find.byKey(const Key('open-app-settings')), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('opens the command palette from the header search bar', (
@@ -2540,12 +2829,250 @@ void main() {
           .onPressed,
       isNotNull,
     );
-    expect(find.byKey(const Key('resource-passphrase')), findsNothing);
+    // The zip password is optional; left empty the zip stays plain.
+    expect(find.byKey(const Key('resource-archive-password')), findsOneWidget);
+    expect(
+      find.byKey(const Key('resource-archive-password-confirm')),
+      findsNothing,
+    );
     expect(find.byKey(const Key('resource-environment')), findsNothing);
 
     harness.controller.setResourcePreset(ResourceCollectionPreset.custom);
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.byKey(const Key('resource-kind-signingKey')), findsOneWidget);
+  });
+
+  testWidgets('uses the project .p8.txt instead of a second stored copy', (
+    tester,
+  ) async {
+    const pem = '-----BEGIN PRIVATE KEY-----\nAQID\n-----END PRIVATE KEY-----';
+    final keyDirectory = Directory(
+      '${harness.projectDirectory.path}${Platform.pathSeparator}keystore',
+    )..createSync();
+    File(
+      '${keyDirectory.path}${Platform.pathSeparator}AuthKey_KIT123.p8.txt',
+    ).writeAsStringSync('$pem\n');
+    final ios = AppStoreProject(
+      id: 'ios-kit-txt',
+      path: harness.projectDirectory.path,
+      displayName: 'Kit app',
+      bundleId: 'com.example.kit',
+    );
+    harness.controller.appStoreProjects.assignAll([ios]);
+    await tester.runAsync(
+      () => Get.find<AppStoreCredentialStoreService>().save(
+        ios.id,
+        const AppStoreCredentials(
+          p8PrivateKey: pem,
+          keyId: 'KIT123',
+          issuerId: 'issuer',
+          teamId: 'TEAM42',
+        ),
+      ),
+    );
+    await _pumpHome(tester, harness);
+    await tester.ensureVisible(find.byKey(const Key('options-tab-resources')));
+    await tester.tap(
+      find.byKey(const Key('options-tab-resources')).hitTestable(),
+    );
+    await tester.pump(const Duration(milliseconds: 500));
+    harness.controller.setResourcePanelMode(ResourcePanelMode.collector);
+    harness.controller.setResourcePreset(ResourceCollectionPreset.release);
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.runAsync(harness.controller.scanResources);
+    await tester.pump();
+
+    expect(
+      harness.controller.resourceFindings.map(
+        (finding) => finding.relativePath,
+      ),
+      contains('keystore/AuthKey_KIT123.p8.txt'),
+    );
+    final stored = harness.controller.resourceStoredKeys.value;
+    expect(stored.hasAppStoreKey, isFalse);
+    expect(stored.projectAppStoreKeyPath, 'keystore/AuthKey_KIT123.p8.txt');
+    expect(find.byKey(const Key('resource-include-stored-keys')), findsNothing);
+    expect(
+      find.text(
+        'ID App Store ghi vào gói: Key ID KIT123 · Issuer ID ✓ · Team ID TEAM42',
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('offers App Store keys kept in AMC for the release kit', (
+    tester,
+  ) async {
+    File(
+      '${harness.projectDirectory.path}${Platform.pathSeparator}.env',
+    ).writeAsStringSync('API_KEY=secret-value\n');
+    final ios = AppStoreProject(
+      id: 'ios-kit',
+      path: harness.projectDirectory.path,
+      displayName: 'Kit app',
+      bundleId: 'com.example.kit',
+    );
+    harness.controller.appStoreProjects.assignAll([ios]);
+    await tester.runAsync(
+      () => Get.find<AppStoreCredentialStoreService>().save(
+        ios.id,
+        const AppStoreCredentials(
+          p8PrivateKey: 'PRIVATE KEY FIXTURE',
+          keyId: 'KIT123',
+          issuerId: 'issuer',
+        ),
+      ),
+    );
+    await _pumpHome(tester, harness);
+    await tester.ensureVisible(find.byKey(const Key('options-tab-resources')));
+    await tester.tap(
+      find.byKey(const Key('options-tab-resources')).hitTestable(),
+    );
+    await tester.pump(const Duration(milliseconds: 500));
+    harness.controller.setResourcePanelMode(ResourcePanelMode.collector);
+    harness.controller.setResourcePreset(ResourceCollectionPreset.release);
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('resource-preset-selector')),
+        matching: find.text('Release'),
+      ),
+      findsOneWidget,
+    );
+    await tester.runAsync(harness.controller.scanResources);
+    await tester.pump();
+
+    expect(
+      find.byKey(const Key('resource-include-stored-keys')),
+      findsOneWidget,
+    );
+    expect(find.text('.p8 App Store (KIT123)'), findsOneWidget);
+    expect(find.byKey(const Key('resource-app-store-ids')), findsOneWidget);
+    expect(find.text('Zip 2'), findsOneWidget);
+    expect(
+      find.text('Mỗi gói kèm README hướng dẫn setup release Android và iOS.'),
+      findsOneWidget,
+    );
+
+    await tester.ensureVisible(
+      find.byKey(const Key('resource-include-stored-keys')),
+    );
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.byKey(const Key('resource-include-stored-keys')));
+    await tester.pump();
+    expect(harness.controller.resourceIncludeStoredKeys.value, isFalse);
+    expect(find.text('Zip 1'), findsOneWidget);
+  });
+
+  testWidgets('locks the resource zip with a password that is never saved', (
+    tester,
+  ) async {
+    final sep = Platform.pathSeparator;
+    final project = harness.projectDirectory.path;
+    File('$project$sep.env').writeAsStringSync('API_KEY=secret-value\n');
+    Directory('$project${sep}android${sep}app').createSync(recursive: true);
+    File(
+      '$project${sep}android${sep}app${sep}upload.jks',
+    ).writeAsBytesSync([1, 2, 3]);
+    await _pumpHome(tester, harness);
+    await tester.ensureVisible(find.byKey(const Key('options-tab-resources')));
+    await tester.tap(
+      find.byKey(const Key('options-tab-resources')).hitTestable(),
+    );
+    await tester.pump(const Duration(milliseconds: 500));
+    harness.controller.setResourcePanelMode(ResourcePanelMode.collector);
+    harness.controller.setResourcePreset(ResourceCollectionPreset.release);
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.runAsync(harness.controller.scanResources);
+    await tester.pump();
+
+    final passwordField = find.byKey(const Key('resource-archive-password'));
+    final confirmField = find.byKey(
+      const Key('resource-archive-password-confirm'),
+    );
+    String note() => tester
+        .widget<Text>(find.byKey(const Key('resource-archive-password-note')))
+        .data!;
+    bool obscured(Finder field) => tester.widget<TextField>(field).obscureText;
+    bool canZip() =>
+        tester
+            .widget<FilledButton>(
+              find.byKey(const Key('resource-export-bundle')),
+            )
+            .onPressed !=
+        null;
+
+    // A keystore in the bundle without a password gets a warning, not a block.
+    expect(confirmField, findsNothing);
+    expect(obscured(passwordField), isTrue);
+    expect(note(), contains('chưa đặt mật khẩu'));
+    expect(canZip(), isTrue);
+
+    await tester.ensureVisible(passwordField);
+    await tester.enterText(passwordField, 'short');
+    await tester.pump();
+    expect(find.text('Mật khẩu zip cần ít nhất 8 ký tự.'), findsOneWidget);
+    expect(note(), contains('AES-256'));
+    expect(canZip(), isFalse);
+
+    await tester.enterText(passwordField, 'kit-Pass-2026');
+    await tester.pump();
+    expect(confirmField, findsOneWidget);
+    expect(obscured(confirmField), isTrue);
+    expect(canZip(), isFalse);
+
+    await tester.enterText(confirmField, 'kit-Pass-2025');
+    await tester.pump();
+    expect(find.text('Mật khẩu xác nhận không khớp.'), findsOneWidget);
+    expect(canZip(), isFalse);
+
+    await tester.enterText(confirmField, 'kit-Pass-2026');
+    await tester.pump();
+    expect(find.text('Mật khẩu xác nhận không khớp.'), findsNothing);
+    expect(canZip(), isTrue);
+
+    final visibility = find.byKey(
+      const Key('resource-archive-password-visibility'),
+    );
+    await tester.ensureVisible(visibility);
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(visibility);
+    await tester.pump();
+    expect(obscured(passwordField), isFalse);
+    expect(obscured(confirmField), isFalse);
+
+    final exportRoot = (await tester.runAsync(
+      () => Directory.systemTemp.createTemp('arc_locked_export_'),
+    ))!;
+    addTearDown(() => exportRoot.deleteSync(recursive: true));
+    harness.controller.resourceTargetPathController.text = exportRoot.path;
+    final result = (await tester.runAsync(harness.controller.exportResources))!;
+    await tester.pump();
+
+    expect(result.isLocked, isTrue);
+    final bytes = (await tester.runAsync(
+      () => File(result.archivePath).readAsBytes(),
+    ))!;
+    final archive = ZipDecoder().decodeBytes(bytes, password: 'kit-Pass-2026');
+    expect(
+      utf8.decode(archive.findFile('release_app/.env')!.content),
+      contains('secret-value'),
+    );
+    expect(File(result.guidePath!).existsSync(), isTrue);
+    expect(harness.controller.resourceStatus.value, contains('AES-256'));
+
+    // Cleared after the export and never written to settings.
+    expect(harness.controller.resourceArchivePasswordController.text, isEmpty);
+    expect(
+      harness.controller.resourceArchivePasswordConfirmController.text,
+      isEmpty,
+    );
+    expect(confirmField, findsNothing);
+    final prefs = (await tester.runAsync(SharedPreferences.getInstance))!;
+    expect(
+      prefs.getKeys().map((key) => '${prefs.get(key)}').join('\n'),
+      isNot(contains('kit-Pass-2026')),
+    );
   });
 
   testWidgets('shows signing credential status and manual resource fields', (
@@ -2741,15 +3268,42 @@ Future<void> _pumpHome(
   await tester.pumpWidget(
     GetMaterialApp(
       theme: Get.find<ThemeService>().themeData,
-      builder: reduceMotion
-          ? (context, child) => MediaQuery(
-              data: MediaQuery.of(context).copyWith(disableAnimations: true),
-              child: child!,
-            )
-          : null,
+      builder: (context, child) => AppDisplayScale(
+        settings: Get.find<AppSettingsService>(),
+        child: reduceMotion
+            ? MediaQuery(
+                data: MediaQuery.of(context).copyWith(disableAnimations: true),
+                child: child!,
+              )
+            : child!,
+      ),
       home: const HomeView(),
     ),
   );
+  await tester.pumpAndSettle();
+}
+
+/// Opens the iOS release dialog; history and settings load from disk, which
+/// needs the real event loop.
+Future<void> _openIosRelease(
+  WidgetTester tester,
+  _Harness harness,
+  AppStoreProject project,
+) async {
+  await tester.runAsync(() async {
+    // Let a previously closed dialog finish its real-zone cleanup first.
+    await Future<void>.delayed(Duration.zero);
+    showIosReleaseDialog(
+      tester.element(find.byType(HomeView)),
+      harness.controller,
+      project,
+    );
+    await tester.pump();
+    await harness.controller.iosRelease.load();
+    await harness.controller.iosRelease.readSettings(project);
+    await harness.controller.appStoreInspector.readLocalVersion(project.path);
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+  });
   await tester.pumpAndSettle();
 }
 
@@ -2995,6 +3549,11 @@ class _Harness {
         appStoreInspector: appStoreInspector,
         appStoreCredentialStore: appStoreCredentialStore,
         appStoreVersionChecker: Get.find<AppStoreVersionCheckService>(),
+        iosRelease: IosReleaseWorkflowService(
+          runner: runner,
+          credentials: appStoreCredentialStore.read,
+          root: Directory('${root.path}/ios_history'),
+        ),
         resourceCatalogPasswords: resourceCatalogPasswords,
         resourceCatalogExcel: resourceCatalogExcel,
         cicdDoctor: cicdDoctor,

@@ -6,7 +6,12 @@ import 'package:app_management_center/app/services/project_store_service.dart';
 import 'package:app_management_center/app/services/release_runner_service.dart';
 import 'package:app_management_center/app/services/remote_control_service.dart';
 import 'package:app_management_center/app/services/script_catalog_service.dart';
+import 'package:app_management_center/app/services/app_settings_service.dart';
+import 'package:app_management_center/app/services/theme_service.dart';
+import 'package:app_management_center/app/theme/cyber_theme.dart';
+import 'package:app_management_center/app/views/app_display_scale.dart';
 import 'package:app_management_center/app/views/mobile_control_view.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -27,6 +32,8 @@ void main() {
     );
 
     Get.put<ProjectStoreService>(store);
+    final theme = Get.put(await ThemeService().init());
+    final settings = Get.put(await AppSettingsService().init());
     Get.put<ScriptCatalogService>(catalog);
     Get.put<ReleaseRunnerService>(runner);
     Get.put<ReleaseCenterConnect>(connect);
@@ -44,12 +51,34 @@ void main() {
       ).init(),
     );
 
-    await tester.pumpWidget(const GetMaterialApp(home: MobileControlView()));
+    await tester.pumpWidget(
+      GetMaterialApp(
+        theme: theme.themeData,
+        builder: (context, child) =>
+            AppDisplayScale(settings: settings, child: child!),
+        home: const MobileControlView(),
+      ),
+    );
 
     expect(find.text('Ghép điện thoại'), findsOneWidget);
     expect(find.text('Relay endpoint'), findsOneWidget);
     expect(find.text('Mã ghép'), findsOneWidget);
     expect(find.text('Liên kết'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('open-app-settings')));
+    await tester.pumpAndSettle();
+    expect(find.text('Cỡ chữ · 100%'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('settings-theme-defaultTheme')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Đóng'));
+    await tester.pumpAndSettle();
+    expect(theme.choice.value, AppThemeChoice.defaultTheme);
+    expect(
+      tester.widget<Scaffold>(find.byType(Scaffold)).backgroundColor,
+      AppCyberTheme.palette.base,
+    );
+    expect(find.text('Ghép điện thoại'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 }
 

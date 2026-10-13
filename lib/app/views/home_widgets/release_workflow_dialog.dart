@@ -4,38 +4,294 @@ bool _releaseWorkflowDialogVisible = false;
 
 enum _ReleaseLogView { step, all }
 
+Future<void> _chooseReleaseWorkflow(
+  BuildContext context,
+  HomeController controller,
+) async {
+  final selected = controller.project.value;
+  final ios = controller.appStoreProjects
+      .where(
+        (project) =>
+            selected != null &&
+            p.normalize(project.path) == p.normalize(selected.path),
+      )
+      .firstOrNull;
+  if (ios == null) {
+    await showReleaseWorkflowDialog(context);
+    return;
+  }
+  final android = controller.chPlayProjects
+      .where(
+        (project) => p.normalize(project.path) == p.normalize(selected!.path),
+      )
+      .firstOrNull;
+  final target = await showDialog<String>(
+    context: context,
+    builder: (context) => _ReleaseTargetDialog(
+      projectName: selected!.name,
+      bundleId: ios.bundleId,
+      applicationId: android?.applicationId,
+    ),
+  );
+  if (!context.mounted) return;
+  if (target == 'ios') {
+    await showIosReleaseDialog(context, controller, ios);
+  } else if (target == 'android') {
+    await showReleaseWorkflowDialog(context);
+  }
+}
+
+/// Picks iOS or Android when the selected project ships both.
+class _ReleaseTargetDialog extends GetView<HomeController> {
+  const _ReleaseTargetDialog({
+    required this.projectName,
+    required this.bundleId,
+    this.applicationId,
+  });
+
+  final String projectName;
+  final String bundleId;
+  final String? applicationId;
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      key: const Key('release-target-dialog'),
+      backgroundColor: AppCyberTheme.panelBackgroundStrong,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: AppCyberTheme.palette.dialogBorder),
+      ),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 440),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 14, 12, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  const Expanded(
+                    child: _PanelTitle(
+                      icon: Icons.rocket_launch_outlined,
+                      title: 'Chọn luồng release',
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Đóng',
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: Text(
+                  '$projectName có cả iOS và Android. Chọn nền tảng muốn release.',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: Obx(
+                  () => Column(
+                    children: [
+                      _ReleaseTargetTile(
+                        key: const Key('release-target-ios'),
+                        icon: Icons.apple,
+                        title: 'iOS',
+                        flow: 'TestFlight -> App Store',
+                        detail: bundleId,
+                        running: controller.iosRelease.busy.value,
+                        onTap: () => Navigator.of(context).pop('ios'),
+                      ),
+                      const SizedBox(height: 10),
+                      _ReleaseTargetTile(
+                        key: const Key('release-target-android'),
+                        icon: Icons.android,
+                        title: 'Android',
+                        flow: 'CH Play · Internal -> Production',
+                        detail: applicationId ?? 'Luồng script Android',
+                        running:
+                            controller.releaseWorkflow.isRunning ||
+                            controller.releaseWorkflow.isPreparing.value,
+                        onTap: () => Navigator.of(context).pop('android'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ReleaseTargetTile extends StatefulWidget {
+  const _ReleaseTargetTile({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.flow,
+    required this.detail,
+    required this.running,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String flow;
+  final String detail;
+  final bool running;
+  final VoidCallback onTap;
+
+  @override
+  State<_ReleaseTargetTile> createState() => _ReleaseTargetTileState();
+}
+
+class _ReleaseTargetTileState extends State<_ReleaseTargetTile> {
+  bool _hovered = false;
+  bool _focused = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = AppCyberTheme.palette;
+    final accent = AppCyberTheme.electricBlue;
+    final highlighted = _hovered || _focused;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: widget.onTap,
+        onHover: (value) => setState(() => _hovered = value),
+        onFocusChange: (value) => setState(() => _focused = value),
+        child: AnimatedContainer(
+          duration: _motionDuration(context, const Duration(milliseconds: 160)),
+          padding: const EdgeInsets.fromLTRB(12, 12, 10, 12),
+          decoration: BoxDecoration(
+            color: highlighted
+                ? accent.withValues(alpha: 0.08)
+                : AppCyberTheme.baseBackground.withValues(alpha: 0.18),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: highlighted
+                  ? accent.withValues(alpha: 0.6)
+                  : palette.cardBorder,
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(9),
+                  border: Border.all(color: accent.withValues(alpha: 0.4)),
+                ),
+                child: Icon(widget.icon, color: accent, size: 22),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.title,
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      widget.flow,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppCyberTheme.dataTextStyle(
+                        size: 10.8,
+                        color: AppCyberTheme.textPrimary,
+                        weight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      widget.detail,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppCyberTheme.dataTextStyle(
+                        size: 10,
+                        color: AppCyberTheme.textMuted,
+                        weight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (widget.running) ...[
+                const SizedBox(width: 8),
+                _ReleaseStatusBadge(label: 'RUNNING', color: accent),
+              ],
+              const SizedBox(width: 4),
+              Icon(
+                Icons.chevron_right,
+                color: highlighted ? accent : AppCyberTheme.textMuted,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 Future<void> showReleaseWorkflowDialog(BuildContext context) async {
   if (_releaseWorkflowDialogVisible) return;
   _releaseWorkflowDialogVisible = true;
   try {
-    await showGeneralDialog<void>(
-      context: context,
-      barrierDismissible: false,
+    await _showReleaseDialogRoute(
+      context,
       barrierLabel: 'Bảng theo dõi luồng release',
-      barrierColor: Colors.black.withValues(alpha: 0.66),
-      transitionDuration: const Duration(milliseconds: 240),
-      pageBuilder: (_, _, _) => const _ReleaseWorkflowDialog(),
-      transitionBuilder: (context, animation, secondaryAnimation, child) {
-        final reduceMotion =
-            MediaQuery.maybeOf(context)?.disableAnimations ?? false;
-        if (reduceMotion) return child;
-        final curved = CurvedAnimation(
-          parent: animation,
-          curve: Curves.easeOutCubic,
-          reverseCurve: Curves.easeInCubic,
-        );
-        return FadeTransition(
-          opacity: curved,
-          child: ScaleTransition(
-            scale: Tween<double>(begin: 0.94, end: 1).animate(curved),
-            child: child,
-          ),
-        );
-      },
+      child: const _ReleaseWorkflowDialog(),
     );
   } finally {
     _releaseWorkflowDialogVisible = false;
   }
+}
+
+/// Opens a release dialog with the motion every release flow shares.
+Future<void> _showReleaseDialogRoute(
+  BuildContext context, {
+  required String barrierLabel,
+  required Widget child,
+}) {
+  return showGeneralDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    barrierLabel: barrierLabel,
+    barrierColor: Colors.black.withValues(alpha: 0.66),
+    transitionDuration: const Duration(milliseconds: 240),
+    pageBuilder: (_, _, _) => child,
+    transitionBuilder: (context, animation, secondaryAnimation, child) {
+      final reduceMotion =
+          MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+      if (reduceMotion) return child;
+      final curved = CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeOutCubic,
+        reverseCurve: Curves.easeInCubic,
+      );
+      return FadeTransition(
+        opacity: curved,
+        child: ScaleTransition(
+          scale: Tween<double>(begin: 0.94, end: 1).animate(curved),
+          child: child,
+        ),
+      );
+    },
+  );
 }
 
 class _ReleaseWorkflowButton extends GetView<HomeController> {
@@ -64,7 +320,7 @@ class _ReleaseWorkflowButton extends GetView<HomeController> {
           : Icon(hasRun ? Icons.monitor_heart_outlined : Icons.rocket_launch);
       final label = hasRun ? 'Theo dõi release' : 'Chạy release';
       final onPressed = enabled
-          ? () => showReleaseWorkflowDialog(context)
+          ? () => _chooseReleaseWorkflow(context, controller)
           : null;
 
       if (compact) {
@@ -140,163 +396,60 @@ class _ReleaseWorkflowDialogState extends State<_ReleaseWorkflowDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.sizeOf(context);
-    final width = size.width < 760
-        ? (size.width * 0.96).toDouble()
-        : (size.width * 0.92).clamp(680.0, 1180.0).toDouble();
-    final height = size.height < 640
-        ? (size.height * 0.94).toDouble()
-        : (size.height * 0.9).clamp(560.0, 820.0).toDouble();
-
-    return SafeArea(
-      child: Center(
-        child: Material(
-          color: Colors.transparent,
-          child: Container(
-            key: const Key('release-workflow-dialog'),
-            width: width,
-            height: height,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  AppCyberTheme.panelBackgroundStrong,
-                  AppCyberTheme.panelBackgroundStrong.withValues(alpha: 0.92),
-                  AppCyberTheme.panelBackgroundStrong,
-                ],
+    return _ReleaseDialogFrame(
+      key: const Key('release-workflow-dialog'),
+      child: Obx(() {
+        final run = workflow.currentRun.value;
+        final showPreparation = _newRelease || run == null;
+        return Column(
+          children: [
+            _buildHeader(run),
+            Expanded(
+              child: _ReleaseViewSwitcher(
+                viewKey: showPreparation ? 'prepare' : 'monitor',
+                child: showPreparation
+                    ? _buildPreparation(context)
+                    : _buildMonitor(context, run),
               ),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: AppCyberTheme.palette.dialogBorder,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: AppCyberTheme.palette.dialogGlowColor,
-                  blurRadius: 38,
-                  spreadRadius: -8,
-                ),
-              ],
             ),
-            clipBehavior: Clip.antiAlias,
-            child: Obx(() {
-              final run = workflow.currentRun.value;
-              final showPreparation = _newRelease || run == null;
-              return Column(
-                children: [
-                  _buildHeader(run),
-                  Expanded(
-                    child: AnimatedSwitcher(
-                      duration: _motionDuration(
-                        context,
-                        const Duration(milliseconds: 260),
-                      ),
-                      switchInCurve: Curves.easeOutCubic,
-                      switchOutCurve: Curves.easeInCubic,
-                      transitionBuilder: (child, animation) {
-                        return FadeTransition(
-                          opacity: animation,
-                          child: ScaleTransition(
-                            scale: Tween<double>(
-                              begin: 0.985,
-                              end: 1,
-                            ).animate(animation),
-                            child: child,
-                          ),
-                        );
-                      },
-                      child: KeyedSubtree(
-                        key: ValueKey(showPreparation ? 'prepare' : 'monitor'),
-                        child: showPreparation
-                            ? _buildPreparation(context)
-                            : _buildMonitor(context, run),
-                      ),
-                    ),
-                  ),
-                  _buildActions(context, run, showPreparation),
-                ],
-              );
-            }),
-          ),
-        ),
-      ),
+            _buildActions(context, run, showPreparation),
+          ],
+        );
+      }),
     );
   }
 
   Widget _buildHeader(ReleaseWorkflowRun? run) {
-    final status = _runStatus(run);
-    final statusColor = _runStatusColor(context, run);
-    return Container(
-      padding: const EdgeInsets.fromLTRB(20, 14, 12, 14),
-      decoration: BoxDecoration(
-        color: AppCyberTheme.baseBackground.withValues(alpha: 0.22),
-        border: Border(
-          bottom: BorderSide(
-            color: AppCyberTheme.electricBlue.withValues(alpha: 0.25),
-          ),
-        ),
-      ),
-      child: Row(
-        children: [
-          _ReleaseHeaderMark(
-            color: statusColor,
-            running: run?.isRunning ?? workflow.isPreparing.value,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  run == null ? 'Luồng release Android' : run.projectName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const SizedBox(height: 5),
-                Wrap(
-                  spacing: 7,
-                  runSpacing: 6,
-                  children: run == null
-                      ? const [
-                          _HeaderPill(
-                            icon: Icons.auto_awesome_motion_outlined,
-                            label:
-                                'Version -> Commit -> Build -> Deploy -> Release',
-                          ),
-                        ]
-                      : [
-                          _HeaderPill(
-                            icon: Icons.sell_outlined,
-                            label:
-                                '${run.currentVersion} -> ${run.proposedVersion}',
-                            highlighted: true,
-                          ),
-                          _HeaderPill(
-                            icon: Icons.alt_route_outlined,
-                            label: run.track.toUpperCase(),
-                            highlighted: run.track == 'production',
-                          ),
-                          _HeaderPill(
-                            icon: Icons.timer_outlined,
-                            label: _durationLabel(run.duration),
-                          ),
-                        ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 10),
-          _ReleaseStatusBadge(label: status, color: statusColor),
-          const SizedBox(width: 4),
-          IconButton(
-            key: const Key('hide-release-workflow'),
-            tooltip: workflow.isRunning ? 'Ẩn bảng theo dõi' : 'Đóng',
-            onPressed: () => Navigator.of(context).pop(),
-            icon: const Icon(Icons.close),
-          ),
-        ],
-      ),
+    return _ReleaseDialogHeader(
+      title: run == null ? 'Luồng release Android' : run.projectName,
+      status: _runStatus(run),
+      statusColor: _runStatusColor(context, run),
+      running: run?.isRunning ?? workflow.isPreparing.value,
+      closeKey: const Key('hide-release-workflow'),
+      closeTooltip: workflow.isRunning ? 'Ẩn bảng theo dõi' : 'Đóng',
+      pills: run == null
+          ? const [
+              _HeaderPill(
+                icon: Icons.auto_awesome_motion_outlined,
+                label: 'Version -> Commit -> Build -> Deploy -> Release',
+              ),
+            ]
+          : [
+              _HeaderPill(
+                icon: Icons.sell_outlined,
+                label: '${run.currentVersion} -> ${run.proposedVersion}',
+                highlighted: true,
+              ),
+              _HeaderPill(
+                icon: Icons.alt_route_outlined,
+                label: run.track.toUpperCase(),
+                highlighted: run.track == 'production',
+              ),
+              _HeaderPill(
+                icon: Icons.timer_outlined,
+                label: _durationLabel(run.duration),
+              ),
+            ],
     );
   }
 
@@ -442,7 +595,7 @@ class _ReleaseWorkflowDialogState extends State<_ReleaseWorkflowDialog> {
           SizedBox(
             height: compact ? 210 : 126,
             child: _WorkflowTimeline(
-              steps: run.steps,
+              steps: [for (final step in run.steps) _TimelineStep.of(step)],
               selectedIndex: selectedIndex,
               activeIndex: activeIndex,
               compact: compact,
@@ -782,34 +935,7 @@ class _ReleaseWorkflowDialogState extends State<_ReleaseWorkflowDialog> {
           label: const Text('Release mới'),
         ),
     ];
-    final compact = MediaQuery.sizeOf(context).width < 760;
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
-      decoration: BoxDecoration(
-        border: Border(
-          top: BorderSide(
-            color: AppCyberTheme.electricBlue.withValues(alpha: 0.22),
-          ),
-        ),
-      ),
-      child: compact
-          ? Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              alignment: WrapAlignment.end,
-              children: [leading, ...trailing],
-            )
-          : Row(
-              children: [
-                leading,
-                const Spacer(),
-                for (var index = 0; index < trailing.length; index++) ...[
-                  if (index > 0) const SizedBox(width: 8),
-                  trailing[index],
-                ],
-              ],
-            ),
-    );
+    return _ReleaseDialogFooter(leading: leading, trailing: trailing);
   }
 
   String _runStatus(ReleaseWorkflowRun? run) {
@@ -930,6 +1056,222 @@ class _ReleaseWorkflowDialogState extends State<_ReleaseWorkflowDialog> {
   }
 }
 
+/// Sized, framed surface shared by the Android and iOS release dialogs.
+class _ReleaseDialogFrame extends StatelessWidget {
+  const _ReleaseDialogFrame({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    final width = size.width < 760
+        ? (size.width * 0.96).toDouble()
+        : (size.width * 0.92).clamp(680.0, 1180.0).toDouble();
+    final height = size.height < 640
+        ? (size.height * 0.94).toDouble()
+        : (size.height * 0.9).clamp(560.0, 820.0).toDouble();
+
+    return SafeArea(
+      child: Center(
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            width: width,
+            height: height,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  AppCyberTheme.panelBackgroundStrong,
+                  AppCyberTheme.panelBackgroundStrong.withValues(alpha: 0.92),
+                  AppCyberTheme.panelBackgroundStrong,
+                ],
+              ),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppCyberTheme.palette.dialogBorder),
+              boxShadow: [
+                BoxShadow(
+                  color: AppCyberTheme.palette.dialogGlowColor,
+                  blurRadius: 38,
+                  spreadRadius: -8,
+                ),
+              ],
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: child,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Cross-fades between the preparation and monitor views.
+class _ReleaseViewSwitcher extends StatelessWidget {
+  const _ReleaseViewSwitcher({required this.viewKey, required this.child});
+
+  final String viewKey;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedSwitcher(
+      duration: _motionDuration(context, const Duration(milliseconds: 260)),
+      switchInCurve: Curves.easeOutCubic,
+      switchOutCurve: Curves.easeInCubic,
+      transitionBuilder: (child, animation) {
+        return FadeTransition(
+          opacity: animation,
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.985, end: 1).animate(animation),
+            child: child,
+          ),
+        );
+      },
+      child: KeyedSubtree(key: ValueKey(viewKey), child: child),
+    );
+  }
+}
+
+class _ReleaseDialogHeader extends StatelessWidget {
+  const _ReleaseDialogHeader({
+    required this.title,
+    required this.pills,
+    required this.status,
+    required this.statusColor,
+    required this.running,
+    required this.closeKey,
+    required this.closeTooltip,
+    this.icon = Icons.rocket_launch_outlined,
+    this.actions = const [],
+  });
+
+  final String title;
+  final List<Widget> pills;
+  final String status;
+  final Color statusColor;
+  final bool running;
+  final Key closeKey;
+  final String closeTooltip;
+  final IconData icon;
+
+  /// Extra icon buttons placed before the close button.
+  final List<Widget> actions;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 14, 12, 14),
+      decoration: BoxDecoration(
+        color: AppCyberTheme.baseBackground.withValues(alpha: 0.22),
+        border: Border(
+          bottom: BorderSide(
+            color: AppCyberTheme.electricBlue.withValues(alpha: 0.25),
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          _ReleaseHeaderMark(color: statusColor, running: running, icon: icon),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 5),
+                Wrap(spacing: 7, runSpacing: 6, children: pills),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          _ReleaseStatusBadge(label: status, color: statusColor),
+          const SizedBox(width: 4),
+          ...actions,
+          IconButton(
+            key: closeKey,
+            tooltip: closeTooltip,
+            onPressed: () => Navigator.of(context).pop(),
+            icon: const Icon(Icons.close),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReleaseDialogFooter extends StatelessWidget {
+  const _ReleaseDialogFooter({required this.leading, required this.trailing});
+
+  final Widget leading;
+  final List<Widget> trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final compact = MediaQuery.sizeOf(context).width < 760;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+      decoration: BoxDecoration(
+        border: Border(
+          top: BorderSide(
+            color: AppCyberTheme.electricBlue.withValues(alpha: 0.22),
+          ),
+        ),
+      ),
+      child: compact
+          ? Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              alignment: WrapAlignment.end,
+              children: [leading, ...trailing],
+            )
+          : Row(
+              children: [
+                leading,
+                const Spacer(),
+                for (var index = 0; index < trailing.length; index++) ...[
+                  if (index > 0) const SizedBox(width: 8),
+                  trailing[index],
+                ],
+              ],
+            ),
+    );
+  }
+}
+
+/// What the release timeline shows for one step, whatever the platform.
+class _TimelineStep {
+  const _TimelineStep({
+    required this.id,
+    required this.label,
+    required this.icon,
+    required this.status,
+    this.duration,
+  });
+
+  factory _TimelineStep.of(ReleaseWorkflowStepRun step) => _TimelineStep(
+    id: step.kind.name,
+    label: step.label,
+    icon: _stepIcon(step.kind),
+    status: step.status,
+    duration: step.duration,
+  );
+
+  /// Stable name used in widget keys.
+  final String id;
+  final String label;
+  final IconData icon;
+  final ReleaseStepStatus status;
+  final Duration? duration;
+}
+
 class _WorkflowTimeline extends StatelessWidget {
   const _WorkflowTimeline({
     required this.steps,
@@ -939,7 +1281,7 @@ class _WorkflowTimeline extends StatelessWidget {
     required this.onSelected,
   });
 
-  final List<ReleaseWorkflowStepRun> steps;
+  final List<_TimelineStep> steps;
   final int selectedIndex;
   final int activeIndex;
   final bool compact;
@@ -951,10 +1293,14 @@ class _WorkflowTimeline extends StatelessWidget {
       return ListView.separated(
         key: const Key('release-workflow-timeline-vertical'),
         itemCount: steps.length,
-        separatorBuilder: (_, index) => _WorkflowConnector(
-          completed: _stepCompleted(steps[index]),
-          active: activeIndex == index + 1 || activeIndex == index,
-          compact: true,
+        // The list stretches its children; keep the connector a thin line.
+        separatorBuilder: (_, index) => Align(
+          alignment: Alignment.centerLeft,
+          child: _WorkflowConnector(
+            completed: _stepCompleted(steps[index]),
+            active: activeIndex == index + 1 || activeIndex == index,
+            compact: true,
+          ),
         ),
         itemBuilder: (_, index) => _WorkflowStepIndicator(
           step: steps[index],
@@ -996,7 +1342,7 @@ class _WorkflowStepIndicator extends StatefulWidget {
     required this.onTap,
   });
 
-  final ReleaseWorkflowStepRun step;
+  final _TimelineStep step;
   final bool selected;
   final bool compact;
   final VoidCallback onTap;
@@ -1083,9 +1429,7 @@ class _WorkflowStepIndicatorState extends State<_WorkflowStepIndicator>
         return Transform.translate(
           offset: Offset(shake, 0),
           child: Transform.scale(
-            key: ValueKey(
-              'release-workflow-step-motion-${widget.step.kind.name}',
-            ),
+            key: ValueKey('release-workflow-step-motion-${widget.step.id}'),
             scale: scale,
             child: Container(
               width: widget.compact ? 38 : 36,
@@ -1371,10 +1715,15 @@ class _ReleaseProgressBar extends StatelessWidget {
 }
 
 class _ReleaseHeaderMark extends StatelessWidget {
-  const _ReleaseHeaderMark({required this.color, required this.running});
+  const _ReleaseHeaderMark({
+    required this.color,
+    required this.running,
+    this.icon = Icons.rocket_launch_outlined,
+  });
 
   final Color color;
   final bool running;
+  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
@@ -1401,7 +1750,7 @@ class _ReleaseHeaderMark extends StatelessWidget {
             ),
             child: SizedBox.square(
               dimension: 40,
-              child: Icon(Icons.rocket_launch_outlined, color: color),
+              child: Icon(icon, color: color),
             ),
           ),
           if (running && !reduceMotion)
@@ -1824,7 +2173,7 @@ Color _statusColor(BuildContext context, ReleaseStepStatus status) {
   };
 }
 
-IconData _statusIcon(ReleaseWorkflowStepRun step) {
+IconData _statusIcon(_TimelineStep step) {
   return switch (step.status) {
     ReleaseStepStatus.running => Icons.bolt_rounded,
     ReleaseStepStatus.succeeded => Icons.check_rounded,
@@ -1832,7 +2181,7 @@ IconData _statusIcon(ReleaseWorkflowStepRun step) {
     ReleaseStepStatus.canceled => Icons.stop_rounded,
     ReleaseStepStatus.warning => Icons.priority_high_rounded,
     ReleaseStepStatus.skipped => Icons.skip_next_rounded,
-    ReleaseStepStatus.pending => _stepIcon(step.kind),
+    ReleaseStepStatus.pending => step.icon,
   };
 }
 
@@ -1883,7 +2232,7 @@ String _stepDescription(ReleaseWorkflowStepKind kind) {
   };
 }
 
-bool _stepCompleted(ReleaseWorkflowStepRun step) {
+bool _stepCompleted(_TimelineStep step) {
   return step.status == ReleaseStepStatus.succeeded ||
       step.status == ReleaseStepStatus.warning ||
       step.status == ReleaseStepStatus.skipped;

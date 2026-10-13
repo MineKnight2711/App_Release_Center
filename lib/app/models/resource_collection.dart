@@ -1,4 +1,7 @@
-enum ResourceCollectionPreset { allRecommended, envOnly, custom }
+import 'package:app_management_center/app/models/app_store_credentials.dart';
+
+/// [release] gathers everything a release machine needs, keys included.
+enum ResourceCollectionPreset { release, allRecommended, envOnly, custom }
 
 enum ResourceTargetKind {
   envFile,
@@ -25,6 +28,7 @@ class ResourceCollectionSettings {
     this.preset = ResourceCollectionPreset.allRecommended,
     this.customKinds = resourceRecommendedTargetKinds,
     this.includeSigningCredentials = true,
+    this.includeStoredKeys = true,
   });
 
   final String sourcePath;
@@ -33,8 +37,12 @@ class ResourceCollectionSettings {
   final Set<ResourceTargetKind> customKinds;
   final bool includeSigningCredentials;
 
+  /// Adds keys kept in AMC's secure store, such as the App Store .p8.
+  final bool includeStoredKeys;
+
   Set<ResourceTargetKind> get activeKinds {
     return switch (preset) {
+      ResourceCollectionPreset.release => ResourceTargetKind.values.toSet(),
       ResourceCollectionPreset.allRecommended => resourceRecommendedTargetKinds,
       ResourceCollectionPreset.envOnly => {ResourceTargetKind.envFile},
       ResourceCollectionPreset.custom => customKinds,
@@ -47,6 +55,7 @@ class ResourceCollectionSettings {
     ResourceCollectionPreset? preset,
     Set<ResourceTargetKind>? customKinds,
     bool? includeSigningCredentials,
+    bool? includeStoredKeys,
   }) {
     return ResourceCollectionSettings(
       sourcePath: sourcePath ?? this.sourcePath,
@@ -55,6 +64,7 @@ class ResourceCollectionSettings {
       customKinds: customKinds ?? this.customKinds,
       includeSigningCredentials:
           includeSigningCredentials ?? this.includeSigningCredentials,
+      includeStoredKeys: includeStoredKeys ?? this.includeStoredKeys,
     );
   }
 
@@ -65,6 +75,7 @@ class ResourceCollectionSettings {
       'preset': preset.name,
       'customKinds': customKinds.map((kind) => kind.name).toList(),
       'includeSigningCredentials': includeSigningCredentials,
+      'includeStoredKeys': includeStoredKeys,
     };
   }
 
@@ -79,6 +90,7 @@ class ResourceCollectionSettings {
       ),
       customKinds: _kindSet(json['customKinds']),
       includeSigningCredentials: json['includeSigningCredentials'] != false,
+      includeStoredKeys: json['includeStoredKeys'] != false,
     );
   }
 }
@@ -180,21 +192,95 @@ class SigningCredentialBundleEntry {
   }
 }
 
+/// Release keys AMC keeps in its secure store instead of the project folder.
+class StoredReleaseKeys {
+  const StoredReleaseKeys({
+    this.appStore,
+    this.bundleId,
+    this.projectAppStoreKeyPath,
+    this.playServiceAccountJson,
+    this.keystorePath,
+    this.keystoreCredential,
+  });
+
+  /// App Store Connect key IDs, with the .p8 only when the project does not
+  /// already hold the same key.
+  final AppStoreCredentials? appStore;
+  final String? bundleId;
+
+  /// The project's own .p8, relative to the project, when the scan found one.
+  final String? projectAppStoreKeyPath;
+  final String? playServiceAccountJson;
+
+  /// A keystore configured for CH Play that lives outside the project.
+  final String? keystorePath;
+  final SigningCredentialBundleEntry? keystoreCredential;
+
+  bool get hasAppStoreKey => appStore?.hasP8PrivateKey ?? false;
+  bool get hasAppStoreIds =>
+      (appStore?.hasKeyId ?? false) ||
+      (appStore?.hasIssuerId ?? false) ||
+      (appStore?.hasTeamId ?? false);
+  bool get hasPlayServiceAccount => _hasText(playServiceAccountJson);
+  bool get hasKeystore => _hasText(keystorePath);
+  bool get isEmpty =>
+      !hasAppStoreKey &&
+      !hasAppStoreIds &&
+      !hasPlayServiceAccount &&
+      !hasKeystore;
+
+  /// Secret files from the secure store, which the export option controls.
+  bool get hasStoredSecrets =>
+      hasAppStoreKey || hasPlayServiceAccount || hasKeystore;
+
+  /// Short names of the secret files the export option would add.
+  List<String> get labels => [
+    if (hasAppStoreKey)
+      '.p8 App Store${_hasText(appStore?.keyId) ? ' (${appStore!.keyId!.trim()})' : ''}',
+    if (hasPlayServiceAccount) 'service account CH Play',
+    if (hasKeystore) 'keystore ${keystorePath!.split(RegExp(r'[\\/]')).last}',
+  ];
+
+  /// Which App Store key IDs the kit carries, missing ones marked ✗.
+  String get appStoreIdSummary {
+    String part(String label, String? value, {bool show = true}) =>
+        _hasText(value)
+        ? (show ? '$label ${value!.trim()}' : '$label ✓')
+        : '$label ✗';
+    return [
+      part('Key ID', appStore?.keyId),
+      part('Issuer ID', appStore?.issuerId, show: false),
+      part('Team ID', appStore?.teamId),
+    ].join(' · ');
+  }
+}
+
 class ResourceExportResult {
   const ResourceExportResult({
     required this.archivePath,
     required this.fileCount,
     required this.signingCredentialCount,
+    this.storedKeyCount = 0,
+    this.guidePath,
   });
 
   final String archivePath;
   final int fileCount;
   final int signingCredentialCount;
+
+  /// Files written from AMC's secure store.
+  final int storedKeyCount;
+
+  /// Plain README next to a password-locked zip saying how to open it.
+  final String? guidePath;
+
+  bool get isLocked => guidePath != null;
 }
 
 extension ResourceCollectionPresetText on ResourceCollectionPreset {
   String get label {
     return switch (this) {
+      ResourceCollectionPreset.release => 'Release',
       ResourceCollectionPreset.allRecommended => 'Tất cả',
       ResourceCollectionPreset.envOnly => '.env',
       ResourceCollectionPreset.custom => 'Tuỳ chọn',
