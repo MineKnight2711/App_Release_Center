@@ -3407,7 +3407,6 @@ class _RemoteControlOptions extends GetView<HomeController> {
             title: const Text('Trung chuyển lệnh từ điện thoại'),
             subtitle: Text(remote.agentStatus.value),
           ),
-          const _AutoStartOption(),
           SwitchListTile(
             value: settings.allowPowerControl,
             onChanged: settings.enabled ? remote.setAllowPowerControl : null,
@@ -3552,56 +3551,6 @@ class _RemoteControlOptions extends GetView<HomeController> {
       context: context,
       builder: (_) => const _AllowedAppsDialog(),
     );
-  }
-}
-
-/// Without this the agent never returns after a reboot, so a machine restarted
-/// from the phone simply disappears. The shortcut on disk is the state, which
-/// is why this reads it rather than a stored preference.
-class _AutoStartOption extends StatefulWidget {
-  const _AutoStartOption();
-
-  @override
-  State<_AutoStartOption> createState() => _AutoStartOptionState();
-}
-
-class _AutoStartOptionState extends State<_AutoStartOption> {
-  final _autoStart = WindowsAutoStartService();
-  late bool _enabled = _autoStart.isEnabled();
-  String _error = '';
-
-  @override
-  Widget build(BuildContext context) {
-    if (!_autoStart.isSupported) return const SizedBox.shrink();
-
-    return SwitchListTile(
-      value: _enabled,
-      onChanged: (value) => unawaited(_apply(value)),
-      contentPadding: EdgeInsets.zero,
-      title: const Text('Tự khởi động cùng Windows'),
-      subtitle: Text(
-        _error.isNotEmpty
-            ? _error
-            : 'Cần bật để điện thoại còn thấy máy sau khi khởi động lại.',
-      ),
-    );
-  }
-
-  Future<void> _apply(bool value) async {
-    try {
-      await _autoStart.setEnabled(value);
-      if (!mounted) return;
-      setState(() {
-        _enabled = _autoStart.isEnabled();
-        _error = '';
-      });
-    } catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _enabled = _autoStart.isEnabled();
-        _error = 'Không đổi được: $error';
-      });
-    }
   }
 }
 

@@ -32,6 +32,7 @@ import 'package:app_management_center/app/services/command_notification_service.
 import 'package:app_management_center/app/services/gemini_env_service.dart';
 import 'package:app_management_center/app/services/google_drive_release_upload_service.dart';
 import 'package:app_management_center/app/services/machine_power_service.dart';
+import 'package:app_management_center/app/services/ios_release_workflow_service.dart';
 import 'package:app_management_center/app/services/project_store_service.dart';
 import 'package:app_management_center/app/services/release_apk_artifact_service.dart';
 import 'package:app_management_center/app/services/release_installer_artifact_service.dart';
@@ -81,6 +82,7 @@ class HomeController extends GetxController {
     required this.appStoreInspector,
     required this.appStoreCredentialStore,
     required this.appStoreVersionChecker,
+    IosReleaseWorkflowService? iosRelease,
     ResourceDiscoveryService? resourceDiscovery,
     ResourceExportService? resourceExports,
     ResourceCredentialResolver? resourceCredentials,
@@ -90,7 +92,8 @@ class HomeController extends GetxController {
     CiCdDependencyInstallerService? cicdInstaller,
     Uuid? uuid,
     MachinePowerService? machineShutdown,
-  }) : releaseWorkflow =
+  }) : _iosReleaseOverride = iosRelease,
+       releaseWorkflow =
            releaseWorkflow ??
            ReleaseWorkflowService(
              runner: runner,
@@ -139,6 +142,13 @@ class HomeController extends GetxController {
   final AppStoreProjectInspectorService appStoreInspector;
   final AppStoreCredentialStoreService appStoreCredentialStore;
   final AppStoreVersionCheckService appStoreVersionChecker;
+  final IosReleaseWorkflowService? _iosReleaseOverride;
+  late final iosRelease =
+      _iosReleaseOverride ??
+      IosReleaseWorkflowService(
+        runner: runner,
+        credentials: readAppStoreCredentials,
+      );
   final ResourceDiscoveryService resourceDiscovery;
   final ResourceExportService resourceExports;
   final ResourceCredentialResolver resourceCredentials;
@@ -525,13 +535,39 @@ class HomeController extends GetxController {
   }
 
   Future<String?> pickAppStoreP8Content() async {
-    final path = await _pickFilePath(
-      dialogTitle: 'Chọn key .p8 của App Store Connect',
-      extensions: const ['p8'],
-    );
+    // macOS filters custom extensions through UTType, which can disable .p8
+    // keys. Allow selection there and validate the file ourselves.
+    final String? path;
+    if (Platform.isMacOS) {
+      final result = await FilePicker.platform.pickFiles(
+        dialogTitle: 'Chọn key .p8 của App Store Connect',
+        type: FileType.any,
+      );
+      path = result?.files.single.path;
+    } else {
+      path = await _pickFilePath(
+        dialogTitle: 'Chọn key .p8 của App Store Connect',
+        extensions: const ['p8', 'txt'],
+      );
+    }
     if (path == null) return null;
+    final filename = p.basename(path).toLowerCase();
+    if (!filename.endsWith('.p8') && !filename.endsWith('.p8.txt')) {
+      throw const FormatException(
+        'Hãy chọn file private key .p8 hoặc .p8.txt.',
+      );
+    }
 
-    return File(path).readAsString();
+    final content = await File(path).readAsString();
+    final pem = content.trim();
+    if (!RegExp(
+      r'^-----BEGIN PRIVATE KEY-----\s+[A-Za-z0-9+/=\s]+-----END PRIVATE KEY-----$',
+    ).hasMatch(pem)) {
+      throw const FormatException(
+        'File không chứa private key PEM hợp lệ của App Store Connect.',
+      );
+    }
+    return content;
   }
 
   Future<String?> pickJksPath() async {

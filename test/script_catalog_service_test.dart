@@ -31,5 +31,29 @@ version: 1.0.0+1
       expect(project.fastlaneLanes, isEmpty);
       expect(project.hasPlayReleaseTools, isFalse);
     });
+
+    test('keeps iOS and Android lanes with the same name distinct', () async {
+      for (final platform in ['android', 'ios']) {
+        final directory = Directory(p.join(tempDir.path, platform, 'fastlane'))
+          ..createSync(recursive: true);
+        File(p.join(directory.path, 'Fastfile')).writeAsStringSync(
+          'default_platform(:$platform)\nplatform :$platform do\n  lane :release do\n  end\nend\n',
+        );
+      }
+      final project = await ScriptCatalogService().inspect(tempDir.path);
+      expect(project.fastlaneLanes.length, 2);
+      expect(project.fastlaneLanes.map((lane) => lane.key).toSet().length, 2);
+      final ios = project.fastlaneLanes.singleWhere(
+        (lane) => lane.platform == 'ios',
+      );
+      expect(ios.workingDirectory, p.join(tempDir.path, 'ios'));
+      expect(ios.command, 'fastlane ios release');
+      expect(
+        project.fastlaneLanes
+            .singleWhere((lane) => lane.platform == 'android')
+            .workingDirectory,
+        isNull,
+      );
+    });
   });
 }

@@ -55,6 +55,7 @@ import 'package:app_management_center/app/services/resource_export_service.dart'
 import 'package:app_management_center/app/services/remote_control_service.dart';
 import 'package:app_management_center/app/services/script_catalog_service.dart';
 import 'package:app_management_center/app/services/theme_service.dart';
+import 'package:app_management_center/app/services/app_settings_service.dart';
 import 'package:app_management_center/app/services/telegram_credential_store_service.dart';
 import 'package:app_management_center/app/services/telegram_release_notification_service.dart';
 import 'package:app_management_center/app/services/qa_desk_host_service.dart';
@@ -69,6 +70,10 @@ class AppBinding extends Bindings {
     );
     await Get.putAsync<ThemeService>(
       () => ThemeService().init(),
+      permanent: true,
+    );
+    await Get.putAsync<AppSettingsService>(
+      () => AppSettingsService().init(),
       permanent: true,
     );
     final tokenStore = Get.put<AuthTokenStoreService>(

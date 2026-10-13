@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:convert';
 
 import 'package:app_management_center/app/models/app_store_credentials.dart';
 import 'package:app_management_center/app/models/app_store_project.dart';
@@ -81,7 +82,10 @@ class AppStoreVersionCheckService extends GetxService {
       final keyFile = File(p.join(tempDirectory.path, keyFileName));
       await keyFile.writeAsString(credentials.p8PrivateKey!.trim());
 
-      final fastfile = File(p.join(tempDirectory.path, 'Fastfile'));
+      final fastlaneDirectory = await Directory(
+        p.join(tempDirectory.path, 'fastlane'),
+      ).create();
+      final fastfile = File(p.join(fastlaneDirectory.path, 'Fastfile'));
       await fastfile.writeAsString(_fallbackFastfileSource);
 
       final bundleExecutable = _bundleExecutable(iosDirectory);
@@ -139,6 +143,9 @@ class AppStoreVersionCheckService extends GetxService {
       return AppStoreVersionSnapshot(
         localVersion: localVersion,
         testFlightBuildNumber: testFlightBuild,
+        liveVersion: parseStoreInfo(result.output)['live'] as String?,
+        editVersion: parseStoreInfo(result.output)['edit'] as String?,
+        appStoreState: parseStoreInfo(result.output)['state'] as String?,
         status: compare(localVersion.buildNumber, testFlightBuild),
         message: 'Checked TestFlight ${localVersion.name}.',
         lastCheckedAt: checkedAt,
@@ -180,6 +187,14 @@ class AppStoreVersionCheckService extends GetxService {
     return int.tryParse(matches.last.group(1)!);
   }
 
+  static Map<String, dynamic> parseStoreInfo(String output) {
+    final matches = RegExp(
+      r'APPSTORE_VERSION_INFO:(\{[^\r\n]*\})',
+    ).allMatches(output);
+    if (matches.isEmpty) return {};
+    return jsonDecode(matches.last.group(1)!) as Map<String, dynamic>;
+  }
+
   static AppStoreComparisonStatus compare(int localBuild, int testFlightBuild) {
     if (localBuild < testFlightBuild) {
       return AppStoreComparisonStatus.localBehind;
@@ -192,6 +207,7 @@ class AppStoreVersionCheckService extends GetxService {
 }
 
 const _fallbackFastfileSource = '''
+require 'json'
 default_platform(:ios)
 
 platform :ios do
@@ -219,6 +235,13 @@ platform :ios do
     latest_options[:team_id] = team_id unless team_id.empty?
 
     latest = latest_testflight_build_number(**latest_options).to_i
+    app = Spaceship::ConnectAPI::App.find(app_identifier)
+    UI.user_error!("Bundle ID not accessible") unless app
+    live = app.get_live_app_store_version(platform: 'IOS')
+    edit = app.get_edit_app_store_version(platform: 'IOS')
+    pending = app.get_pending_release_app_store_version(platform: 'IOS')
+    current = pending || edit || live
+    puts "APPSTORE_VERSION_INFO:#{JSON.generate({live: live&.version_string, edit: edit&.version_string, state: current&.app_version_state || current&.app_store_state})}"
     puts "APPSTORE_BUILD_ONLY:#{latest}"
     latest
   end

@@ -47,7 +47,10 @@ class ScriptCatalogService extends GetxService {
     return ReleaseProject(
       path: root.path,
       scripts: scripts,
-      fastlaneLanes: _readFastlaneLanes(root.path),
+      fastlaneLanes: [
+        ..._readFastlaneLanes(root.path),
+        ..._readFastlaneLanes(root.path, directoryName: 'ios'),
+      ],
       hasLegacyDistributionPrompt: hasLegacyDistributionPrompt,
       hasPlayReleaseTools: hasPlayReleaseTools,
       pubspecVersion: _readPubspecVersion(root.path),
@@ -100,9 +103,12 @@ class ScriptCatalogService extends GetxService {
         .join('\n');
   }
 
-  List<ReleaseFastlaneLane> _readFastlaneLanes(String projectPath) {
+  List<ReleaseFastlaneLane> _readFastlaneLanes(
+    String projectPath, {
+    String directoryName = 'android',
+  }) {
     final fastfile = File(
-      p.join(projectPath, 'android', 'fastlane', 'Fastfile'),
+      p.join(projectPath, directoryName, 'fastlane', 'Fastfile'),
     );
     if (!fastfile.existsSync()) return const [];
 
@@ -154,6 +160,9 @@ class ScriptCatalogService extends GetxService {
           name: name,
           platform: platform,
           description: pendingDescription,
+          workingDirectory: directoryName == 'android'
+              ? null
+              : p.join(projectPath, directoryName),
         ),
       );
       pendingDescription = null;
