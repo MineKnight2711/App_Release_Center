@@ -1,6 +1,6 @@
 import { env } from 'cloudflare:test';
 import { exports } from 'cloudflare:workers';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 const BASE = 'https://amc-api.test';
 let clientIp = '';
@@ -401,5 +401,77 @@ describe('qa vault', () => {
     }>();
     expect(row?.uid).toBe(admin.user.uid);
     expect(JSON.parse(row!.data)).toEqual({ action: 'reveal', uid: admin.user.uid });
+  });
+});
+
+describe('ai release notes', () => {
+  const realRun = env.AI.run;
+  afterEach(() => {
+    env.AI.run = realRun;
+  });
+
+  /** Replaces Workers AI; each call is recorded and answered by [answer]. */
+  function stubAi(answer: (model: string) => unknown) {
+    const calls: { model: string; inputs: any }[] = [];
+    env.AI.run = (async (model: string, inputs: any) => {
+      calls.push({ model, inputs });
+      return answer(model);
+    }) as any;
+    return calls;
+  }
+
+  function notes(token: string, body: unknown) {
+    return call('POST', '/v1/ai/release-notes', { token, body });
+  }
+
+  it('requires a session', async () => {
+    const response = await call('POST', '/v1/ai/release-notes', { body: { input: 'x' } });
+    expect(response.status).toBe(401);
+  });
+
+  it('passes the instructions and input to Workers AI', async () => {
+    const user = await registerUser('notes@example.com');
+    const calls = stubAi(() => ({ choices: [{ message: { content: '  Cảm ơn bạn.  ' } }] }));
+
+    const response = await notes(user.token, { instructions: 'Be brief.', input: 'fix: login' });
+
+    expect(response).toEqual({
+      status: 200,
+      body: { text: 'Cảm ơn bạn.', model: '@cf/aisingapore/gemma-sea-lion-v4-27b-it' },
+    });
+    expect(calls[0].inputs.messages).toEqual([
+      { role: 'system', content: 'Be brief.' },
+      { role: 'user', content: 'fix: login' },
+    ]);
+  });
+
+  it('tries the next model, and reports a spent free allocation as 429', async () => {
+    const user = await registerUser('notes@example.com');
+    stubAi((model) => {
+      if (model.includes('sea-lion')) throw new Error('3040: Capacity temporarily exceeded');
+      return { response: 'Gemma note' };
+    });
+    expect((await notes(user.token, { input: 'fix: login' })).body).toEqual({
+      text: 'Gemma note',
+      model: '@cf/google/gemma-3-12b-it',
+    });
+
+    stubAi(() => {
+      throw new Error('4006: you have used up your daily free allocation of 10,000 neurons');
+    });
+    const spent = await notes(user.token, { input: 'fix: login' });
+    expect(spent.status).toBe(429);
+    expect(spent.body.error.code).toBe('ai-quota-exceeded');
+
+    stubAi(() => ({ response: '' }));
+    expect((await notes(user.token, { input: 'fix: login' })).status).toBe(502);
+  });
+
+  it('rejects empty and oversized input', async () => {
+    const user = await registerUser('notes@example.com');
+    const calls = stubAi(() => ({ response: 'unused' }));
+    expect((await notes(user.token, { input: '  ' })).status).toBe(400);
+    expect((await notes(user.token, { input: 'x'.repeat(40_001) })).status).toBe(413);
+    expect(calls).toEqual([]);
   });
 });

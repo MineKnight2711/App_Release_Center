@@ -14,11 +14,18 @@
       "migrations_table": "amc_api_migrations"
     }
   ],
+  // Workers AI: the release note fallback when the app's Gemini quota runs out.
+  "ai": { "binding": "AI", "remote": true },
   "ratelimits": [
     {
       "name": "LOGIN_LIMITER",
       "namespace_id": "4101",
       "simple": { "limit": 10, "period": 60 }
+    },
+    {
+      "name": "AI_LIMITER",
+      "namespace_id": "4102",
+      "simple": { "limit": 6, "period": 60 }
     }
   ]
   // Secret (not committed): PASSWORD_PEPPER — set with `npx wrangler secret put PASSWORD_PEPPER`,

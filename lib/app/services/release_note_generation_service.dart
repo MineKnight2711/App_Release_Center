@@ -2,11 +2,19 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:app_management_center/app/data/amc_api_client.dart';
 import 'package:app_management_center/app/models/release_project.dart';
 import 'package:get/get.dart';
 import 'package:path/path.dart' as p;
 
 class ReleaseNoteGenerationService extends GetxService {
+  ReleaseNoteGenerationService({this.quotaFallback, Uri? geminiEndpoint})
+    : _geminiEndpoint = geminiEndpoint ?? _geminiInteractionsUri;
+
+  /// Takes over when Gemini answers 429: its quota or rate limit is spent.
+  final ReleaseNoteFallbackModel? quotaFallback;
+  final Uri _geminiEndpoint;
+
   Future<GeneratedReleaseNotes> generate({
     required ReleaseProject project,
     required String apiKey,
@@ -32,15 +40,27 @@ class ReleaseNoteGenerationService extends GetxService {
       customPrompt: customPrompt,
       appDisplayName: appDisplayName,
     );
-    var notes = await _requestGeminiReleaseNotes(
-      apiKey: trimmedKey,
-      input: input,
-    );
+    // Once Gemini's quota is spent, the retry goes to the fallback as well.
+    var usedQuotaFallback = false;
+    Future<String> ask(String prompt) async {
+      if (!usedQuotaFallback) {
+        try {
+          return await _requestGeminiReleaseNotes(
+            apiKey: trimmedKey,
+            input: prompt,
+          );
+        } on GeminiQuotaExceededException catch (error) {
+          if (quotaFallback == null) rethrow;
+          usedQuotaFallback = true;
+          return _askQuotaFallback(prompt, error);
+        }
+      }
+      return _askQuotaFallback(prompt, null);
+    }
+
+    var notes = await ask(input);
     if (_shouldRetryReleaseNote(notes, appDisplayName)) {
-      notes = await _requestGeminiReleaseNotes(
-        apiKey: trimmedKey,
-        input: _buildRetryInput(input, notes),
-      );
+      notes = await ask(_buildRetryInput(input, notes));
       if (_shouldRetryReleaseNote(notes, appDisplayName)) {
         notes = _fallbackReleaseNote(appDisplayName);
       }
@@ -53,7 +73,28 @@ class ReleaseNoteGenerationService extends GetxService {
       gitRangeLabel: history.rangeLabel,
       commitCount: history.commits.length,
       usedFallbackRange: history.usedFallbackRange,
+      usedQuotaFallback: usedQuotaFallback,
     );
+  }
+
+  /// [geminiError] is set on the first fallback call, so a failure there
+  /// explains that Gemini ran out first.
+  Future<String> _askQuotaFallback(
+    String prompt,
+    GeminiQuotaExceededException? geminiError,
+  ) async {
+    try {
+      final text = await quotaFallback!.generate(
+        instructions: _systemInstruction,
+        input: prompt,
+      );
+      return _normalizeReleaseNoteText(_stripCodeFence(text));
+    } on ReleaseNoteGenerationException catch (error) {
+      if (geminiError == null) rethrow;
+      throw ReleaseNoteGenerationException(
+        '${geminiError.message} Workers AI dự phòng cũng lỗi: ${error.message}',
+      );
+    }
   }
 
   Future<_GitHistory> _collectGitHistory(String projectPath) async {
@@ -196,7 +237,7 @@ class ReleaseNoteGenerationService extends GetxService {
     final client = HttpClient()..connectionTimeout = _connectionTimeout;
 
     try {
-      final request = await client.postUrl(_geminiInteractionsUri);
+      final request = await client.postUrl(_geminiEndpoint);
       request.headers.set(
         HttpHeaders.contentTypeHeader,
         'application/json; charset=utf-8',
@@ -219,6 +260,11 @@ class ReleaseNoteGenerationService extends GetxService {
 
       final response = await request.close().timeout(_requestTimeout);
       final body = await response.transform(utf8.decoder).join();
+      if (response.statusCode == HttpStatus.tooManyRequests) {
+        throw GeminiQuotaExceededException(
+          _geminiErrorMessage(response.statusCode, body),
+        );
+      }
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw ReleaseNoteGenerationException(
           _geminiErrorMessage(response.statusCode, body),
@@ -391,6 +437,7 @@ class GeneratedReleaseNotes {
     required this.gitRangeLabel,
     required this.commitCount,
     required this.usedFallbackRange,
+    this.usedQuotaFallback = false,
   });
 
   final String notes;
@@ -399,6 +446,9 @@ class GeneratedReleaseNotes {
   final String gitRangeLabel;
   final int commitCount;
   final bool usedFallbackRange;
+
+  /// Gemini's quota was spent, so Workers AI wrote the note.
+  final bool usedQuotaFallback;
 }
 
 class ReleaseNoteGenerationException implements Exception {
@@ -408,6 +458,56 @@ class ReleaseNoteGenerationException implements Exception {
 
   @override
   String toString() => message;
+}
+
+/// Gemini answered 429: the key's quota or rate limit is used up.
+class GeminiQuotaExceededException extends ReleaseNoteGenerationException {
+  const GeminiQuotaExceededException(super.message);
+}
+
+/// A model that writes the note when Gemini cannot.
+abstract interface class ReleaseNoteFallbackModel {
+  /// Throws [ReleaseNoteGenerationException] with a user-facing message.
+  Future<String> generate({
+    required String instructions,
+    required String input,
+  });
+}
+
+/// The amc-api Worker's Workers AI free tier (cloudflare/amc-api/src/ai.ts).
+/// Needs a signed-in AMC session.
+class WorkersAiReleaseNoteModel implements ReleaseNoteFallbackModel {
+  WorkersAiReleaseNoteModel(this._api);
+
+  final AmcApiClient _api;
+
+  @override
+  Future<String> generate({
+    required String instructions,
+    required String input,
+  }) async {
+    final Map<String, Object?> response;
+    try {
+      response = await _api.post(
+        '/ai/release-notes',
+        body: {'instructions': instructions, 'input': input},
+        timeout: _requestTimeout,
+      );
+    } on AmcApiException catch (error) {
+      throw ReleaseNoteGenerationException(
+        error.isUnauthorized
+            ? 'Cần đăng nhập AMC để dùng Workers AI.'
+            : error.message,
+      );
+    }
+    final text = response['text'];
+    if (text is! String || text.trim().isEmpty) {
+      throw const ReleaseNoteGenerationException(
+        'Workers AI không trả về nội dung release note.',
+      );
+    }
+    return text;
+  }
 }
 
 class _CommandResult {

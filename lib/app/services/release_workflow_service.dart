@@ -545,8 +545,11 @@ class ReleaseWorkflowService extends GetxService {
             customPrompt: config.releaseNotePrompt,
           );
           notes = generated.notes;
+          final writer = generated.usedQuotaFallback
+              ? 'Gemini hết quota; Workers AI'
+              : 'Gemini';
           source =
-              'Gemini tạo từ ${generated.gitRangeLabel} (${generated.commitCount} commit).';
+              '$writer tạo từ ${generated.gitRangeLabel} (${generated.commitCount} commit).';
         } catch (error) {
           notes = await _fallbackReleaseNotes(config.project.path);
           source = 'Gemini lỗi; đã dùng lịch sử Git thay thế: $error';

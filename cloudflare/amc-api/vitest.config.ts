@@ -6,6 +6,8 @@ export default defineConfig({
   plugins: [
     cloudflareTest(async () => ({
       wrangler: { configPath: './wrangler.jsonc' },
+      // Tests stub Workers AI; never reach the real account or spend neurons.
+      remoteBindings: false,
       miniflare: {
         bindings: {
           PASSWORD_PEPPER: 'test-pepper',

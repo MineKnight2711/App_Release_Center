@@ -135,7 +135,9 @@ class AppBinding extends Bindings {
     Get.put<ReleaseCenterConnect>(ReleaseCenterConnect(), permanent: true);
     Get.put<GeminiEnvService>(GeminiEnvService(), permanent: true);
     Get.put<ReleaseNoteGenerationService>(
-      ReleaseNoteGenerationService(),
+      ReleaseNoteGenerationService(
+        quotaFallback: api == null ? null : WorkersAiReleaseNoteModel(api),
+      ),
       permanent: true,
     );
     Get.put<TelegramCredentialStoreService>(

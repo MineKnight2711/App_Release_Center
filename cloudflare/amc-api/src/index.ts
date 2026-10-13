@@ -1,3 +1,4 @@
+import { generateReleaseNotes } from './ai';
 import { deleteApiToolCollection, loadApiTools, replaceApiTools } from './apiTools';
 import { type AuthContext, authenticate, login, logout, me, register } from './auth';
 import { ApiError, errorResponse, json } from './http';
@@ -49,6 +50,9 @@ const routes: Route[] = [
   route('POST', '/v1/auth/login', { public: (request, env) => login(request, env) }),
   route('POST', '/v1/auth/logout', { session: (_, env, auth) => logout(env, auth) }),
   route('GET', '/v1/me', { session: (_, env, auth) => me(env, auth) }),
+  route('POST', '/v1/ai/release-notes', {
+    session: (request, env, auth) => generateReleaseNotes(request, env, auth),
+  }),
   route('POST', '/v1/teams', { session: (request, env, auth) => createTeam(request, env, auth) }),
   route('POST', '/v1/teams/join', { session: (request, env, auth) => joinTeam(request, env, auth) }),
   route('POST', '/v1/teams/:teamId/invites', {

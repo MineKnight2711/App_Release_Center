@@ -2095,12 +2095,17 @@ class HomeController extends GetxController {
       final fallbackLabel = result.usedFallbackRange
           ? ' using fallback range'
           : '';
+      final modelLabel = result.usedQuotaFallback
+          ? ' Gemini hết quota nên Workers AI đã viết.'
+          : '';
       releaseNoteAiStatus.value = noteLength > _playReleaseNoteCharacterLimit
           ? 'Đã tạo $noteLength ký tự$fallbackLabel. Xem lại trước khi upload.'
-          : 'Tạo từ ${result.gitRangeLabel} (${result.commitCount} commit).';
+                '$modelLabel'
+          : 'Tạo từ ${result.gitRangeLabel} (${result.commitCount} commit).'
+                '$modelLabel';
       runner.appendSystemLog(
         'Đã tạo release note từ ${result.gitRangeLabel} '
-        '(${result.commitCount} commit).',
+        '(${result.commitCount} commit).$modelLabel',
       );
       if (noteLength > _playReleaseNoteCharacterLimit) {
         runner.appendSystemLog(

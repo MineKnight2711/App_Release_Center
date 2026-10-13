@@ -558,6 +558,13 @@ they follow the active local or team workspace and may require confirmation
 for reset or other destructive calls.
 HTTP response history stays local on each machine.
 
+Release notes fall back to the Worker when Gemini answers 429 (quota or rate
+limit spent): the app sends the same prompt to `POST /v1/ai/release-notes`,
+which runs Workers AI (`gemma-sea-lion-v4-27b-it`, tuned for Vietnamese, then
+`gemma-3-12b-it`) on the account's free daily allocation of 10,000 neurons.
+Only signed-in users can call it, 6 times a minute each. On a Workers Paid
+plan, usage past the free allocation is billed.
+
 The app talks to `BackendConfig.defaultApiBaseUrl`. To point it elsewhere (for
 example a local `wrangler dev`), set `AMC_API_BASE_URL` with
 `--dart-define=AMC_API_BASE_URL=http://localhost:8787`, the process
@@ -566,7 +573,8 @@ environment, or `.env`. Plain `http` is accepted only for localhost.
 Passwords never leave the machine: the app sends a PBKDF2-SHA256 key derived
 from the password and email, and the Worker stores an HMAC of that key with a
 per-user salt and the `PASSWORD_PEPPER` secret. Sessions are opaque 30-day
-tokens kept in the OS secure store; the Worker stores only their SHA-256.
+tokens kept in the app's credential store; the Worker stores only their
+SHA-256.
 
 ### Worker development and deploy
 

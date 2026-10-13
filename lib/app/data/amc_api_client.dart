@@ -44,12 +44,19 @@ class AmcApiClient {
 
   Future<Map<String, Object?>> get(String path) => _send('GET', path);
 
+  /// [timeout] overrides the client's for a call known to take longer.
   Future<Map<String, Object?>> post(
     String path, {
     Object? body,
     bool authenticated = true,
-  }) =>
-      _send('POST', path, body: body ?? const {}, authenticated: authenticated);
+    Duration? timeout,
+  }) => _send(
+    'POST',
+    path,
+    body: body ?? const {},
+    authenticated: authenticated,
+    timeout: timeout,
+  );
 
   Future<Map<String, Object?>> put(String path, {required Object body}) =>
       _send('PUT', path, body: body);
@@ -64,7 +71,9 @@ class AmcApiClient {
     String path, {
     Object? body,
     bool authenticated = true,
+    Duration? timeout,
   }) async {
+    final limit = timeout ?? this.timeout;
     final target = Uri.parse('${_baseUrl.path}/v1$path');
     final request = http.Request(
       method,
@@ -85,8 +94,8 @@ class AmcApiClient {
     final http.Response response;
     try {
       response = await http.Response.fromStream(
-        await _http.send(request).timeout(timeout),
-      ).timeout(timeout);
+        await _http.send(request).timeout(limit),
+      ).timeout(limit);
     } on TimeoutException {
       throw const AmcApiException(
         statusCode: 0,
@@ -159,4 +168,7 @@ const _messagesByCode = {
   'cannot-change-self': 'Bạn không đổi được vai trò của chính mình.',
   'cannot-remove-self': 'Bạn không tự xoá mình được.',
   'member-not-found': 'Không tìm thấy thành viên này.',
+  'ai-quota-exceeded': 'Workers AI đã hết lượt miễn phí hôm nay.',
+  'ai-unavailable': 'Workers AI đang không tạo được nội dung.',
+  'input-too-large': 'Nội dung gửi lên quá dài.',
 };
