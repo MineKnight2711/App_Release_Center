@@ -44,7 +44,6 @@ class _IosReleaseDialog extends StatefulWidget {
 class _IosReleaseDialogState extends State<_IosReleaseDialog> {
   final _version = TextEditingController();
   final _notes = TextEditingController();
-  final _logScrollController = ScrollController();
   IosReleaseSettings _settings = const IosReleaseSettings();
   AppStoreLocalVersion? _local;
   bool _loading = true;
@@ -105,7 +104,6 @@ class _IosReleaseDialogState extends State<_IosReleaseDialog> {
   void dispose() {
     _version.dispose();
     _notes.dispose();
-    _logScrollController.dispose();
     super.dispose();
   }
 
@@ -494,7 +492,6 @@ class _IosReleaseDialogState extends State<_IosReleaseDialog> {
               status == ReleaseStepStatus.skipped,
         )
         .length;
-    if (live) _scheduleLogScroll();
 
     final details = _buildStageDetails(
       run,
@@ -789,19 +786,13 @@ class _IosReleaseDialogState extends State<_IosReleaseDialog> {
           ),
           const Divider(height: 1),
           Expanded(
-            child: SingleChildScrollView(
-              controller: _logScrollController,
+            child: _LogLines(
+              lines: lines,
               padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-              child: SizedBox(
-                width: double.infinity,
-                child: SelectableText(
-                  lines.isEmpty ? 'Chưa có output.' : lines.join('\n'),
-                  style: AppCyberTheme.dataTextStyle(
-                    size: 11.2,
-                    color: AppCyberTheme.textPrimary,
-                  ).copyWith(height: 1.38),
-                ),
-              ),
+              style: AppCyberTheme.dataTextStyle(
+                size: 11.2,
+                color: AppCyberTheme.textPrimary,
+              ).copyWith(height: 1.38),
             ),
           ),
         ],
@@ -825,15 +816,6 @@ class _IosReleaseDialogState extends State<_IosReleaseDialog> {
     }();
     _savedLog = (key: key, lines: lines);
     return lines;
-  }
-
-  void _scheduleLogScroll() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_logScrollController.hasClients) return;
-      _logScrollController.jumpTo(
-        _logScrollController.position.maxScrollExtent,
-      );
-    });
   }
 
   Widget _buildFooter(

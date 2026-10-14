@@ -358,7 +358,6 @@ class _ReleaseWorkflowDialog extends StatefulWidget {
 class _ReleaseWorkflowDialogState extends State<_ReleaseWorkflowDialog> {
   static const _tracks = ['internal', 'alpha', 'beta', 'production'];
 
-  final _logScrollController = ScrollController();
   String _track = 'internal';
   bool _productionConfirmed = false;
   bool _newRelease = false;
@@ -386,12 +385,6 @@ class _ReleaseWorkflowDialogState extends State<_ReleaseWorkflowDialog> {
         }
       }
     }
-  }
-
-  @override
-  void dispose() {
-    _logScrollController.dispose();
-    super.dispose();
   }
 
   @override
@@ -579,11 +572,6 @@ class _ReleaseWorkflowDialogState extends State<_ReleaseWorkflowDialog> {
     final activeIndex = run.steps.indexWhere(
       (step) => step.status == ReleaseStepStatus.running,
     );
-    if ((selectedStep.status == ReleaseStepStatus.running || run.isRunning) &&
-        !MediaQuery.of(context).disableAnimations) {
-      _scheduleLogScroll();
-    }
-
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
       child: Column(
@@ -830,19 +818,13 @@ class _ReleaseWorkflowDialogState extends State<_ReleaseWorkflowDialog> {
           ),
           const Divider(height: 1),
           Expanded(
-            child: SingleChildScrollView(
-              controller: _logScrollController,
+            child: _LogLines(
+              lines: lines,
               padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-              child: SizedBox(
-                width: double.infinity,
-                child: SelectableText(
-                  lines.isEmpty ? 'Chưa có output.' : lines.join('\n'),
-                  style: AppCyberTheme.dataTextStyle(
-                    size: 11.2,
-                    color: AppCyberTheme.textPrimary,
-                  ).copyWith(height: 1.38),
-                ),
-              ),
+              style: AppCyberTheme.dataTextStyle(
+                size: 11.2,
+                color: AppCyberTheme.textPrimary,
+              ).copyWith(height: 1.38),
             ),
           ),
         ],
@@ -1036,23 +1018,6 @@ class _ReleaseWorkflowDialogState extends State<_ReleaseWorkflowDialog> {
       if (run.steps[index].isTerminal) return index;
     }
     return 0;
-  }
-
-  void _scheduleLogScroll() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_logScrollController.hasClients) return;
-      if (MediaQuery.maybeOf(context)?.disableAnimations ?? false) {
-        _logScrollController.jumpTo(
-          _logScrollController.position.maxScrollExtent,
-        );
-        return;
-      }
-      _logScrollController.animateTo(
-        _logScrollController.position.maxScrollExtent,
-        duration: const Duration(milliseconds: 140),
-        curve: Curves.easeOutCubic,
-      );
-    });
   }
 }
 
