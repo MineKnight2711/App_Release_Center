@@ -247,6 +247,82 @@ IosReleaseRun iosRunFromWire(Map<String, dynamic> json) =>
             )
           : const IosStoreState();
 
+/// The next thing a run offers to do, as a button. Shared by the desktop
+/// dialog and the phone, so both offer the same step for the same run.
+///
+/// [id] is `testflight`, `wait`, `refresh`, `new`, or a store action:
+/// `draft`, `submit`, `release`, `distribute`.
+class IosNextStep {
+  const IosNextStep(this.id, this.label);
+
+  final String id;
+  final String label;
+
+  bool get isStoreAction =>
+      const ['draft', 'submit', 'release', 'distribute'].contains(id);
+}
+
+IosNextStep iosStoreStep(String action, {String? label}) => IosNextStep(
+  action,
+  label ??
+      switch (action) {
+        'distribute' => 'Phân phối TestFlight',
+        'draft' => 'Chuẩn bị App Store',
+        'submit' => 'Gửi review',
+        _ => 'Phát hành',
+      },
+);
+
+IosNextStep iosPrimaryStep(IosReleaseRun run) => switch (run.status) {
+  IosReleaseStatus.prepared || IosReleaseStatus.built => IosNextStep(
+    'testflight',
+    run.ipaPath == null ? 'Build & upload TestFlight' : 'Upload TestFlight',
+  ),
+  IosReleaseStatus.processing => const IosNextStep(
+    'wait',
+    'Theo dõi processing',
+  ),
+  IosReleaseStatus.verificationRequired ||
+  IosReleaseStatus.building ||
+  IosReleaseStatus.uploading => const IosNextStep(
+    'refresh',
+    'Kiểm tra lại Apple',
+  ),
+  IosReleaseStatus.ready => iosStoreStep('draft'),
+  IosReleaseStatus.draft => iosStoreStep('submit'),
+  IosReleaseStatus.submitted =>
+    run.store.versions.any(
+          (version) =>
+              version['version'] == run.version &&
+              version['state'] == 'PENDING_DEVELOPER_RELEASE',
+        )
+        ? iosStoreStep('release')
+        : const IosNextStep('refresh', 'Làm mới trạng thái'),
+  IosReleaseStatus.released => const IosNextStep('new', 'Release mới'),
+  IosReleaseStatus.failed ||
+  IosReleaseStatus.canceled => switch (run.lastAction) {
+    'build' || 'upload' => const IosNextStep('testflight', 'Chạy lại bước lỗi'),
+    'query' => const IosNextStep('refresh', 'Kiểm tra lại Apple'),
+    'draft' ||
+    'submit' ||
+    'release' ||
+    'distribute' => iosStoreStep(run.lastAction, label: 'Chạy lại bước lỗi'),
+    _ => const IosNextStep('new', 'Chuẩn bị lại'),
+  },
+};
+
+IosNextStep? iosSecondaryStep(IosReleaseRun run, IosNextStep primary) {
+  if (run.status == IosReleaseStatus.ready && run.settings.groups.isNotEmpty) {
+    return iosStoreStep('distribute');
+  }
+  if ((run.status == IosReleaseStatus.failed ||
+          run.status == IosReleaseStatus.canceled) &&
+      primary.id != 'new') {
+    return const IosNextStep('new', 'Release mới');
+  }
+  return null;
+}
+
 /// The linear path a release follows, as shown on the release timeline.
 enum IosReleaseStage {
   prepare,

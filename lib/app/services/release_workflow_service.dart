@@ -8,6 +8,7 @@ import 'package:app_management_center/app/models/release_workflow.dart';
 import 'package:app_management_center/app/services/ch_play_project_inspector_service.dart';
 import 'package:app_management_center/app/services/ch_play_version_check_service.dart';
 import 'package:app_management_center/app/services/release_note_generation_service.dart';
+import 'package:app_management_center/app/services/release_push_messages.dart';
 import 'package:app_management_center/app/services/release_runner_service.dart';
 import 'package:app_management_center/app/services/script_catalog_service.dart';
 import 'package:get/get.dart';
@@ -401,6 +402,12 @@ class ReleaseWorkflowService extends GetxService {
           );
       currentRun.value = next.copyWith(finishedAt: DateTime.now());
       runner.finishWorkflow(success: completed);
+      // A release someone stopped on purpose needs no buzz.
+      if (!_cancelRequested) {
+        runner.notifyRelease(
+          androidReleasePush(currentRun.value!, completed: completed),
+        );
+      }
     }
     return currentRun.value!;
   }

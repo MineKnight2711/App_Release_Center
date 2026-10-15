@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "569248995154",
+    "project_id": "app-release-center",
+    "storage_bucket": "app-release-center.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:569248995154:android:ace4c05bd912e206710c8b",
+        "android_client_info": {
+          "package_name": "com.example.app_release_center"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDIRRT9jhQhdifVVZOn0I1PRHPhjj49Rog"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

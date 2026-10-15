@@ -71,6 +71,35 @@ void main() {
     expect(request.body['event'], 'completed');
   });
 
+  test('sends release results to the relay for opted-in phones', () async {
+    final harness = await _ServiceHarness.create();
+    await harness.credentials.saveApiToken('secret-token');
+    harness.client.postResponses.add(
+      const NotificationHttpResponse(
+        statusCode: 200,
+        body: {'devices': 1, 'sent': 1, 'failed': 0, 'removed': 0},
+      ),
+    );
+
+    final result = await harness.service.sendReleasePush(
+      const ReleasePushEvent(
+        outcome: ReleasePushOutcome.failed,
+        title: 'Release lỗi · demo',
+        body: 'Android 1.2.3 · Build lỗi.',
+        tag: 'android-run-1',
+      ),
+    );
+
+    final request = harness.client.posts.single;
+    expect(request.url, 'https://example.com/api/release-events');
+    expect(request.headers['Authorization'], 'Bearer secret-token');
+    expect(request.body['outcome'], 'failed');
+    expect(request.body['tag'], 'android-run-1');
+    // Phones opt in themselves; the web push selection does not narrow it.
+    expect(request.body.containsKey('targetDeviceIds'), isFalse);
+    expect(result.sent, 1);
+  });
+
   test('saves linked devices and selects them by default', () async {
     final harness = await _ServiceHarness.create();
     await harness.service.saveLinkedDevice(

@@ -13,6 +13,9 @@ import 'package:app_management_center/app/services/machine_power_service.dart';
 import 'package:app_management_center/app/services/mobile_control_credential_store_service.dart';
 import 'package:app_management_center/app/services/notification_credential_store_service.dart';
 import 'package:app_management_center/app/services/project_store_service.dart';
+import 'package:app_management_center/app/services/release_push_device.dart';
+import 'package:app_management_center/app/services/remote_release_handler.dart';
+import 'package:app_management_center/app/models/release_notification.dart';
 import 'package:app_management_center/app/services/release_runner_service.dart';
 import 'package:app_management_center/app/services/remote_command_publisher.dart';
 import 'package:app_management_center/app/services/remote_unlock_service.dart';
@@ -42,6 +45,7 @@ class RemoteControlService extends GetxService {
     RemoteUnlockService? remoteUnlock,
     WakeProbeListener? wakeProbe,
     IosBuildHostService? iosBuildHost,
+    ReleasePushDevice? releasePushDevice,
   }) : _store = store,
        _catalog = catalog,
        _runner = runner,
@@ -53,7 +57,8 @@ class RemoteControlService extends GetxService {
        _autoStart = autoStart ?? WindowsAutoStartService(),
        _remoteUnlock = remoteUnlock ?? RemoteUnlockService(),
        _wakeProbe = wakeProbe ?? WakeProbeListener(),
-       iosBuildHost = iosBuildHost ?? IosBuildHostService(runner: runner);
+       iosBuildHost = iosBuildHost ?? IosBuildHostService(runner: runner),
+       releasePushDevice = releasePushDevice ?? ReleasePushDevice();
 
   final ProjectStoreService _store;
   final ScriptCatalogService _catalog;
@@ -69,6 +74,17 @@ class RemoteControlService extends GetxService {
 
   /// Runs iOS steps a paired desktop sends to this Mac.
   final IosBuildHostService iosBuildHost;
+
+  /// This phone's notification channels and FCM token.
+  final ReleasePushDevice releasePushDevice;
+
+  /// The desktop's release flows, registered by the home controller once it
+  /// exists. Null until then, and on a phone.
+  RemoteReleaseHandler? releaseHandler;
+
+  /// What the phone says about release notifications, for its settings card.
+  final releasePushStatus = ''.obs;
+  final releasePushBusy = false.obs;
 
   final settings = const RemoteControlSettings().obs;
   final mobileSettings = const MobileControlSettings().obs;
@@ -108,6 +124,13 @@ class RemoteControlService extends GetxService {
   /// What the command in progress reports besides its log, re-read for each
   /// progress update; for an iOS step, the run as it moves.
   Map<String, Object?>? Function()? _activeCommandResult;
+
+  /// The log to report for the command in progress, when it is not this
+  /// machine's runner log.
+  List<String>? Function()? _activeCommandLog;
+
+  /// Which release flow the command in progress drives, for its stop button.
+  String? _activeReleasePlatform;
   int _lastInputSequence = 0;
   bool _stopRequested = false;
   Timer? _inputTimer;
@@ -123,6 +146,12 @@ class RemoteControlService extends GetxService {
     await _migrateLegacyRelay();
     settings.value = _store.remoteControlSettings;
     mobileSettings.value = await _loadMobileSettings();
+    // Tokens rotate while the app is closed; hand the current one over again.
+    if (releasePushDevice.supported &&
+        mobileSettings.value.isLinked &&
+        mobileSettings.value.releasePushEnabled) {
+      unawaited(_syncReleasePushToken(quiet: true));
+    }
     return this;
   }
 
@@ -320,7 +349,109 @@ class RemoteControlService extends GetxService {
     mobileStatus.value = 'Đã liên kết với relay của máy tính.';
   }
 
+  /// Turns release notifications on or off for this phone.
+  ///
+  /// On: asks for the notification permission, then hands the relay this
+  /// phone's FCM token. Off: takes the token back, so the relay stops sending.
+  Future<void> setReleasePushEnabled(bool enabled) async {
+    if (releasePushBusy.value) return;
+    releasePushBusy.value = true;
+    try {
+      if (enabled) {
+        final status = await releasePushDevice.status();
+        if (!status.available) {
+          throw const RemoteControlException(
+            'Bản app này chưa có cấu hình Firebase (google-services.json).',
+          );
+        }
+        if (!await releasePushDevice.requestPermission()) {
+          throw const RemoteControlException(
+            'Chưa được phép hiện thông báo. Bật quyền thông báo cho app trong '
+            'Cài đặt Android rồi thử lại.',
+          );
+        }
+        await _saveMobileSettings(
+          mobileSettings.value.copyWith(releasePushEnabled: true),
+        );
+        await _syncReleasePushToken(quiet: false);
+      } else {
+        await _registerReleasePushToken('');
+        await releasePushDevice.deleteToken();
+        await _saveMobileSettings(
+          mobileSettings.value.copyWith(
+            releasePushEnabled: false,
+            releasePushToken: '',
+          ),
+        );
+        releasePushStatus.value = 'Đã tắt thông báo release.';
+      }
+    } catch (error) {
+      releasePushStatus.value = error.toString();
+      rethrow;
+    } finally {
+      releasePushBusy.value = false;
+    }
+  }
+
+  /// Shows the outcome's notification on this phone alone: the real sound
+  /// and buzz, without involving the desktop or the relay.
+  Future<void> testReleasePush(ReleasePushOutcome outcome) async {
+    if (!await releasePushDevice.test(outcome)) {
+      releasePushStatus.value =
+          'Android đang chặn thông báo của app. Bật lại trong Cài đặt.';
+    }
+  }
+
+  Future<void> _syncReleasePushToken({required bool quiet}) async {
+    try {
+      final token = await releasePushDevice.token();
+      if (token.isEmpty) {
+        throw const RemoteControlException('Firebase không cấp được token.');
+      }
+      if (token != mobileSettings.value.releasePushToken || !quiet) {
+        await _registerReleasePushToken(token);
+        await _saveMobileSettings(
+          mobileSettings.value.copyWith(releasePushToken: token),
+        );
+      }
+      releasePushStatus.value =
+          'Đang bật: máy tính báo khi release xong hoặc lỗi.';
+    } catch (error) {
+      releasePushStatus.value = 'Không đăng ký được thông báo: $error';
+      if (!quiet) rethrow;
+    }
+  }
+
+  Future<void> _registerReleasePushToken(String token) async {
+    final settings = _requireMobileSettings();
+    final response = await _connect.post(
+      _endpoint(settings.endpointBaseUrl, 'mobile/push-token'),
+      {'token': token},
+      headers: _mobileHeaders(settings),
+    );
+    _ensureResponseOk(
+      response.statusCode ?? 0,
+      response.body,
+      'register push token',
+    );
+  }
+
+  Future<void> _saveMobileSettings(MobileControlSettings updated) async {
+    await _store.saveMobileControlSettings(updated);
+    mobileSettings.value = updated;
+  }
+
   Future<void> clearMobileLink() async {
+    // The relay keeps the device after this phone forgets it; without this
+    // it would keep buzzing a phone that unlinked.
+    if (mobileSettings.value.isLinked &&
+        mobileSettings.value.releasePushEnabled) {
+      try {
+        await _registerReleasePushToken('');
+      } catch (_) {
+        // Unlinking must work offline too.
+      }
+    }
     const cleared = MobileControlSettings();
     await _mobileCredentialStore.clearControlToken();
     await _store.saveMobileControlSettings(cleared);
@@ -446,6 +577,12 @@ class RemoteControlService extends GetxService {
   }
 
   Future<RemoteCommand> _enqueueMobileCommand(Map<String, Object?> body) async {
+    final command = await _postMobileCommand(body);
+    activeMobileCommand.value = command;
+    return command;
+  }
+
+  Future<RemoteCommand> _postMobileCommand(Map<String, Object?> body) async {
     final settings = _requireMobileSettings();
     final response = await _connect.post(
       _endpoint(settings.endpointBaseUrl, 'mobile/commands'),
@@ -457,11 +594,71 @@ class RemoteControlService extends GetxService {
       response.body,
       'enqueue command',
     );
-    final command = RemoteCommand.fromJson(
+    return RemoteCommand.fromJson(
       Map<String, Object?>.from(_bodyMap(response.body)['command'] as Map),
     );
-    activeMobileCommand.value = command;
-    return command;
+  }
+
+  /// Reads a command without making it the Run tab's command.
+  Future<RemoteCommand> fetchMobileCommand(String commandId) async {
+    final settings = _requireMobileSettings();
+    final response = await _connect.get(
+      _endpoint(settings.endpointBaseUrl, 'mobile/commands/$commandId'),
+      headers: _mobileHeaders(settings),
+    );
+    _ensureResponseOk(response.statusCode ?? 0, response.body, 'load command');
+    return RemoteCommand.fromJson(
+      Map<String, Object?>.from(_bodyMap(response.body)['command'] as Map),
+    );
+  }
+
+  /// Runs one step of a desktop release flow: CH Play or App Store, the same
+  /// steps the desktop's release dialogs offer. Follow it with
+  /// [fetchMobileCommand]; stop it with [stopMobileCommand].
+  Future<RemoteCommand> enqueueRelease(Map<String, Object?> payload) async =>
+      _postMobileCommand({
+        'type': 'release',
+        'targetDesktopId': await _releaseDesktopId(),
+        'payload': payload,
+      });
+
+  /// Asks the desktop about its releases, or stops one, on the control lane:
+  /// answered even while a release holds the desktop's runner.
+  Future<Map<String, Object?>> releaseControl(
+    Map<String, Object?> payload, {
+    Duration timeout = const Duration(seconds: 25),
+  }) async {
+    final command = await _postMobileCommand({
+      'type': 'releaseControl',
+      'targetDesktopId': await _releaseDesktopId(),
+      'payload': payload,
+    });
+    final deadline = DateTime.now().add(timeout);
+    while (true) {
+      await Future<void>.delayed(const Duration(milliseconds: 500));
+      final answer = await fetchMobileCommand(command.commandId);
+      if (!answer.isActive) {
+        if (answer.status == 'completed') return answer.result;
+        throw RemoteControlException(
+          answer.error ?? 'Máy tính không trả lời được.',
+        );
+      }
+      if (DateTime.now().isAfter(deadline)) {
+        throw const RemoteControlException(
+          'Máy tính không phản hồi. Kiểm tra AMC trên máy tính đang mở và '
+          'online.',
+        );
+      }
+    }
+  }
+
+  Future<String> _releaseDesktopId() async {
+    if (desktopState.value == null) await refreshMobileDesktopState();
+    final desktopId = desktopState.value?.desktopId ?? '';
+    if (desktopId.isEmpty) {
+      throw const RemoteControlException('Chưa thấy máy tính nào online.');
+    }
+    return desktopId;
   }
 
   Future<void> _syncDesktopAgent() async {
@@ -594,6 +791,8 @@ class RemoteControlService extends GetxService {
         final outcome = await iosBuildHost.query(command.payload);
         log.addAll(outcome.logLines);
         result = outcome.result;
+      } else if (command.type == 'releaseControl') {
+        result = await _executeReleaseControl(command.payload);
       } else {
         log.addAll(await _executeControlCommand(command));
       }
@@ -603,9 +802,9 @@ class RemoteControlService extends GetxService {
     }
 
     // Whoever is at the machine should be able to see what the phone did,
-    // successful or not. An iOS question answers with a build log, which is
-    // the asker's to read, not something that happened here.
-    if (command.type != 'iosQuery') {
+    // successful or not. Questions answer with logs and state, which are the
+    // asker's to read, not something that happened here.
+    if (command.type != 'iosQuery' && command.type != 'releaseControl') {
       for (final line in log) {
         _runner.appendSystemLog(line);
       }
@@ -742,17 +941,20 @@ class RemoteControlService extends GetxService {
     if (endpoint == null) return;
 
     try {
-      final response = await _connect
-          .post(_endpoint(endpoint, 'desktop/commands/$commandId/events'), {
-            'status': status,
-            'startedAt': startedAt?.toUtc().toIso8601String(),
-            'finishedAt': finishedAt?.toUtc().toIso8601String(),
-            'durationMs': durationMs,
-            'exitCode': exitCode,
-            'error': error,
-            'logLines': RemoteCommandPublisher.logTail(logLines),
-            'result': ?result,
-          }, headers: await _desktopHeaders());
+      final response = await _connect.post(
+        _endpoint(endpoint, 'desktop/commands/$commandId/events'),
+        {
+          'status': status,
+          'startedAt': startedAt?.toUtc().toIso8601String(),
+          'finishedAt': finishedAt?.toUtc().toIso8601String(),
+          'durationMs': durationMs,
+          'exitCode': exitCode,
+          'error': error,
+          'logLines': RemoteCommandPublisher.logTail(logLines),
+          'result': ?result,
+        },
+        headers: await _desktopHeaders(),
+      );
       _ensureResponseOk(
         response.statusCode ?? 0,
         response.body,
@@ -818,6 +1020,12 @@ class RemoteControlService extends GetxService {
       // waited must keep it from starting at all.
       await _pollCommandInputs(queuedCommand.commandId);
       _activeCommandResult = () => iosBuildHost.liveResult;
+    } else if (queuedCommand.type == 'release') {
+      _activeReleasePlatform = queuedCommand.payload['platform']?.toString();
+      await _pollCommandInputs(queuedCommand.commandId);
+      final handler = releaseHandler;
+      _activeCommandResult = handler == null ? null : () => handler.live;
+      _activeCommandLog = handler == null ? null : () => handler.liveLog;
     }
     _startInputPolling(queuedCommand.commandId);
     _startRunPublishing(queuedCommand.commandId, startedAt);
@@ -835,6 +1043,9 @@ class RemoteControlService extends GetxService {
         errorMessage = 'Đã hủy trước khi bắt đầu.';
       } else if (queuedCommand.type == 'ios') {
         finalResult = await _executeIos(queuedCommand);
+        exitCode = 0;
+      } else if (queuedCommand.type == 'release') {
+        finalResult = await _requireReleaseHandler().run(queuedCommand.payload);
         exitCode = 0;
       } else {
         exitCode = await _executeRemoteCommand(queuedCommand);
@@ -868,9 +1079,41 @@ class RemoteControlService extends GetxService {
         _activeDesktopCommandId = null;
         _activeDesktopCommandType = null;
         _activeCommandResult = null;
+        _activeCommandLog = null;
+        _activeReleasePlatform = null;
         _isExecutingRemoteCommand = false;
       }
       await _sendHeartbeat();
+    }
+  }
+
+  RemoteReleaseHandler _requireReleaseHandler() {
+    final handler = releaseHandler;
+    if (handler == null) {
+      throw const RemoteControlException(
+        'Màn hình chính của AMC chưa mở xong trên máy tính; thử lại sau ít '
+        'giây.',
+      );
+    }
+    return handler;
+  }
+
+  Future<Map<String, Object?>> _executeReleaseControl(
+    Map<String, Object?> payload,
+  ) async {
+    final handler = _requireReleaseHandler();
+    switch (payload['action']) {
+      case 'overview':
+        return handler.overview();
+      case 'project':
+        return handler.iosProject(payload['projectId']?.toString() ?? '');
+      case 'cancel':
+        await handler.cancel(payload['platform']?.toString() ?? '');
+        return const {'canceled': true};
+      default:
+        throw RemoteControlException(
+          'Lệnh release không hỗ trợ: ${payload['action']}.',
+        );
     }
   }
 
@@ -1025,6 +1268,8 @@ class RemoteControlService extends GetxService {
           _stopRequested = true;
           if (_activeDesktopCommandType == 'ios') {
             await iosBuildHost.cancel();
+          } else if (_activeDesktopCommandType == 'release') {
+            await releaseHandler?.cancel(_activeReleasePlatform ?? '');
           } else {
             await _runner.stop();
           }
@@ -1073,7 +1318,9 @@ class RemoteControlService extends GetxService {
       'exitCode': exitCode,
       'error': error,
       'yesNoPrompt': _runner.yesNoPrompt.value,
-      'logLines': _runner.logLines.takeLast(500).toList(),
+      'logLines': (_activeCommandLog?.call() ?? _runner.logLines)
+          .takeLast(500)
+          .toList(),
       'result': ?reported,
     });
   }
@@ -1171,6 +1418,9 @@ class RemoteControlService extends GetxService {
       'isRunning': _runner.isBusy,
       'status': _runner.status.value,
       'activeScriptPath': _runner.activeScriptPath.value,
+      // Lets whoever sent a command tell "still working on it" from "the app
+      // restarted and that command will never report back".
+      'activeCommandId': _activeDesktopCommandId ?? '',
       'exitCode': _runner.exitCode.value,
       'yesNoPrompt': _runner.yesNoPrompt.value,
       'logLines': RemoteCommandPublisher.logTail(

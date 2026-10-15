@@ -10,6 +10,7 @@ import 'package:app_management_center/app/services/app_store_project_inspector_s
 import 'package:app_management_center/app/services/ios_release_backend.dart';
 import 'package:app_management_center/app/services/ios_release_fastfile.dart';
 import 'package:app_management_center/app/services/ios_release_script.dart';
+import 'package:app_management_center/app/services/release_push_messages.dart';
 import 'package:app_management_center/app/services/release_runner_service.dart';
 import 'package:cryptography/cryptography.dart';
 import 'package:get/get.dart';
@@ -40,6 +41,10 @@ class IosReleaseWorkflowService implements IosReleaseBackend {
   @override
   final busy = false.obs;
   bool _canceled = false;
+
+  /// Set once this step has told the phone it failed, so the catch-all in
+  /// [_guard] does not say it a second time.
+  bool _failureNotified = false;
   IosReleaseRun? _loggingRun;
   String? _privateKey;
   Future<void>? _loading;
@@ -927,6 +932,7 @@ class IosReleaseWorkflowService implements IosReleaseBackend {
     }
     busy.value = true;
     _canceled = false;
+    _failureNotified = false;
     runner.beginWorkflow(totalSteps: 1, label: 'iOS $action');
     bool succeeded = false;
     bool ownsLock = false;
@@ -985,6 +991,10 @@ class IosReleaseWorkflowService implements IosReleaseBackend {
           },
         ];
         await _save(run);
+        // Stopping on purpose needs no buzz; anything else does.
+        if (!_canceled && !_failureNotified) {
+          runner.notifyRelease(iosFailurePush(run, action, error.toString()));
+        }
       }
       rethrow;
     } finally {
@@ -1004,9 +1014,19 @@ class IosReleaseWorkflowService implements IosReleaseBackend {
     IosReleaseStatus status,
     String message,
   ) async {
+    final previous = run.status;
     run.status = status;
     run.message = message;
     await _save(run);
+    if (status == IosReleaseStatus.failed &&
+        previous != IosReleaseStatus.failed) {
+      // Apple rejecting a build ends the run without an exception.
+      _failureNotified = true;
+      runner.notifyRelease(iosFailurePush(run, run.lastAction, message));
+      return;
+    }
+    final push = iosStatusPush(run, previous);
+    if (push != null) runner.notifyRelease(push);
   }
 
   Future<void> _save(IosReleaseRun run) async {

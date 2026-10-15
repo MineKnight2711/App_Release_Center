@@ -8,6 +8,9 @@ import 'package:get/get.dart';
 
 abstract class CommandNotificationSender {
   Future<void> sendCommandEvent(CommandNotificationEvent event);
+
+  /// Tells phones with release notifications on that a release ended.
+  Future<void> sendReleaseEvent(ReleasePushEvent event);
 }
 
 abstract class NotificationHttpClient {
@@ -208,6 +211,25 @@ class CommandNotificationService extends GetxService
       headers: await _headers(),
     );
     _ensureOk(response, 'send test notification');
+  }
+
+  /// Phones opt in to release pushes themselves, so this needs only a relay;
+  /// the web push device selection and switch do not apply.
+  @override
+  Future<void> sendReleaseEvent(ReleasePushEvent event) async {
+    if (!settings.hasEndpoint) return;
+    await sendReleasePush(event);
+  }
+
+  Future<ReleasePushResult> sendReleasePush(ReleasePushEvent event) async {
+    final currentSettings = _requireConfiguredSettings();
+    final response = await _httpClient.postJson(
+      _endpoint(currentSettings, 'release-events'),
+      event.toJson(),
+      headers: await _headers(),
+    );
+    _ensureOk(response, 'send release notification');
+    return ReleasePushResult.fromJson(_bodyMap(response.body));
   }
 
   @override

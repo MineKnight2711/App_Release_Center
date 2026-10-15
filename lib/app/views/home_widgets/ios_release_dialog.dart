@@ -1153,57 +1153,35 @@ class _IosReleaseDialogState extends State<_IosReleaseDialog> {
     return _ReleaseDialogFooter(leading: leading, trailing: trailing);
   }
 
-  _IosAction _primaryAction(IosReleaseRun run) => switch (run.status) {
-    IosReleaseStatus.prepared || IosReleaseStatus.built => _testFlight(run),
-    IosReleaseStatus.processing => _IosAction(
-      'wait',
-      'Theo dõi processing',
-      Icons.hourglass_top_outlined,
-      () => _perform(() => service.waitForProcessing(run)),
-    ),
-    IosReleaseStatus.verificationRequired ||
-    IosReleaseStatus.building ||
-    IosReleaseStatus.uploading => _refresh(run, 'Kiểm tra lại Apple'),
-    IosReleaseStatus.ready => _store(run, 'draft'),
-    IosReleaseStatus.draft => _store(run, 'submit'),
-    IosReleaseStatus.submitted =>
-      run.store.versions.any(
-            (version) =>
-                version['version'] == run.version &&
-                version['state'] == 'PENDING_DEVELOPER_RELEASE',
-          )
-          ? _store(run, 'release')
-          : _refresh(run, 'Làm mới trạng thái'),
-    IosReleaseStatus.released => _newReleaseAction,
-    IosReleaseStatus.failed ||
-    IosReleaseStatus.canceled => switch (run.lastAction) {
-      'build' || 'upload' => _testFlight(run, label: 'Chạy lại bước lỗi'),
-      'query' => _refresh(run, 'Kiểm tra lại Apple'),
-      'draft' ||
-      'submit' ||
-      'release' ||
-      'distribute' => _store(run, run.lastAction, label: 'Chạy lại bước lỗi'),
-      _ => _IosAction(
-        'new',
-        'Chuẩn bị lại',
-        Icons.replay_outlined,
-        _startNewRelease,
-      ),
-    },
-  };
+  _IosAction _primaryAction(IosReleaseRun run) =>
+      _actionFor(run, iosPrimaryStep(run));
 
   _IosAction? _secondaryAction(IosReleaseRun run, _IosAction primary) {
-    if (run.status == IosReleaseStatus.ready &&
-        run.settings.groups.isNotEmpty) {
-      return _store(run, 'distribute');
-    }
-    if ((run.status == IosReleaseStatus.failed ||
-            run.status == IosReleaseStatus.canceled) &&
-        primary.id != 'new') {
-      return _newReleaseAction;
-    }
-    return null;
+    final step = iosSecondaryStep(run, iosPrimaryStep(run));
+    return step == null ? null : _actionFor(run, step);
   }
+
+  /// Binds a step the shared rules chose to what this dialog does for it.
+  _IosAction _actionFor(IosReleaseRun run, IosNextStep step) =>
+      switch (step.id) {
+        'testflight' => _testFlight(run, label: step.label),
+        'wait' => _IosAction(
+          'wait',
+          step.label,
+          Icons.hourglass_top_outlined,
+          () => _perform(() => service.waitForProcessing(run)),
+        ),
+        'refresh' => _refresh(run, step.label),
+        'new' => _IosAction(
+          'new',
+          step.label,
+          step.label == 'Release mới'
+              ? Icons.add_rounded
+              : Icons.replay_outlined,
+          _startNewRelease,
+        ),
+        _ => _store(run, step.id, label: step.label),
+      };
 
   List<_IosAction> _moreActions(IosReleaseRun run, List<String> shown) {
     final actions = [

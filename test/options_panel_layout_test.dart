@@ -83,6 +83,116 @@ void main() {
     Get.reset();
   });
 
+  group('releases run from the phone', () {
+    Future<T> async<T>(WidgetTester tester, Future<T> Function() task) async {
+      Object? failure;
+      final result = await tester.runAsync(() async {
+        try {
+          return await task();
+        } catch (error) {
+          failure = error;
+          return null;
+        }
+      });
+      if (failure != null) throw failure!;
+      return result as T;
+    }
+
+    testWidgets('the phone sees the projects the desktop can release', (
+      tester,
+    ) async {
+      final releases = Get.find<RemoteControlService>().releaseHandler!;
+      harness.controller.chPlayProjects.assignAll([
+        ChPlayProject(
+          id: 'play',
+          path: harness.projectDirectory.path,
+          displayName: 'Demo Play',
+          applicationId: 'com.example.demo',
+          track: 'Production',
+        ),
+      ]);
+      harness.controller.appStoreProjects.assignAll([
+        AppStoreProject(
+          id: 'ios',
+          path: harness.projectDirectory.path,
+          displayName: 'Demo iOS',
+          bundleId: 'com.example.ios',
+        ),
+      ]);
+
+      final overview = await async(tester, releases.overview);
+      expect((overview['android']! as List).single, {
+        'path': harness.projectDirectory.path,
+        'name': 'Demo Play',
+        'applicationId': 'com.example.demo',
+        'track': 'production',
+      });
+      expect(((overview['ios']! as List).single as Map)['id'], 'ios');
+      expect(overview['androidRun'], isNull);
+      expect(overview['iosHost'], isNotEmpty, reason: 'this harness is a Mac');
+
+      final project = await async(tester, () => releases.iosProject('ios'));
+      expect(project['projectId'], 'ios');
+      expect(project['runs'], isEmpty);
+    });
+
+    testWidgets('only releases what the desktop has, production confirmed', (
+      tester,
+    ) async {
+      final releases = Get.find<RemoteControlService>().releaseHandler!;
+      await expectLater(
+        async(
+          tester,
+          () => releases.run({
+            'platform': 'android',
+            'action': 'prepare',
+            'projectPath': 'C:/not/a/play/project',
+            'track': 'internal',
+          }),
+        ),
+        throwsA(
+          isA<StateError>().having(
+            (error) => error.message,
+            'message',
+            contains('không có trong mục CH Play'),
+          ),
+        ),
+      );
+
+      harness.controller.releaseWorkflow.currentRun.value = ReleaseWorkflowRun(
+        id: 'r1',
+        projectPath: harness.projectDirectory.path,
+        projectName: 'Demo',
+        track: 'production',
+        currentBranch: 'main',
+        currentVersion: '1.0.0+1',
+        proposedVersion: '1.0.1+2',
+        changedFiles: const [],
+        supportsSplitBuildDeploy: false,
+        steps: const [],
+        createdAt: DateTime(2026, 10, 15),
+      );
+      await expectLater(
+        async(
+          tester,
+          () => releases.run({'platform': 'android', 'action': 'start'}),
+        ),
+        throwsA(
+          isA<StateError>().having(
+            (error) => error.message,
+            'message',
+            contains('production'),
+          ),
+        ),
+      );
+      expect(
+        (releases.live!['androidRun']! as Map)['track'],
+        'production',
+        reason: 'the phone sees the run it tried to start',
+      );
+    });
+  });
+
   group('App Store private key selection on macOS', () {
     late FilePickerMacOS picker;
     List<String>? selectedPaths;

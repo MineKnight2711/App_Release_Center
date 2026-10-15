@@ -5,6 +5,7 @@ import 'package:app_management_center/app/models/app_lock.dart';
 import 'package:app_management_center/app/models/remote_unlock_session.dart';
 import 'package:app_management_center/app/services/app_lock_service.dart';
 import 'package:app_management_center/app/services/remote_unlock_session_service.dart';
+import 'package:app_management_center/app/models/release_notification.dart';
 import 'package:app_management_center/app/models/remote_control.dart';
 import 'package:app_management_center/app/models/wake_diagnostics.dart';
 import 'package:app_management_center/app/services/machine_power_service.dart';
@@ -13,6 +14,7 @@ import 'package:app_management_center/app/services/remote_unlock_service.dart';
 import 'package:app_management_center/app/services/remote_control_service.dart';
 import 'package:app_management_center/app/theme/cyber_theme.dart';
 import 'package:app_management_center/app/views/app_settings_dialog.dart';
+import 'package:app_management_center/app/views/mobile_release_tab.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -175,12 +177,13 @@ class _MobileControlViewState extends State<MobileControlView> {
     RemoteCommand? command,
   ) {
     return DefaultTabController(
-      length: 2,
+      length: 3,
       child: Column(
         children: [
           const TabBar(
             tabs: [
               Tab(icon: Icon(Icons.desktop_windows_outlined), text: 'Máy tính'),
+              Tab(icon: Icon(Icons.rocket_launch_outlined), text: 'Release'),
               Tab(icon: Icon(Icons.terminal_outlined), text: 'Chạy'),
             ],
           ),
@@ -188,6 +191,7 @@ class _MobileControlViewState extends State<MobileControlView> {
             child: TabBarView(
               children: [
                 _buildMachineTab(context, state),
+                MobileReleaseTab(remote: remote),
                 _buildRunTab(context, state, command),
               ],
             ),
@@ -204,6 +208,18 @@ class _MobileControlViewState extends State<MobileControlView> {
         padding: const EdgeInsets.all(14),
         children: [
           _DesktopStatusCard(state: state),
+          if (remote.releasePushDevice.supported) ...[
+            const SizedBox(height: 14),
+            _ReleasePushPanel(
+              enabled: remote.mobileSettings.value.releasePushEnabled,
+              busy: remote.releasePushBusy.value,
+              status: remote.releasePushStatus.value,
+              onChanged: _setReleasePush,
+              onTest: (outcome) => unawaited(remote.testReleasePush(outcome)),
+              onSettings: () =>
+                  unawaited(remote.releasePushDevice.openSettings()),
+            ),
+          ],
           const SizedBox(height: 14),
           _PowerPanel(
             state: state,
@@ -542,6 +558,14 @@ class _MobileControlViewState extends State<MobileControlView> {
   /// How long to keep watching for the machine to report in. Booting from off
   /// and signing back in takes a good deal longer than resuming from sleep.
   static const _wakeWaitSeconds = 90;
+
+  Future<void> _setReleasePush(bool enabled) async {
+    try {
+      await remote.setReleasePushEnabled(enabled);
+    } catch (_) {
+      // The card shows the reason; nothing else to undo.
+    }
+  }
 
   Future<void> _sendWake() async {
     final state = remote.desktopState.value;
@@ -1102,6 +1126,78 @@ class _OutcomeLine extends StatelessWidget {
   }
 }
 
+/// Release finished / failed notifications, each with its own sound and buzz.
+class _ReleasePushPanel extends StatelessWidget {
+  const _ReleasePushPanel({
+    required this.enabled,
+    required this.busy,
+    required this.status,
+    required this.onChanged,
+    required this.onTest,
+    required this.onSettings,
+  });
+
+  final bool enabled;
+  final bool busy;
+  final String status;
+  final ValueChanged<bool> onChanged;
+  final ValueChanged<ReleasePushOutcome> onTest;
+  final VoidCallback onSettings;
+
+  @override
+  Widget build(BuildContext context) {
+    return _PanelShell(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _SectionTitle(
+            icon: Icons.notifications_active_outlined,
+            title: 'Thông báo release',
+          ),
+          // Its own Material: the panel's coloured box would hide the ink.
+          Material(
+            type: MaterialType.transparency,
+            child: SwitchListTile(
+              key: const Key('release-push-switch'),
+              value: enabled,
+              onChanged: busy ? null : onChanged,
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Báo khi release xong hoặc lỗi'),
+              subtitle: const Text(
+                'Chuông "ting ting" khi xong, ba tiếng chuông rơi xuống và '
+                'rung dài khi lỗi. Nhận cả khi app đang đóng.',
+              ),
+            ),
+          ),
+          _StatusText(status),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              OutlinedButton.icon(
+                onPressed: () => onTest(ReleasePushOutcome.succeeded),
+                icon: const Icon(Icons.check_circle_outline),
+                label: const Text('Thử: xong'),
+              ),
+              OutlinedButton.icon(
+                onPressed: () => onTest(ReleasePushOutcome.failed),
+                icon: const Icon(Icons.error_outline),
+                label: const Text('Thử: lỗi'),
+              ),
+              TextButton.icon(
+                onPressed: onSettings,
+                icon: const Icon(Icons.tune),
+                label: const Text('Âm thanh & rung'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _WakePanel extends StatelessWidget {
   const _WakePanel({
     required this.wake,
@@ -1417,9 +1513,9 @@ class _BuildStampLine extends StatelessWidget {
         child: Text(
           'Không rõ bản build — máy tính đang chạy bản cũ chưa gửi thông tin '
           'này. Build lại rồi mở đúng bản mới.',
-          style: Theme.of(
-            context,
-          ).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.error),
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: Theme.of(context).colorScheme.error,
+          ),
         ),
       );
     }
@@ -1477,15 +1573,17 @@ class _PacketReachReport extends StatelessWidget {
       // A packet from the machine's own address never left the host, so the
       // firewall never filtered it and it says nothing about the phone's
       // route. Reading one of those as success cost a round of debugging.
-      _ when wake.lastPacketFrom == wake.ipAddress && wake.ipAddress.isNotEmpty
-          => (
-            Icons.info_outline,
-            null,
-            'Gói ghi nhận lúc ${_clock(seenAt)} đến từ chính máy tính '
-                '(${wake.lastPacketFrom}), không phải từ điện thoại. Gói nội '
-                'bộ không đi qua firewall nên chưa nói lên điều gì về đường '
-                'từ điện thoại. Bấm gửi thử lại và xem địa chỉ có đổi không.',
-          ),
+      _
+          when wake.lastPacketFrom == wake.ipAddress &&
+              wake.ipAddress.isNotEmpty =>
+        (
+          Icons.info_outline,
+          null,
+          'Gói ghi nhận lúc ${_clock(seenAt)} đến từ chính máy tính '
+              '(${wake.lastPacketFrom}), không phải từ điện thoại. Gói nội '
+              'bộ không đi qua firewall nên chưa nói lên điều gì về đường '
+              'từ điện thoại. Bấm gửi thử lại và xem địa chỉ có đổi không.',
+        ),
       _ => (
         Icons.check_circle_outline,
         const Color(0xFF039855),

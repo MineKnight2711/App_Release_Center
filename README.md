@@ -541,6 +541,50 @@ agent does not come back after a reboot, because nothing starts the app until
 someone opens it by hand — which makes remote restart a one-way trip. The
 installer adds the Startup entry and the uninstaller removes it.
 
+### Running releases from the phone
+
+The **Release** tab of the Android app runs the desktop's own release flows:
+pick a CH Play or App Store project and use the same buttons the desktop
+dialogs have. CH Play: choose the track (production asks for a tick, and again
+before starting) → **Xem lại release** → **Bắt đầu release**, with **Dừng**,
+**Chạy lại bước lỗi** and **Release mới**. App Store: version, release notes,
+new build or an existing TestFlight build → **Xem lại release** →
+**Build & upload TestFlight** → TestFlight groups, App Store draft, review and
+release, each confirmed on the phone.
+
+The phone does no building. Each step goes through the relay to the desktop
+that paired the phone, which runs it exactly as if clicked there; on Windows,
+iOS steps go on to the paired Mac build host. Steps run on the release lane
+with their log and run state reported every two seconds. Reading the overview
+and **Dừng** use the control lane, so they work while a release is busy, and a
+release started at the desktop shows up on the phone too. The phone needs the
+`run` scope it already has; no re-pairing.
+
+### Release notifications on the Android app
+
+When a release ends, the desktop that ran it (or the Mac that built it) sends
+the result to the Android app through Firebase Cloud Messaging: a bright
+"ting ting" bell and two light taps when it finished, three bell strikes falling
+lower and three long buzzes when it failed. Each outcome has its own Android notification channel,
+so the sound plays even while the app is closed, and either can be changed
+from **Âm thanh & rung** in the app. CH Play releases notify when the run ends;
+iOS releases when TestFlight is ready, an App Store step lands, or a step
+fails. A release stopped on purpose stays silent.
+
+Setup, once:
+
+1. Firebase project `app-release-center` → Project settings → Service
+   accounts → **Generate new private key**, then store it on the relay:
+   `[Convert]::ToBase64String([IO.File]::ReadAllBytes("<key.json>")) | npx.cmd wrangler secret put FCM_SERVICE_ACCOUNT_JSON`
+   (from `serverless/notifications`), and deploy the relay.
+2. Install the Android build, open **Máy tính → Thông báo release** and turn
+   it on. **Thử: xong / Thử: lỗi** play the sounds locally.
+3. On the desktop, **Thông báo → Thử báo release (Android)** checks the whole
+   path through the relay and FCM.
+
+`android/app/google-services.json` registers the app with Firebase; it holds no
+secret. A checkout without it still builds, without push.
+
 ### Building iOS from Windows on a Mac
 
 A Windows desktop can run the whole iOS release (preflight, IPA, TestFlight,

@@ -153,11 +153,19 @@ class MobileControlSettings {
     this.endpointBaseUrl = '',
     this.deviceControlToken = '',
     this.deviceId = '',
+    this.releasePushEnabled = false,
+    this.releasePushToken = '',
   });
 
   final String endpointBaseUrl;
   final String deviceControlToken;
   final String deviceId;
+
+  /// The person asked for a buzz when a release finishes or fails.
+  final bool releasePushEnabled;
+
+  /// The FCM token last handed to the relay, to notice when it changes.
+  final String releasePushToken;
 
   bool get isLinked =>
       endpointBaseUrl.trim().isNotEmpty && deviceControlToken.trim().isNotEmpty;
@@ -166,11 +174,15 @@ class MobileControlSettings {
     String? endpointBaseUrl,
     String? deviceControlToken,
     String? deviceId,
+    bool? releasePushEnabled,
+    String? releasePushToken,
   }) {
     return MobileControlSettings(
       endpointBaseUrl: endpointBaseUrl ?? this.endpointBaseUrl,
       deviceControlToken: deviceControlToken ?? this.deviceControlToken,
       deviceId: deviceId ?? this.deviceId,
+      releasePushEnabled: releasePushEnabled ?? this.releasePushEnabled,
+      releasePushToken: releasePushToken ?? this.releasePushToken,
     );
   }
 
@@ -181,7 +193,12 @@ class MobileControlSettings {
   /// behind by an older build can be migrated, which makes the pair
   /// asymmetric on purpose.
   Map<String, Object?> toJson() {
-    return {'endpointBaseUrl': endpointBaseUrl, 'deviceId': deviceId};
+    return {
+      'endpointBaseUrl': endpointBaseUrl,
+      'deviceId': deviceId,
+      'releasePushEnabled': releasePushEnabled,
+      'releasePushToken': releasePushToken,
+    };
   }
 
   factory MobileControlSettings.fromJson(Map<String, Object?> json) {
@@ -189,6 +206,8 @@ class MobileControlSettings {
       endpointBaseUrl: _string(json['endpointBaseUrl']),
       deviceControlToken: _string(json['deviceControlToken']),
       deviceId: _string(json['deviceId']),
+      releasePushEnabled: json['releasePushEnabled'] == true,
+      releasePushToken: _string(json['releasePushToken']),
     );
   }
 }
@@ -385,6 +404,7 @@ class RemoteCommand {
     this.error,
     this.yesNoPrompt,
     this.result = const {},
+    this.updatedAt = '',
   });
 
   final String commandId;
@@ -398,6 +418,10 @@ class RemoteCommand {
 
   /// What the desktop reported besides its log, such as an iOS run snapshot.
   final Map<String, Object?> result;
+
+  /// When the relay last changed this command. A desktop working on it
+  /// reports every couple of seconds, so a stale value means nobody is.
+  final String updatedAt;
 
   bool get isActive =>
       status == 'queued' || status == 'claimed' || status == 'running';
@@ -419,6 +443,7 @@ class RemoteCommand {
       result: json['result'] is Map
           ? Map<String, Object?>.from(json['result']! as Map)
           : const {},
+      updatedAt: _string(json['updatedAt']),
     );
   }
 }
