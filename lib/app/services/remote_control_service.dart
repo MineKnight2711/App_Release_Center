@@ -14,6 +14,7 @@ import 'package:app_management_center/app/services/mobile_control_credential_sto
 import 'package:app_management_center/app/services/notification_credential_store_service.dart';
 import 'package:app_management_center/app/services/project_store_service.dart';
 import 'package:app_management_center/app/services/release_runner_service.dart';
+import 'package:app_management_center/app/services/remote_command_publisher.dart';
 import 'package:app_management_center/app/services/remote_unlock_service.dart';
 import 'package:app_management_center/app/services/script_catalog_service.dart';
 import 'package:app_management_center/app/services/wake_diagnostics_service.dart';
@@ -111,6 +112,10 @@ class RemoteControlService extends GetxService {
   bool _stopRequested = false;
   Timer? _inputTimer;
   Timer? _publishTimer;
+  bool _publishingProgress = false;
+  late final _commandPublisher = RemoteCommandPublisher(
+    send: _sendCommandState,
+  );
 
   /// Loads settings before the first frame so the phone never flashes the
   /// pairing form at someone who is already linked.
@@ -737,20 +742,17 @@ class RemoteControlService extends GetxService {
     if (endpoint == null) return;
 
     try {
-      final response = await _connect.post(
-        _endpoint(endpoint, 'desktop/commands/$commandId/events'),
-        {
-          'status': status,
-          'startedAt': startedAt?.toUtc().toIso8601String(),
-          'finishedAt': finishedAt?.toUtc().toIso8601String(),
-          'durationMs': durationMs,
-          'exitCode': exitCode,
-          'error': error,
-          'logLines': logLines,
-          'result': ?result,
-        },
-        headers: await _desktopHeaders(),
-      );
+      final response = await _connect
+          .post(_endpoint(endpoint, 'desktop/commands/$commandId/events'), {
+            'status': status,
+            'startedAt': startedAt?.toUtc().toIso8601String(),
+            'finishedAt': finishedAt?.toUtc().toIso8601String(),
+            'durationMs': durationMs,
+            'exitCode': exitCode,
+            'error': error,
+            'logLines': RemoteCommandPublisher.logTail(logLines),
+            'result': ?result,
+          }, headers: await _desktopHeaders());
       _ensureResponseOk(
         response.statusCode ?? 0,
         response.body,
@@ -844,24 +846,30 @@ class RemoteControlService extends GetxService {
       _inputTimer?.cancel();
       _publishTimer?.cancel();
       final finishedAt = DateTime.now();
-      await _publishCommandState(
-        queuedCommand.commandId,
-        status: _stopRequested
-            ? 'canceled'
-            : exitCode == 0 && errorMessage == null
-            ? 'completed'
-            : 'failed',
-        startedAt: startedAt,
-        finishedAt: finishedAt,
-        durationMs: finishedAt.difference(startedAt).inMilliseconds,
-        exitCode: exitCode,
-        error: errorMessage,
-        result: finalResult,
-      );
-      _activeDesktopCommandId = null;
-      _activeDesktopCommandType = null;
-      _activeCommandResult = null;
-      _isExecutingRemoteCommand = false;
+      try {
+        await _publishCommandState(
+          queuedCommand.commandId,
+          status: _stopRequested
+              ? 'canceled'
+              : exitCode == 0 && errorMessage == null
+              ? 'completed'
+              : 'failed',
+          startedAt: startedAt,
+          finishedAt: finishedAt,
+          durationMs: finishedAt.difference(startedAt).inMilliseconds,
+          exitCode: exitCode,
+          error: errorMessage,
+          result: finalResult,
+        );
+      } catch (error) {
+        _runner.appendSystemLog('Gửi kết quả lệnh từ xa lỗi: $error');
+        agentStatus.value = 'Gửi kết quả lệnh từ xa lỗi: $error';
+      } finally {
+        _activeDesktopCommandId = null;
+        _activeDesktopCommandType = null;
+        _activeCommandResult = null;
+        _isExecutingRemoteCommand = false;
+      }
       await _sendHeartbeat();
     }
   }
@@ -1029,16 +1037,21 @@ class RemoteControlService extends GetxService {
 
   void _startRunPublishing(String commandId, DateTime startedAt) {
     _publishTimer?.cancel();
-    _publishTimer = Timer.periodic(
-      const Duration(seconds: 2),
-      (_) => unawaited(
-        _publishCommandState(
+    _publishTimer = Timer.periodic(const Duration(seconds: 2), (_) async {
+      if (_publishingProgress) return;
+      _publishingProgress = true;
+      try {
+        await _publishCommandState(
           commandId,
           status: 'running',
           startedAt: startedAt,
-        ),
-      ),
-    );
+        );
+      } catch (error) {
+        agentStatus.value = 'Gửi tiến độ lệnh từ xa lỗi: $error';
+      } finally {
+        _publishingProgress = false;
+      }
+    });
   }
 
   Future<void> _publishCommandState(
@@ -1051,24 +1064,29 @@ class RemoteControlService extends GetxService {
     String? error,
     Map<String, Object?>? result,
   }) async {
+    final reported = result ?? _activeCommandResult?.call();
+    await _commandPublisher.publish(commandId, {
+      'status': status,
+      'startedAt': startedAt?.toUtc().toIso8601String(),
+      'finishedAt': finishedAt?.toUtc().toIso8601String(),
+      'durationMs': durationMs,
+      'exitCode': exitCode,
+      'error': error,
+      'yesNoPrompt': _runner.yesNoPrompt.value,
+      'logLines': _runner.logLines.takeLast(500).toList(),
+      'result': ?reported,
+    });
+  }
+
+  Future<void> _sendCommandState(
+    String commandId,
+    Map<String, Object?> body,
+  ) async {
     final endpoint = _desktopEndpoint;
     if (endpoint == null) return;
-
-    final reported = result ?? _activeCommandResult?.call();
     final response = await _connect.post(
       _endpoint(endpoint, 'desktop/commands/$commandId/events'),
-      {
-        'status': status,
-        'startedAt': startedAt?.toUtc().toIso8601String(),
-        'finishedAt': finishedAt?.toUtc().toIso8601String(),
-        'durationMs': durationMs,
-        'exitCode': exitCode,
-        'error': error,
-        'yesNoPrompt': _runner.yesNoPrompt.value,
-        // The relay keeps the last 500 lines; sending more is just traffic.
-        'logLines': _runner.logLines.takeLast(500).toList(),
-        'result': ?reported,
-      },
+      body,
       headers: await _desktopHeaders(),
     );
     _ensureResponseOk(
@@ -1155,7 +1173,9 @@ class RemoteControlService extends GetxService {
       'activeScriptPath': _runner.activeScriptPath.value,
       'exitCode': _runner.exitCode.value,
       'yesNoPrompt': _runner.yesNoPrompt.value,
-      'logLines': _runner.logLines.takeLast(80).toList(),
+      'logLines': RemoteCommandPublisher.logTail(
+        _runner.logLines.takeLast(80).toList(),
+      ),
       'projects': await _projectSummaries(),
     };
   }

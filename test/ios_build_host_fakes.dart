@@ -69,7 +69,7 @@ class FakeMacRunner extends ReleaseRunnerService {
             },
           },
         ]);
-      case 'flutter' when arguments.first == 'build':
+      case 'flutter' when arguments.take(2).join(' ') == 'build ipa':
         buildCalls++;
         buildName = _flag(arguments, '--build-name');
         buildNumber = _flag(arguments, '--build-number');

@@ -363,6 +363,59 @@ void main() {
   });
 
   test(
+    'configures Flutter migrations before freezing release source',
+    () async {
+      final configuration = File(
+        p.join(project.path, 'ios', 'Runner.xcodeproj', 'project.pbxproj'),
+      );
+      await configuration.parent.create(recursive: true);
+      await configuration.writeAsString('original project');
+      runner.sourceFiles.add('ios/Runner.xcodeproj/project.pbxproj');
+      runner.onConfigure = () => configuration.writeAsString('SPM integration');
+      runner.onBuild = () async {
+        expect(await configuration.readAsString(), 'SPM integration');
+      };
+      final run = await service.prepare(
+        project: project,
+        settings: const IosReleaseSettings(
+          teamId: 'TEAM',
+          flavor: 'production',
+          scheme: 'production',
+          configuration: 'Release-production',
+          extraBuildArguments: ['--dart-define=ENV=production'],
+        ),
+      );
+      expect(runner.buildCalls, 0);
+      await service.build(run);
+      expect(run.status, IosReleaseStatus.built);
+      expect(runner.buildCalls, 1);
+      for (final flag in [
+        '--release',
+        '--build-name=1.2.3',
+        '--build-number=12',
+        '--target=lib/main.dart',
+        '--flavor=production',
+        '--dart-define=ENV=production',
+      ]) {
+        expect(runner.configurationArguments, contains(flag));
+        expect(runner.buildArguments, contains(flag));
+      }
+    },
+  );
+
+  test('still rejects source edited during an IPA build', () async {
+    final run = await service.prepare(project: project, settings: settings);
+    runner.onBuild = () => File(
+      p.join(project.path, 'lib', 'main.dart'),
+    ).writeAsString('void main() { print("changed during build"); }');
+    await expectLater(service.build(run), throwsStateError);
+    expect(run.status, IosReleaseStatus.failed);
+    expect(run.message, contains('Source thay đổi trong lúc build'));
+    expect(run.ipaPath, isNull);
+    expect(service.busy.value, isFalse);
+  });
+
+  test(
     'writes version only on request and preserves the rest of pubspec',
     () async {
       final run = await service.prepare(project: project, settings: settings);
@@ -631,6 +684,8 @@ class _Runner extends ReleaseRunnerService {
   final List<String> executables = [], appleActions = [], keyDirectories = [];
   final List<Map<String, dynamic>> inputs = [];
   List<String> buildArguments = [];
+  List<String> configurationArguments = [];
+  final sourceFiles = ['pubspec.yaml', 'lib/main.dart'];
   final List<List<String>> gitArguments = [];
   List<Map<String, dynamic>> versions = [];
   String bundleId = 'com.example.demo',
@@ -638,6 +693,7 @@ class _Runner extends ReleaseRunnerService {
       processingState = 'PROCESSING';
   int buildCalls = 0;
   Future<void> Function()? onBuild;
+  Future<void> Function()? onConfigure;
   Future<void> Function(String)? onApple;
   bool uploaded = false,
       failUpload = false,
@@ -674,7 +730,7 @@ class _Runner extends ReleaseRunnerService {
         output = ' M pubspec.yaml\n';
       }
       if (arguments.first == 'ls-files') {
-        output = 'pubspec.yaml\u0000lib/main.dart\u0000';
+        output = '${sourceFiles.join('\u0000')}\u0000';
       }
     }
     if (executable == '/usr/bin/security') {
@@ -694,7 +750,11 @@ class _Runner extends ReleaseRunnerService {
         },
       ]);
     }
-    if (executable == 'flutter' && arguments.first == 'build') {
+    if (executable == 'flutter' && arguments.contains('--config-only')) {
+      configurationArguments = arguments;
+      await onConfigure?.call();
+    }
+    if (executable == 'flutter' && arguments.take(2).join(' ') == 'build ipa') {
       await onBuild?.call();
       buildCalls++;
       buildArguments = arguments;

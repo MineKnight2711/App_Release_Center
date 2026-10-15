@@ -411,6 +411,15 @@ class IosReleaseWorkflowService implements IosReleaseBackend {
     final settings = run.settings;
     await _command(project.path, '/usr/bin/xcodebuild', ['-version']);
     await _command(project.path, _flutter(run), ['pub', 'get']);
+    // Flutter can migrate the Xcode project/scheme and resolve Pods/Swift
+    // packages. Do that before freezing the source, rather than during IPA
+    // archiving where those tool-owned edits look like concurrent source edits.
+    await _command(project.path, _flutter(run), [
+      'build',
+      'ios',
+      '--config-only',
+      ..._flutterBuildArguments(run),
+    ]);
     final identity = await _command(project.path, '/usr/bin/security', [
       'find-identity',
       '-v',
@@ -584,10 +593,15 @@ class IosReleaseWorkflowService implements IosReleaseBackend {
     if (commit.output.trim() != run.commit) {
       throw StateError('Commit đã đổi; chuẩn bị lại release.');
     }
-    await _preflight(run);
     if (run.sourceHash != null && await _sourceHash(run) != run.sourceHash) {
       throw StateError(
         'Source đã thay đổi từ lúc chuẩn bị. Chuẩn bị lại release trước khi build.',
+      );
+    }
+    await _preflight(run);
+    if (run.sourceHash != null && await _sourceHash(run) != run.sourceHash) {
+      throw StateError(
+        'Cấu hình iOS/dependency đã đổi. Chuẩn bị lại release trước khi build.',
       );
     }
     await _status(run, IosReleaseStatus.building, 'Đang build IPA…');
@@ -603,13 +617,8 @@ class IosReleaseWorkflowService implements IosReleaseBackend {
     await _command(run.project.path, _flutter(run), [
       'build',
       'ipa',
-      '--release',
-      '--build-name=${run.version}',
-      '--build-number=${run.buildNumber}',
-      '--target=${run.settings.entrypoint}',
-      if (run.settings.flavor.isNotEmpty) '--flavor=${run.settings.flavor}',
+      ..._flutterBuildArguments(run),
       '--export-options-plist=$exportPath',
-      ...run.settings.extraBuildArguments,
     ]);
     if (run.sourceHash != null && await _sourceHash(run) != run.sourceHash) {
       throw StateError(
@@ -653,6 +662,15 @@ class IosReleaseWorkflowService implements IosReleaseBackend {
     }
     await _status(run, IosReleaseStatus.built, 'IPA đã tạo và xác minh.');
   });
+
+  List<String> _flutterBuildArguments(IosReleaseRun run) => [
+    '--release',
+    '--build-name=${run.version}',
+    '--build-number=${run.buildNumber}',
+    '--target=${run.settings.entrypoint}',
+    if (run.settings.flavor.isNotEmpty) '--flavor=${run.settings.flavor}',
+    ...run.settings.extraBuildArguments,
+  ];
 
   Future<void> _verifyIpa(IosReleaseRun run) async {
     final entries = await _command(run.directory, '/usr/bin/unzip', [
