@@ -8,6 +8,7 @@ import 'package:app_management_center/app/models/release_script.dart';
 import 'package:app_management_center/app/models/remote_control.dart';
 import 'package:app_management_center/app/models/wake_diagnostics.dart';
 import 'package:app_management_center/app/services/app_build_stamp.dart';
+import 'package:app_management_center/app/services/ios_build_host_service.dart';
 import 'package:app_management_center/app/services/machine_power_service.dart';
 import 'package:app_management_center/app/services/mobile_control_credential_store_service.dart';
 import 'package:app_management_center/app/services/notification_credential_store_service.dart';
@@ -39,6 +40,7 @@ class RemoteControlService extends GetxService {
     WindowsAutoStartService? autoStart,
     RemoteUnlockService? remoteUnlock,
     WakeProbeListener? wakeProbe,
+    IosBuildHostService? iosBuildHost,
   }) : _store = store,
        _catalog = catalog,
        _runner = runner,
@@ -49,7 +51,8 @@ class RemoteControlService extends GetxService {
        _wakeDiagnostics = wakeDiagnostics ?? WakeDiagnosticsService(),
        _autoStart = autoStart ?? WindowsAutoStartService(),
        _remoteUnlock = remoteUnlock ?? RemoteUnlockService(),
-       _wakeProbe = wakeProbe ?? WakeProbeListener();
+       _wakeProbe = wakeProbe ?? WakeProbeListener(),
+       iosBuildHost = iosBuildHost ?? IosBuildHostService(runner: runner);
 
   final ProjectStoreService _store;
   final ScriptCatalogService _catalog;
@@ -62,6 +65,9 @@ class RemoteControlService extends GetxService {
   final WindowsAutoStartService _autoStart;
   final RemoteUnlockService _remoteUnlock;
   final WakeProbeListener _wakeProbe;
+
+  /// Runs iOS steps a paired desktop sends to this Mac.
+  final IosBuildHostService iosBuildHost;
 
   final settings = const RemoteControlSettings().obs;
   final mobileSettings = const MobileControlSettings().obs;
@@ -96,6 +102,11 @@ class RemoteControlService extends GetxService {
 
   bool _isExecutingRemoteCommand = false;
   String? _activeDesktopCommandId;
+  String? _activeDesktopCommandType;
+
+  /// What the command in progress reports besides its log, re-read for each
+  /// progress update; for an iOS step, the run as it moves.
+  Map<String, Object?>? Function()? _activeCommandResult;
   int _lastInputSequence = 0;
   bool _stopRequested = false;
   Timer? _inputTimer;
@@ -212,6 +223,20 @@ class RemoteControlService extends GetxService {
     final updated = settings.value.copyWith(allowRemoteUnlock: allowed);
     await _store.saveRemoteControlSettings(updated);
     settings.value = updated;
+  }
+
+  /// Opens this Mac to iOS builds from a desktop it pairs with.
+  ///
+  /// A host needs an id of its own: the desktop that drives it heartbeats too,
+  /// and two machines answering to `default` would claim each other's work.
+  Future<void> setAllowIosBuild(bool allowed) async {
+    var updated = settings.value.copyWith(allowIosBuild: allowed);
+    if (allowed && updated.desktopId == 'default') {
+      updated = updated.copyWith(desktopId: buildHostDesktopId());
+    }
+    await _store.saveRemoteControlSettings(updated);
+    settings.value = updated;
+    if (updated.enabled) await _sendHeartbeat();
   }
 
   Future<void> installRemoteUnlockProvider() async {
@@ -552,22 +577,33 @@ class RemoteControlService extends GetxService {
     final startedAt = DateTime.now();
     String? errorMessage;
     final log = <String>[];
+    Map<String, Object?>? result;
     try {
       await _publishControlState(
         command.commandId,
         status: 'running',
         startedAt: startedAt,
       );
-      log.addAll(await _executeControlCommand(command));
+      if (command.type == 'iosQuery') {
+        _requireIosBuildHost();
+        final outcome = await iosBuildHost.query(command.payload);
+        log.addAll(outcome.logLines);
+        result = outcome.result;
+      } else {
+        log.addAll(await _executeControlCommand(command));
+      }
     } catch (error) {
       errorMessage = error.toString();
       log.add(errorMessage);
     }
 
     // Whoever is at the machine should be able to see what the phone did,
-    // successful or not.
-    for (final line in log) {
-      _runner.appendSystemLog(line);
+    // successful or not. An iOS question answers with a build log, which is
+    // the asker's to read, not something that happened here.
+    if (command.type != 'iosQuery') {
+      for (final line in log) {
+        _runner.appendSystemLog(line);
+      }
     }
 
     final finishedAt = DateTime.now();
@@ -580,6 +616,7 @@ class RemoteControlService extends GetxService {
       exitCode: errorMessage == null ? 0 : 1,
       error: errorMessage,
       logLines: log,
+      result: result,
     );
   }
 
@@ -694,6 +731,7 @@ class RemoteControlService extends GetxService {
     int? exitCode,
     String? error,
     List<String> logLines = const [],
+    Map<String, Object?>? result,
   }) async {
     final endpoint = _desktopEndpoint;
     if (endpoint == null) return;
@@ -709,6 +747,7 @@ class RemoteControlService extends GetxService {
           'exitCode': exitCode,
           'error': error,
           'logLines': logLines,
+          'result': ?result,
         },
         headers: await _desktopHeaders(),
       );
@@ -767,22 +806,37 @@ class RemoteControlService extends GetxService {
     );
 
     _activeDesktopCommandId = queuedCommand.commandId;
+    _activeDesktopCommandType = queuedCommand.type;
     _lastInputSequence = 0;
     _stopRequested = false;
     _isExecutingRemoteCommand = true;
     final startedAt = DateTime.now();
+    if (queuedCommand.type == 'ios') {
+      // An iOS step can sit queued behind a long build; a stop sent while it
+      // waited must keep it from starting at all.
+      await _pollCommandInputs(queuedCommand.commandId);
+      _activeCommandResult = () => iosBuildHost.liveResult;
+    }
     _startInputPolling(queuedCommand.commandId);
     _startRunPublishing(queuedCommand.commandId, startedAt);
 
     int exitCode = -1;
     String? errorMessage;
+    Map<String, Object?>? finalResult;
     try {
       await _publishCommandState(
         queuedCommand.commandId,
         status: 'running',
         startedAt: startedAt,
       );
-      exitCode = await _executeRemoteCommand(queuedCommand);
+      if (_stopRequested) {
+        errorMessage = 'Đã hủy trước khi bắt đầu.';
+      } else if (queuedCommand.type == 'ios') {
+        finalResult = await _executeIos(queuedCommand);
+        exitCode = 0;
+      } else {
+        exitCode = await _executeRemoteCommand(queuedCommand);
+      }
     } catch (error) {
       errorMessage = error.toString();
       _runner.appendSystemLog('Lệnh từ xa lỗi: $errorMessage');
@@ -802,10 +856,33 @@ class RemoteControlService extends GetxService {
         durationMs: finishedAt.difference(startedAt).inMilliseconds,
         exitCode: exitCode,
         error: errorMessage,
+        result: finalResult,
       );
       _activeDesktopCommandId = null;
+      _activeDesktopCommandType = null;
+      _activeCommandResult = null;
       _isExecutingRemoteCommand = false;
       await _sendHeartbeat();
+    }
+  }
+
+  Future<Map<String, Object?>> _executeIos(RemoteCommand command) async {
+    _requireIosBuildHost();
+    _runner.clearLog();
+    final outcome = await iosBuildHost.execute(
+      desktopId: settings.value.desktopId,
+      payload: command.payload,
+    );
+    return outcome.result;
+  }
+
+  /// The switch is only offered on macOS, and the host refuses to build
+  /// anywhere else, so the switch is the gate here.
+  void _requireIosBuildHost() {
+    if (!settings.value.allowIosBuild) {
+      throw const RemoteControlException(
+        'Máy này chưa bật nhận build iOS từ máy khác.',
+      );
     }
   }
 
@@ -938,7 +1015,11 @@ class RemoteControlService extends GetxService {
           _runner.sendInput(entry['value']?.toString() ?? '');
         } else if (kind == 'stop') {
           _stopRequested = true;
-          await _runner.stop();
+          if (_activeDesktopCommandType == 'ios') {
+            await iosBuildHost.cancel();
+          } else {
+            await _runner.stop();
+          }
         }
       }
     } catch (error) {
@@ -968,10 +1049,12 @@ class RemoteControlService extends GetxService {
     int? durationMs,
     int? exitCode,
     String? error,
+    Map<String, Object?>? result,
   }) async {
     final endpoint = _desktopEndpoint;
     if (endpoint == null) return;
 
+    final reported = result ?? _activeCommandResult?.call();
     final response = await _connect.post(
       _endpoint(endpoint, 'desktop/commands/$commandId/events'),
       {
@@ -982,7 +1065,9 @@ class RemoteControlService extends GetxService {
         'exitCode': exitCode,
         'error': error,
         'yesNoPrompt': _runner.yesNoPrompt.value,
-        'logLines': _runner.logLines.toList(),
+        // The relay keeps the last 500 lines; sending more is just traffic.
+        'logLines': _runner.logLines.takeLast(500).toList(),
+        'result': ?reported,
       },
       headers: await _desktopHeaders(),
     );
@@ -1063,6 +1148,7 @@ class RemoteControlService extends GetxService {
       'powerControlEnabled': settings.value.allowPowerControl,
       'windowControlEnabled': settings.value.allowWindowControl,
       'remoteUnlock': remoteUnlock.toJson(),
+      'iosBuildHost': await _iosBuildHostState(),
       'sleepSupport': _sleepSupport!.toJson(),
       'isRunning': _runner.isBusy,
       'status': _runner.status.value,
@@ -1072,6 +1158,17 @@ class RemoteControlService extends GetxService {
       'logLines': _runner.logLines.takeLast(80).toList(),
       'projects': await _projectSummaries(),
     };
+  }
+
+  Future<Map<String, Object?>> _iosBuildHostState() async {
+    try {
+      return await iosBuildHost.heartbeat(
+        enabled: settings.value.allowIosBuild,
+      );
+    } catch (error) {
+      // A key store that cannot be read must not cost the heartbeat.
+      return {'enabled': false, 'error': error.toString()};
+    }
   }
 
   Future<List<Map<String, Object?>>> _projectSummaries() async {
@@ -1240,6 +1337,16 @@ class RemoteControlService extends GetxService {
     }
     return null;
   }
+}
+
+/// An id for a Mac that builds for other desktops, from its host name.
+String buildHostDesktopId([String? hostName]) {
+  final name = (hostName ?? Platform.localHostname)
+      .toLowerCase()
+      .replaceAll(RegExp(r'\.local$'), '')
+      .replaceAll(RegExp(r'[^a-z0-9-]+'), '-')
+      .replaceAll(RegExp(r'^-+|-+$'), '');
+  return 'mac-${name.isEmpty ? 'build-host' : name}';
 }
 
 /// Why a power command must not run now, or null when it may.

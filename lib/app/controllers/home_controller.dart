@@ -33,6 +33,7 @@ import 'package:app_management_center/app/services/gemini_env_service.dart';
 import 'package:app_management_center/app/services/google_drive_release_upload_service.dart';
 import 'package:app_management_center/app/services/machine_power_service.dart';
 import 'package:app_management_center/app/services/ios_release_workflow_service.dart';
+import 'package:app_management_center/app/services/remote_ios_release_service.dart';
 import 'package:app_management_center/app/services/project_store_service.dart';
 import 'package:app_management_center/app/services/release_apk_artifact_service.dart';
 import 'package:app_management_center/app/services/release_installer_artifact_service.dart';
@@ -83,6 +84,7 @@ class HomeController extends GetxController {
     required this.appStoreCredentialStore,
     required this.appStoreVersionChecker,
     IosReleaseWorkflowService? iosRelease,
+    RemoteIosReleaseService? remoteIosRelease,
     ResourceDiscoveryService? resourceDiscovery,
     ResourceExportService? resourceExports,
     ResourceCredentialResolver? resourceCredentials,
@@ -93,6 +95,7 @@ class HomeController extends GetxController {
     Uuid? uuid,
     MachinePowerService? machineShutdown,
   }) : _iosReleaseOverride = iosRelease,
+       _remoteIosReleaseOverride = remoteIosRelease,
        releaseWorkflow =
            releaseWorkflow ??
            ReleaseWorkflowService(
@@ -147,6 +150,17 @@ class HomeController extends GetxController {
       _iosReleaseOverride ??
       IosReleaseWorkflowService(
         runner: runner,
+        credentials: readAppStoreCredentials,
+      );
+
+  final RemoteIosReleaseService? _remoteIosReleaseOverride;
+
+  /// The same release, run on a paired Mac through the relay.
+  late final remoteIosRelease =
+      _remoteIosReleaseOverride ??
+      RemoteIosReleaseService(
+        store: store,
+        connect: connect,
         credentials: readAppStoreCredentials,
       );
   final ResourceDiscoveryService resourceDiscovery;
@@ -2642,10 +2656,14 @@ class HomeController extends GetxController {
 
   Future<NotificationPairingSession?> createPhonePairing({
     List<String> scopes = const ['run'],
+    String desktopId = '',
   }) async {
     await saveNotificationConfiguration();
     try {
-      final session = await notifications.createPairingSession(scopes: scopes);
+      final session = await notifications.createPairingSession(
+        scopes: scopes,
+        desktopId: desktopId,
+      );
       notificationStatus.value = 'Mã ghép đã sẵn sàng.';
       return session;
     } catch (error) {

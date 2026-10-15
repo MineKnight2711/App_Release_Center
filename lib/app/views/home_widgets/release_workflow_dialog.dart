@@ -105,7 +105,9 @@ class _ReleaseTargetDialog extends GetView<HomeController> {
                         title: 'iOS',
                         flow: 'TestFlight -> App Store',
                         detail: bundleId,
-                        running: controller.iosRelease.busy.value,
+                        running:
+                            controller.iosRelease.busy.value ||
+                            controller.remoteIosRelease.busy.value,
                         onTap: () => Navigator.of(context).pop('ios'),
                       ),
                       const SizedBox(height: 10),

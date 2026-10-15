@@ -3635,6 +3635,21 @@ class _RemoteControlOptions extends GetView<HomeController> {
               'sau khi bật.',
             ),
           ),
+          if (Platform.isMacOS)
+            SwitchListTile(
+              key: const Key('allow-ios-build'),
+              value: settings.allowIosBuild,
+              onChanged: settings.enabled ? remote.setAllowIosBuild : null,
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Nhận build iOS từ máy khác'),
+              subtitle: Text(
+                settings.allowIosBuild
+                    ? 'Mac này là máy build "${settings.desktopId}". Chỉ máy '
+                          'đã ghép bằng mã của Mac này mới gửi được build.'
+                    : 'Cho máy Windows đã ghép chạy release iOS trên Mac này '
+                          'qua relay, không cần remote desktop.',
+              ),
+            ),
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -3644,6 +3659,15 @@ class _RemoteControlOptions extends GetView<HomeController> {
                 icon: const Icon(Icons.qr_code_2_outlined),
                 label: const Text('Ghép app điều khiển'),
               ),
+              if (Platform.isMacOS)
+                OutlinedButton.icon(
+                  key: const Key('pair-ios-build-controller'),
+                  onPressed: settings.enabled && settings.allowIosBuild
+                      ? () => _showIosBuildPairingDialog(context)
+                      : null,
+                  icon: const Icon(Icons.dns_outlined),
+                  label: const Text('Ghép máy điều khiển build'),
+                ),
               OutlinedButton.icon(
                 onPressed: () => _showAllowedRootsDialog(context),
                 icon: const Icon(Icons.folder_special_outlined),
@@ -3732,11 +3756,39 @@ class _RemoteControlOptions extends GetView<HomeController> {
         if (settings.allowWindowControl) 'window',
         if (settings.allowRemoteUnlock) 'unlock',
       ],
+      desktopId: settings.desktopId,
     );
     if (session == null || !context.mounted) return;
     await showDialog<void>(
       context: context,
       builder: (_) => _PhonePairingDialog(session: session),
+    );
+  }
+
+  /// A code for the desktop that will send iOS builds here. It grants only
+  /// that, and only towards this Mac.
+  Future<void> _showIosBuildPairingDialog(BuildContext context) async {
+    final settings = remote.settings.value;
+    final session = await controller.createPhonePairing(
+      scopes: const ['ios'],
+      desktopId: settings.desktopId,
+    );
+    if (session == null) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(controller.notificationStatus.value)),
+      );
+      return;
+    }
+    final fingerprint = await remote.iosBuildHost.fingerprint();
+    if (!context.mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (_) => _IosBuildPairingDialog(
+        session: session,
+        fingerprint: fingerprint,
+        desktopId: settings.desktopId,
+      ),
     );
   }
 
@@ -4333,6 +4385,167 @@ class _PhonePairingDialogState extends State<_PhonePairingDialog> {
     } finally {
       _isPolling = false;
     }
+  }
+}
+
+/// The code and key fingerprint a Mac build host shows to the desktop that
+/// will drive it.
+class _IosBuildPairingDialog extends StatefulWidget {
+  const _IosBuildPairingDialog({
+    required this.session,
+    required this.fingerprint,
+    required this.desktopId,
+  });
+
+  final NotificationPairingSession session;
+  final String fingerprint;
+  final String desktopId;
+
+  @override
+  State<_IosBuildPairingDialog> createState() => _IosBuildPairingDialogState();
+}
+
+class _IosBuildPairingDialogState extends State<_IosBuildPairingDialog> {
+  Timer? _pollTimer;
+  bool _isPolling = false;
+  NotificationPairingStatus _status = NotificationPairingStatus.pending;
+  String _deviceLabel = '';
+
+  HomeController get controller => Get.find<HomeController>();
+
+  @override
+  void initState() {
+    super.initState();
+    _pollTimer = Timer.periodic(const Duration(seconds: 2), (_) => _poll());
+  }
+
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    super.dispose();
+  }
+
+  /// Watches the pairing without saving the desktop as a notification target:
+  /// it drives builds, it is not a phone to push to.
+  Future<void> _poll() async {
+    if (_isPolling || _status != NotificationPairingStatus.pending) return;
+    _isPolling = true;
+    try {
+      final result = await controller.notifications.pollPairing(
+        widget.session.pairingId,
+      );
+      if (!mounted) return;
+      setState(() {
+        _status = result.status;
+        _deviceLabel = result.device?.label ?? '';
+      });
+      if (result.status != NotificationPairingStatus.pending) {
+        _pollTimer?.cancel();
+      }
+    } catch (_) {
+      // The next tick tries again; the code stays valid meanwhile.
+    } finally {
+      _isPolling = false;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final expires = widget.session.expiresAt.toLocal();
+    String two(int value) => value.toString().padLeft(2, '0');
+    final (statusIcon, statusLabel) = switch (_status) {
+      NotificationPairingStatus.pending => (
+        Icons.hourglass_top_outlined,
+        'Đang chờ máy điều khiển · hết hạn lúc '
+            '${two(expires.hour)}:${two(expires.minute)}',
+      ),
+      NotificationPairingStatus.linked => (
+        Icons.check_circle_outline,
+        'Đã ghép ${_deviceLabel.isEmpty ? 'máy điều khiển' : _deviceLabel}',
+      ),
+      NotificationPairingStatus.expired => (
+        Icons.error_outline,
+        'Mã ghép đã hết hạn',
+      ),
+    };
+    final hint = Theme.of(context).textTheme.bodySmall;
+    return AlertDialog(
+      key: const Key('ios-build-pairing-dialog'),
+      backgroundColor: AppCyberTheme.panelBackgroundStrong,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: BorderSide(color: AppCyberTheme.palette.cardBorder),
+      ),
+      title: const _PanelTitle(
+        icon: Icons.dns_outlined,
+        title: 'Ghép máy điều khiển build',
+      ),
+      content: SizedBox(
+        width: 420,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Trên máy Windows: mở Release iOS → Máy build → Ghép Mac, rồi '
+              'nhập mã này.',
+            ),
+            const SizedBox(height: 14),
+            Center(
+              child: SelectableText(
+                widget.session.pairingCode,
+                style: AppCyberTheme.dataTextStyle(
+                  size: 30,
+                  color: AppCyberTheme.textPrimary,
+                  weight: FontWeight.w900,
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              'Sau khi ghép, máy Windows hiện mã khoá. Mã đó phải giống:',
+              style: hint,
+            ),
+            const SizedBox(height: 6),
+            SelectableText(
+              widget.fingerprint,
+              style: AppCyberTheme.dataTextStyle(
+                size: 17,
+                color: AppCyberTheme.textPrimary,
+                weight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 12),
+            _MetaChip(
+              icon: statusIcon,
+              label: statusLabel,
+              highlighted: _status == NotificationPairingStatus.linked,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Máy build: ${widget.desktopId}. Máy điều khiển chỉ được chạy '
+              'release iOS trên Mac này, không có quyền chạy lệnh khác.',
+              style: hint,
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        OutlinedButton.icon(
+          onPressed: () => Clipboard.setData(
+            ClipboardData(text: widget.session.pairingCode),
+          ),
+          icon: const Icon(Icons.content_copy_outlined),
+          label: const Text('Sao chép mã'),
+        ),
+        FilledButton.icon(
+          onPressed: () => Navigator.of(context).pop(),
+          icon: const Icon(Icons.close_outlined),
+          label: const Text('Đóng'),
+        ),
+      ],
+    );
   }
 }
 

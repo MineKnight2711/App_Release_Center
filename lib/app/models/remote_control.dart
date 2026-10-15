@@ -10,6 +10,7 @@ class RemoteControlSettings {
     this.allowWindowControl = false,
     this.allowRemoteUnlock = false,
     this.allowedApps = const [],
+    this.allowIosBuild = false,
   });
 
   final bool enabled;
@@ -31,6 +32,10 @@ class RemoteControlSettings {
   /// of its own; it sends a key that the desktop resolves against this list.
   final List<String> allowedApps;
 
+  /// Lets a paired desktop run iOS releases on this Mac. Only that desktop:
+  /// its pairing is bound to this machine, and the relay enforces it.
+  final bool allowIosBuild;
+
   RemoteControlSettings copyWith({
     bool? enabled,
     String? desktopId,
@@ -39,6 +44,7 @@ class RemoteControlSettings {
     bool? allowWindowControl,
     bool? allowRemoteUnlock,
     List<String>? allowedApps,
+    bool? allowIosBuild,
   }) {
     return RemoteControlSettings(
       enabled: enabled ?? this.enabled,
@@ -48,6 +54,7 @@ class RemoteControlSettings {
       allowWindowControl: allowWindowControl ?? this.allowWindowControl,
       allowRemoteUnlock: allowRemoteUnlock ?? this.allowRemoteUnlock,
       allowedApps: allowedApps ?? this.allowedApps,
+      allowIosBuild: allowIosBuild ?? this.allowIosBuild,
     );
   }
 
@@ -60,6 +67,7 @@ class RemoteControlSettings {
       'allowWindowControl': allowWindowControl,
       'allowRemoteUnlock': allowRemoteUnlock,
       'allowedApps': allowedApps,
+      'allowIosBuild': allowIosBuild,
     };
   }
 
@@ -75,6 +83,7 @@ class RemoteControlSettings {
       allowWindowControl: json['allowWindowControl'] == true,
       allowRemoteUnlock: json['allowRemoteUnlock'] == true,
       allowedApps: _stringList(json['allowedApps']),
+      allowIosBuild: json['allowIosBuild'] == true,
     );
   }
 }
@@ -375,6 +384,7 @@ class RemoteCommand {
     this.exitCode,
     this.error,
     this.yesNoPrompt,
+    this.result = const {},
   });
 
   final String commandId;
@@ -385,6 +395,9 @@ class RemoteCommand {
   final int? exitCode;
   final String? error;
   final String? yesNoPrompt;
+
+  /// What the desktop reported besides its log, such as an iOS run snapshot.
+  final Map<String, Object?> result;
 
   bool get isActive =>
       status == 'queued' || status == 'claimed' || status == 'running';
@@ -403,6 +416,9 @@ class RemoteCommand {
       exitCode: _int(json['exitCode']),
       error: _optionalString(json['error']),
       yesNoPrompt: _optionalString(json['yesNoPrompt']),
+      result: json['result'] is Map
+          ? Map<String, Object?>.from(json['result']! as Map)
+          : const {},
     );
   }
 }

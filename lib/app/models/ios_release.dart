@@ -17,11 +17,17 @@ class IosReleaseSettings {
     this.notes = '',
     this.automaticRelease = false,
     this.extraBuildArguments = const [],
+    this.remoteFiles = const [],
   });
   final String scheme, configuration, entrypoint, flavor, exportOptionsPath;
   final String flutterExecutable, teamId, locale, notes;
   final List<String> groups, extraBuildArguments;
   final bool externalTesting, automaticRelease, useAppStoreLocale;
+
+  /// Gitignored files, relative to the project, that a Mac build host needs
+  /// and cannot get from the commit — `.env`, `GoogleService-Info.plist`.
+  /// Sent sealed with each remote build; unused when building locally.
+  final List<String> remoteFiles;
 
   Map<String, dynamic> toJson() => {
     'scheme': scheme,
@@ -38,6 +44,7 @@ class IosReleaseSettings {
     'notes': notes,
     'automaticRelease': automaticRelease,
     'extraBuildArguments': extraBuildArguments,
+    'remoteFiles': remoteFiles,
   };
   factory IosReleaseSettings.fromJson(Map<String, dynamic> json) =>
       IosReleaseSettings(
@@ -63,6 +70,7 @@ class IosReleaseSettings {
         extraBuildArguments: List<String>.from(
           json['extraBuildArguments'] as List? ?? [],
         ),
+        remoteFiles: List<String>.from(json['remoteFiles'] as List? ?? []),
       );
 }
 
@@ -93,6 +101,13 @@ class IosStoreBuild {
   final int number;
   final bool expired;
   bool get isReady => processingState == 'VALID' && !expired;
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'version': version,
+    'number': number,
+    'state': processingState,
+    'expired': expired,
+  };
   factory IosStoreBuild.fromJson(Map<String, dynamic> json) => IosStoreBuild(
     id: json['id'] as String,
     version: json['version'] as String,
@@ -111,6 +126,11 @@ class IosStoreState {
   final List<IosStoreBuild> builds;
   final List<Map<String, dynamic>> versions;
   final String? primaryLocale;
+  Map<String, dynamic> toJson() => {
+    'primaryLocale': primaryLocale,
+    'builds': builds.map((build) => build.toJson()).toList(),
+    'versions': versions,
+  };
   factory IosStoreState.fromJson(Map<String, dynamic> json) => IosStoreState(
     primaryLocale: json['primaryLocale'] as String?,
     builds: (json['builds'] as List? ?? [])
@@ -210,6 +230,22 @@ class IosReleaseRun {
         .toList(),
   );
 }
+
+/// A run as it crosses the relay between a build host and the desktop
+/// driving it. The manifest leaves the App Store state out; the remote side
+/// needs it to offer the right next step, so it travels alongside.
+Map<String, dynamic> iosRunToWire(IosReleaseRun run) => {
+  ...run.toJson(),
+  'store': run.store.toJson(),
+};
+
+IosReleaseRun iosRunFromWire(Map<String, dynamic> json) =>
+    IosReleaseRun.fromJson(json)
+      ..store = json['store'] is Map
+          ? IosStoreState.fromJson(
+              Map<String, dynamic>.from(json['store'] as Map),
+            )
+          : const IosStoreState();
 
 /// The linear path a release follows, as shown on the release timeline.
 enum IosReleaseStage {

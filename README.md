@@ -541,6 +541,25 @@ agent does not come back after a reboot, because nothing starts the app until
 someone opens it by hand — which makes remote restart a one-way trip. The
 installer adds the Startup entry and the uninstaller removes it.
 
+### Building iOS from Windows on a Mac
+
+A Windows desktop can run the whole iOS release (preflight, IPA, TestFlight,
+App Store) on a Mac through the same relay; no remote desktop session is
+needed. The full design and setup are in `docs/remote-ios-build-plan.md`.
+
+1. On the Mac: same relay endpoint and desktop token, then Options > Điều khiển
+   > **Nhận build iOS từ máy khác** and **Ghép máy điều khiển build**. The Mac
+   switches to its own desktop id, `mac-<host name>`.
+2. On Windows: iOS release dialog > **Máy build** > **Ghép Mac**, enter the
+   code, and check the key fingerprint matches the one on the Mac.
+3. Push the commit to release. The Mac builds that commit in its own checkout
+   under `~/AMC/ios-workspaces`; gitignored files the build needs (`.env`, …)
+   are listed under Cấu hình build > File gửi kèm.
+
+Each step carries the App Store Connect key sealed to the Mac's key
+(X25519 + AES-GCM), so the relay stores ciphertext only. The `ios` scope a
+pairing grants reaches only the Mac that issued the code.
+
 ## Accounts and Teams (Cloudflare Worker + D1)
 
 Team login and shared HTTP Tools are served by the `amc-api` Cloudflare Worker

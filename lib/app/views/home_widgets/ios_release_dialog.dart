@@ -58,12 +58,27 @@ class _IosReleaseDialogState extends State<_IosReleaseDialog> {
   String? _error;
   ({String key, Future<List<String>> lines})? _savedLog;
 
+  /// Build on a paired Mac through the relay. Always so off macOS, where
+  /// there is no Xcode to build with.
+  late bool _remote = !widget.controller.iosRelease.canBuildHere;
+  IosRemoteSource? _source;
+
   HomeController get controller => widget.controller;
-  IosReleaseWorkflowService get service => controller.iosRelease;
+  RemoteIosReleaseService get remote => controller.remoteIosRelease;
+  IosReleaseBackend get service => _remote ? remote : controller.iosRelease;
 
   List<IosReleaseRun> get _history => service.history
       .where((run) => run.project.id == widget.project.id)
       .toList();
+
+  /// The newest copy of the run on screen. A remote host reports each change
+  /// as a new snapshot, where the local workflow updates one object in place.
+  IosReleaseRun? get _shownRun {
+    final run = _run;
+    if (run == null) return null;
+    return service.history.where((entry) => entry.id == run.id).firstOrNull ??
+        run;
+  }
 
   /// Saved settings with the release notes being edited.
   IosReleaseSettings get _draftSettings => IosReleaseSettings.fromJson({
@@ -79,8 +94,8 @@ class _IosReleaseDialogState extends State<_IosReleaseDialog> {
 
   Future<void> _load() async {
     try {
-      await service.load();
-      final settings = await service.readSettings(widget.project);
+      // Settings live on this machine whichever Mac builds.
+      final settings = await controller.iosRelease.readSettings(widget.project);
       final local = await controller.appStoreInspector.readLocalVersion(
         widget.project.path,
       );
@@ -89,6 +104,9 @@ class _IosReleaseDialogState extends State<_IosReleaseDialog> {
       _local = local;
       _version.text = local?.name ?? '';
       _notes.text = settings.notes;
+      if (_remote) unawaited(_readSource());
+      await service.load(widget.project);
+      if (!mounted) return;
       // A run still working in the background wins over the newest one.
       final active = service.current.value;
       _run = service.busy.value && active?.project.id == widget.project.id
@@ -98,6 +116,72 @@ class _IosReleaseDialogState extends State<_IosReleaseDialog> {
       _error = error.toString();
     }
     if (mounted) setState(() => _loading = false);
+  }
+
+  Future<void> _readSource() async {
+    try {
+      final source = await remote.inspectSource(widget.project.path);
+      if (mounted) setState(() => _source = source);
+    } catch (_) {
+      /* The Mac reports a missing remote or commit when asked to prepare. */
+    }
+  }
+
+  void _selectBackend(bool remote) {
+    if (remote == _remote) return;
+    setState(() {
+      _remote = remote;
+      _run = null;
+      _newRelease = false;
+      _selectedStage = null;
+      _builds = null;
+      _selectedBuild = null;
+      _error = null;
+      _savedLog = null;
+      _loading = true;
+    });
+    _load();
+  }
+
+  Future<void> _linkHost() async {
+    final linked = await showDialog<bool>(
+      context: context,
+      builder: (_) => _IosBuildHostLinkDialog(controller: controller),
+    );
+    if (linked == true && mounted) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+      await _load();
+    }
+  }
+
+  Future<void> _unlinkHost() async {
+    final link = remote.link.value;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Bỏ ghép Mac build?'),
+        content: Text(
+          'Máy này sẽ không gửi được build iOS tới ${link.displayName} nữa. '
+          'Muốn dùng lại phải tạo mã ghép mới trên Mac.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Hủy'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Bỏ ghép'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await remote.unlink();
+    if (mounted) setState(() => _run = null);
   }
 
   @override
@@ -113,11 +197,14 @@ class _IosReleaseDialogState extends State<_IosReleaseDialog> {
       key: const Key('ios-release-dialog'),
       child: Obx(() {
         final iosBusy = service.busy.value;
-        final blocked = iosBusy || controller.runner.isBusy;
+        // A Mac build host has its own runner; this machine stays free.
+        final blocked =
+            iosBusy || (service.usesLocalRunner && controller.runner.isBusy);
         // Runs are saved in place; this rebuilds when a step updates one.
         service.current.value;
+        if (_remote) remote.status.value;
         final history = _history;
-        final run = _run;
+        final run = _shownRun;
         final showPreparation = _loading || _newRelease || run == null;
         return Column(
           children: [
@@ -162,13 +249,23 @@ class _IosReleaseDialogState extends State<_IosReleaseDialog> {
       closeKey: const Key('hide-ios-release'),
       closeTooltip: iosBusy ? 'Ẩn bảng theo dõi' : 'Đóng',
       pills: showPreparation
-          ? const [
-              _HeaderPill(
+          ? [
+              const _HeaderPill(
                 icon: Icons.auto_awesome_motion_outlined,
                 label: 'Preflight -> Build IPA -> TestFlight -> App Store',
               ),
+              if (_remote && remote.link.value.isLinked)
+                _HeaderPill(
+                  icon: Icons.dns_outlined,
+                  label: remote.link.value.displayName,
+                ),
             ]
           : [
+              if (_remote)
+                _HeaderPill(
+                  icon: Icons.dns_outlined,
+                  label: remote.link.value.displayName,
+                ),
               _HeaderPill(
                 icon: Icons.sell_outlined,
                 label: '${run!.version}+${run.buildNumber}',
@@ -248,6 +345,8 @@ class _IosReleaseDialogState extends State<_IosReleaseDialog> {
                 ],
               ),
               const SizedBox(height: 22),
+              _buildMachineCard(blocked),
+              const SizedBox(height: 18),
               _WorkflowInfoCard(
                 children: [
                   _WorkflowInfoRow(
@@ -376,6 +475,135 @@ class _IosReleaseDialogState extends State<_IosReleaseDialog> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildMachineCard(bool blocked) {
+    final link = remote.link.value;
+    final host = remote.host.value;
+    final hostError = remote.hostError.value;
+    final source = _source;
+    const warning = Color(0xFFF79009);
+    final hint = Theme.of(context).textTheme.bodySmall;
+    return _HudCardShell(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _cardLabel(Icons.dns_outlined, 'Máy build'),
+          const SizedBox(height: 10),
+          SegmentedButton<bool>(
+            key: const Key('ios-build-machine'),
+            showSelectedIcon: false,
+            segments: [
+              ButtonSegment(
+                value: false,
+                enabled: controller.iosRelease.canBuildHere,
+                icon: const Icon(Icons.laptop_mac_outlined, size: 16),
+                label: const Text('MÁY NÀY'),
+              ),
+              ButtonSegment(
+                value: true,
+                icon: const Icon(Icons.cloud_sync_outlined, size: 16),
+                label: Text(
+                  link.isLinked
+                      ? link.displayName.toUpperCase()
+                      : 'MAC QUA RELAY',
+                ),
+              ),
+            ],
+            selected: {_remote},
+            onSelectionChanged: blocked
+                ? null
+                : (selection) => _selectBackend(selection.first),
+          ),
+          if (!controller.iosRelease.canBuildHere && !_remote) ...[
+            const SizedBox(height: 8),
+            Text('Máy này không có Xcode; build iOS cần một Mac.', style: hint),
+          ],
+          if (_remote) ...[
+            const SizedBox(height: 12),
+            if (!link.isLinked)
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Chưa ghép Mac. Trên Mac: Tuỳ chọn → Điều khiển từ xa → '
+                      'bật "Nhận build iOS từ máy khác" rồi bấm "Ghép máy '
+                      'điều khiển build" để lấy mã.',
+                      style: hint,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  FilledButton.icon(
+                    key: const Key('ios-link-build-host'),
+                    onPressed: blocked ? null : _linkHost,
+                    icon: const Icon(Icons.link, size: 17),
+                    label: const Text('Ghép Mac'),
+                  ),
+                ],
+              )
+            else
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  _MetaChip(
+                    icon: host?.online == true
+                        ? Icons.cloud_done_outlined
+                        : Icons.cloud_off_outlined,
+                    label: host == null
+                        ? 'Chưa rõ trạng thái'
+                        : !host.online
+                        ? 'Offline'
+                        : host.busy
+                        ? 'Online · đang bận'
+                        : 'Online',
+                    highlighted: host?.online == true,
+                  ),
+                  if (host != null && host.xcode.isNotEmpty)
+                    _MetaChip(icon: Icons.handyman_outlined, label: host.xcode),
+                  _MetaChip(icon: Icons.fingerprint, label: link.fingerprint),
+                  IconButton(
+                    tooltip: 'Làm mới trạng thái Mac',
+                    visualDensity: VisualDensity.compact,
+                    onPressed: remote.refreshHost,
+                    icon: const Icon(Icons.refresh, size: 18),
+                  ),
+                  TextButton(
+                    onPressed: blocked ? null : _unlinkHost,
+                    child: const Text('Bỏ ghép'),
+                  ),
+                ],
+              ),
+            if (hostError.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(hostError, style: hint?.copyWith(color: warning)),
+            ],
+            if (source != null && source.commit.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Text(
+                'Mac build commit ${source.shortCommit}'
+                '${source.branch.isEmpty || source.branch == 'HEAD' ? '' : ' (${source.branch})'}'
+                ' từ ${source.remote.isEmpty ? 'origin' : source.remote}.',
+                style: hint,
+              ),
+              if (!source.pushed)
+                Text(
+                  'Chưa thấy commit này trên remote: push trước khi build.',
+                  style: hint?.copyWith(color: warning),
+                ),
+              if (source.changedFiles > 0)
+                Text(
+                  '${source.changedFiles} file thay đổi chưa commit sẽ không '
+                  'được build.',
+                  style: hint?.copyWith(color: warning),
+                ),
+            ],
+          ],
+        ],
       ),
     );
   }
@@ -592,6 +820,12 @@ class _IosReleaseDialogState extends State<_IosReleaseDialog> {
             icon: Icons.verified_user_outlined,
             label: 'Team ${run.settings.teamId}',
           ),
+          if (_remote && live && remote.status.value.isNotEmpty)
+            _MetaChip(
+              icon: Icons.cloud_sync_outlined,
+              label: remote.status.value,
+              highlighted: true,
+            ),
         ],
       ),
     );
@@ -749,7 +983,7 @@ class _IosReleaseDialogState extends State<_IosReleaseDialog> {
 
   Widget _buildLog(IosReleaseRun run, bool live) {
     if (live) {
-      return _logPane(run, controller.runner.logLines.toList(), live: true);
+      return _logPane(run, service.liveLog.toList(), live: true);
     }
     return FutureBuilder<List<String>>(
       future: _savedLogFor(run),
@@ -802,18 +1036,13 @@ class _IosReleaseDialogState extends State<_IosReleaseDialog> {
 
   /// Tail of the run's command log, re-read when the run moves on.
   Future<List<String>> _savedLogFor(IosReleaseRun run) {
-    final key = '${run.id}:${run.steps.length}:${run.status.name}';
+    final key =
+        '${_remote ? 'remote' : 'local'}:${run.id}:${run.steps.length}:${run.status.name}';
     final cached = _savedLog;
     if (cached != null && cached.key == key) return cached.lines;
-    final lines = () async {
-      final file = File(p.join(run.directory, 'commands.log'));
-      if (!await file.exists()) return const <String>[];
-      final all = utf8
-          .decode(await file.readAsBytes(), allowMalformed: true)
-          .trimRight()
-          .split('\n');
-      return all.length > 600 ? all.sublist(all.length - 600) : all;
-    }();
+    final lines = service
+        .savedLog(run)
+        .catchError((Object error) => ['Không đọc được log của run: $error']);
     _savedLog = (key: key, lines: lines);
     return lines;
   }
@@ -1002,7 +1231,7 @@ class _IosReleaseDialogState extends State<_IosReleaseDialog> {
           !run.settings.automaticRelease &&
           !run.succeeded('release'))
         _store(run, 'release', label: 'Phát hành bản đã duyệt'),
-      if (run.ipaPath != null)
+      if (run.ipaPath != null && service.usesLocalRunner)
         _IosAction(
           'reveal',
           'Mở IPA trong Finder',
@@ -1312,6 +1541,9 @@ class _IosReleaseSettingsDialogState extends State<_IosReleaseSettingsDialog> {
     text: widget.settings.groups.join(', '),
   );
   late final _locale = TextEditingController(text: widget.settings.locale);
+  late final _remoteFiles = TextEditingController(
+    text: widget.settings.remoteFiles.join('\n'),
+  );
   late bool _external = widget.settings.externalTesting;
   late bool _useAppStoreLocale = widget.settings.useAppStoreLocale;
   late bool _automatic = widget.settings.automaticRelease;
@@ -1329,6 +1561,7 @@ class _IosReleaseSettingsDialogState extends State<_IosReleaseSettingsDialog> {
       _flutter,
       _groups,
       _locale,
+      _remoteFiles,
     ]) {
       field.dispose();
     }
@@ -1361,6 +1594,11 @@ class _IosReleaseSettingsDialogState extends State<_IosReleaseSettingsDialog> {
           .split('\n')
           .map((argument) => argument.trim())
           .where((argument) => argument.isNotEmpty)
+          .toList(),
+      remoteFiles: _remoteFiles.text
+          .split('\n')
+          .map((file) => file.trim())
+          .where((file) => file.isNotEmpty)
           .toList(),
     );
   }
@@ -1530,6 +1768,17 @@ class _IosReleaseSettingsDialogState extends State<_IosReleaseSettingsDialog> {
                 Icons.flutter_dash,
                 helper: 'Trống: dùng Flutter của AMC',
               ),
+              const SizedBox(height: 12),
+              _field(
+                _remoteFiles,
+                'File gửi kèm khi build trên Mac',
+                Icons.attach_file,
+                helper:
+                    'Mỗi dòng một file đã .gitignore, đường dẫn trong project, '
+                    'ví dụ .env hoặc ios/Runner/GoogleService-Info.plist. Gửi '
+                    'mã hoá cùng mỗi lần build, tối đa 256 KB.',
+                lines: 2,
+              ),
               const SizedBox(height: 20),
               _section('Phân phối'),
               _field(
@@ -1597,6 +1846,170 @@ class _IosReleaseSettingsDialogState extends State<_IosReleaseSettingsDialog> {
           label: const Text('Lưu'),
         ),
       ],
+    );
+  }
+}
+
+/// Links this desktop to a Mac build host with the code the Mac shows.
+class _IosBuildHostLinkDialog extends StatefulWidget {
+  const _IosBuildHostLinkDialog({required this.controller});
+
+  final HomeController controller;
+
+  @override
+  State<_IosBuildHostLinkDialog> createState() =>
+      _IosBuildHostLinkDialogState();
+}
+
+class _IosBuildHostLinkDialogState extends State<_IosBuildHostLinkDialog> {
+  late final _endpoint = TextEditingController(text: _defaultEndpoint());
+  final _code = TextEditingController();
+  bool _linking = false;
+  String? _error;
+  IosBuildHostLink? _linked;
+
+  String _defaultEndpoint() {
+    final configured = widget
+        .controller
+        .notificationSettings
+        .value
+        .endpointBaseUrl
+        .trim();
+    return configured.isEmpty ? RemoteControlService.relayEndpoint : configured;
+  }
+
+  @override
+  void dispose() {
+    _endpoint.dispose();
+    _code.dispose();
+    super.dispose();
+  }
+
+  Future<void> _link() async {
+    setState(() {
+      _linking = true;
+      _error = null;
+    });
+    try {
+      final linked = await widget.controller.remoteIosRelease.linkHost(
+        endpointBaseUrl: _endpoint.text,
+        pairingCode: _code.text,
+      );
+      if (mounted) setState(() => _linked = linked);
+    } catch (error) {
+      if (mounted) setState(() => _error = error.toString());
+    } finally {
+      if (mounted) setState(() => _linking = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final linked = _linked;
+    return AlertDialog(
+      key: const Key('ios-build-host-link-dialog'),
+      backgroundColor: AppCyberTheme.panelBackgroundStrong,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: BorderSide(color: AppCyberTheme.palette.cardBorder),
+      ),
+      title: const _PanelTitle(icon: Icons.link, title: 'Ghép Mac build iOS'),
+      content: SizedBox(
+        width: 460,
+        child: linked != null
+            ? Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Đã ghép ${linked.displayName}.'),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'So sánh mã khoá dưới đây với mã đang hiện trên Mac. '
+                    'Nếu khác nhau, bỏ ghép ngay: API key sẽ được mã hoá '
+                    'cho khoá này.',
+                  ),
+                  const SizedBox(height: 12),
+                  SelectableText(
+                    linked.fingerprint,
+                    style: AppCyberTheme.dataTextStyle(
+                      size: 22,
+                      color: AppCyberTheme.textPrimary,
+                      weight: FontWeight.w900,
+                    ),
+                  ),
+                ],
+              )
+            : Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text(
+                    'Trên Mac mở AMC → Tuỳ chọn → Điều khiển từ xa, bật '
+                    '"Nhận build iOS từ máy khác" rồi bấm "Ghép máy điều '
+                    'khiển build". Nhập mã Mac hiển thị vào đây.',
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: _endpoint,
+                    enabled: !_linking,
+                    decoration: const InputDecoration(
+                      labelText: 'Relay endpoint',
+                      helperText: 'Cùng endpoint đang cấu hình trên Mac',
+                      prefixIcon: Icon(Icons.hub_outlined),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    key: const Key('ios-build-host-code'),
+                    controller: _code,
+                    enabled: !_linking,
+                    autofocus: true,
+                    textCapitalization: TextCapitalization.characters,
+                    onSubmitted: (_) => _linking ? null : _link(),
+                    decoration: const InputDecoration(
+                      labelText: 'Mã ghép từ Mac',
+                      prefixIcon: Icon(Icons.pin_outlined),
+                    ),
+                  ),
+                  if (_error != null) ...[
+                    const SizedBox(height: 10),
+                    SelectableText(
+                      _error!,
+                      style: AppCyberTheme.dataTextStyle(
+                        size: 11,
+                        color: Theme.of(context).colorScheme.error,
+                        weight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+      ),
+      actions: linked != null
+          ? [
+              FilledButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('Khớp, xong'),
+              ),
+            ]
+          : [
+              OutlinedButton(
+                onPressed: _linking ? null : () => Navigator.of(context).pop(),
+                child: const Text('Huỷ'),
+              ),
+              FilledButton.icon(
+                key: const Key('ios-build-host-link'),
+                onPressed: _linking ? null : _link,
+                icon: _linking
+                    ? const SizedBox.square(
+                        dimension: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.link),
+                label: const Text('Ghép'),
+              ),
+            ],
     );
   }
 }

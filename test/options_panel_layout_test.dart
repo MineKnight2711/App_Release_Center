@@ -24,6 +24,7 @@ import 'package:app_management_center/app/services/app_store_credential_store_se
 import 'package:app_management_center/app/services/app_store_project_inspector_service.dart';
 import 'package:app_management_center/app/services/app_store_version_check_service.dart';
 import 'package:app_management_center/app/services/ios_release_workflow_service.dart';
+import 'package:app_management_center/app/services/remote_ios_release_service.dart';
 import 'package:app_management_center/app/services/ch_play_credential_store_service.dart';
 import 'package:app_management_center/app/services/ch_play_project_inspector_service.dart';
 import 'package:app_management_center/app/services/ch_play_version_check_service.dart';
@@ -246,6 +247,59 @@ void main() {
     expect(find.byKey(const Key('release-target-dialog')), findsNothing);
     expect(find.byKey(const Key('release-workflow-dialog')), findsOneWidget);
     await tester.tap(find.byKey(const Key('hide-release-workflow')));
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('sends the iOS build to a paired Mac when chosen', (
+    tester,
+  ) async {
+    final ios = AppStoreProject(
+      id: 'ios-remote',
+      path: harness.projectDirectory.path,
+      displayName: 'iOS remote demo',
+      bundleId: 'com.example.remote',
+    );
+    harness.controller.appStoreProjects.assignAll([ios]);
+    await _pumpHome(tester, harness);
+    await _openIosRelease(tester, harness, ios);
+
+    // At a Mac the release builds here until told otherwise.
+    expect(find.byKey(const Key('ios-build-machine')), findsOneWidget);
+    expect(find.byKey(const Key('ios-link-build-host')), findsNothing);
+
+    // Switching reloads settings and reads git for real.
+    await tester.runAsync(() async {
+      await tester.tap(find.text('MAC QUA RELAY'));
+      for (var tick = 0; tick < 100; tick++) {
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        await tester.pump();
+        if (find
+            .byKey(const Key('ios-link-build-host'))
+            .evaluate()
+            .isNotEmpty) {
+          break;
+        }
+      }
+    });
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('ios-link-build-host')), findsOneWidget);
+    expect(find.textContaining('Chưa ghép Mac'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('ios-link-build-host')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('ios-build-host-link-dialog')), findsOneWidget);
+    expect(find.byKey(const Key('ios-build-host-code')), findsOneWidget);
+    await tester.tap(find.text('Huỷ'));
+    await tester.pumpAndSettle();
+
+    // Files the Mac needs and the commit cannot carry are set per project.
+    await tester.tap(find.byKey(const Key('ios-release-settings')));
+    await tester.pumpAndSettle();
+    expect(find.text('File gửi kèm khi build trên Mac'), findsOneWidget);
+    await tester.tap(find.text('Huỷ'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('hide-ios-release')));
     await tester.pumpAndSettle();
   });
 
@@ -3603,10 +3657,18 @@ class _Harness {
         appStoreInspector: appStoreInspector,
         appStoreCredentialStore: appStoreCredentialStore,
         appStoreVersionChecker: Get.find<AppStoreVersionCheckService>(),
+        // These tests sit at a Mac; building elsewhere has its own test.
         iosRelease: IosReleaseWorkflowService(
           runner: runner,
           credentials: appStoreCredentialStore.read,
           root: Directory('${root.path}/ios_history'),
+          isMacOS: () => true,
+        ),
+        remoteIosRelease: RemoteIosReleaseService(
+          store: store,
+          connect: connect,
+          credentials: appStoreCredentialStore.read,
+          secureStore: _MemorySecureKeyValueStore(),
         ),
         resourceCatalogPasswords: resourceCatalogPasswords,
         resourceCatalogExcel: resourceCatalogExcel,

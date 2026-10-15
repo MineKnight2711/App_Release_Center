@@ -7,6 +7,7 @@ import 'package:app_management_center/app/models/app_store_credentials.dart';
 import 'package:app_management_center/app/models/app_store_project.dart';
 import 'package:app_management_center/app/models/ios_release.dart';
 import 'package:app_management_center/app/services/app_store_project_inspector_service.dart';
+import 'package:app_management_center/app/services/ios_release_backend.dart';
 import 'package:app_management_center/app/services/ios_release_fastfile.dart';
 import 'package:app_management_center/app/services/ios_release_script.dart';
 import 'package:app_management_center/app/services/release_runner_service.dart';
@@ -15,7 +16,7 @@ import 'package:get/get.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
-class IosReleaseWorkflowService {
+class IosReleaseWorkflowService implements IosReleaseBackend {
   IosReleaseWorkflowService({
     required this.runner,
     required this.credentials,
@@ -32,8 +33,11 @@ class IosReleaseWorkflowService {
   final bool _customRoot;
   final bool Function() _isMacOS;
   final Duration pollInterval, processingTimeout;
+  @override
   final current = Rxn<IosReleaseRun>();
+  @override
   final history = <IosReleaseRun>[].obs;
+  @override
   final busy = false.obs;
   bool _canceled = false;
   IosReleaseRun? _loggingRun;
@@ -44,7 +48,18 @@ class IosReleaseWorkflowService {
     p.join((await getApplicationSupportDirectory()).path, 'ios_releases'),
   ).create(recursive: true);
 
-  Future<void> load() => _loading ??= _load();
+  @override
+  RxList<String> get liveLog => runner.logLines;
+
+  @override
+  bool get usesLocalRunner => true;
+
+  /// Whether this machine has what a build needs. Off macOS a release has to
+  /// go to a Mac build host instead.
+  bool get canBuildHere => _isMacOS();
+
+  @override
+  Future<void> load([AppStoreProject? project]) => _loading ??= _load();
   Future<void> _load() async {
     final directory = await root;
     await directory.create(recursive: true);
@@ -150,6 +165,13 @@ class IosReleaseWorkflowService {
         'Build arguments bổ sung phải dạng --flag=value, không ghi đè version, flavor, target hoặc signing.',
       );
     }
+    for (final file in settings.remoteFiles) {
+      if (remoteFilePath(file) == null) {
+        throw FormatException(
+          'File gửi kèm phải là đường dẫn tương đối trong project: $file',
+        );
+      }
+    }
     final effectiveConfiguration = settings.flavor.isEmpty
         ? 'Release'
         : 'Release-${settings.flavor}';
@@ -160,6 +182,26 @@ class IosReleaseWorkflowService {
         'Flutter IPA dùng Runner/Release hoặc scheme=flavor và configuration=Release-<flavor>.',
       );
     }
+  }
+
+  /// [path] as a forward-slash path inside the project, or null when it could
+  /// land outside it or inside `.git`. Checked on both ends of a remote build:
+  /// the host writes whatever it is sent, so it cannot trust the sender's check.
+  static String? remoteFilePath(String path) {
+    final slashed = path.trim().replaceAll(r'\', '/');
+    if (slashed.isEmpty ||
+        slashed.startsWith('/') ||
+        RegExp(r'^[A-Za-z]:').hasMatch(slashed) ||
+        slashed.split('/').contains('..')) {
+      return null;
+    }
+    final normalized = p.posix.normalize(slashed);
+    if (normalized == '.' ||
+        normalized.split('/').first == '.git' ||
+        normalized.endsWith('/')) {
+      return null;
+    }
+    return normalized;
   }
 
   static int proposedBuild(int local, Iterable<IosStoreBuild> builds) =>
@@ -226,6 +268,7 @@ class IosReleaseWorkflowService {
     );
   }
 
+  @override
   Future<IosReleaseRun> prepare({
     required AppStoreProject project,
     required IosReleaseSettings settings,
@@ -332,6 +375,7 @@ class IosReleaseWorkflowService {
     return prepared!;
   }
 
+  @override
   Future<IosStoreState> inspect(
     AppStoreProject project,
     IosReleaseSettings settings,
@@ -526,6 +570,7 @@ class IosReleaseWorkflowService {
     await _save(run);
   });
 
+  @override
   Future<void> build(IosReleaseRun run) => _guard(run, 'build', () async {
     if (run.uploadAttempted) {
       throw StateError(
@@ -652,6 +697,7 @@ class IosReleaseWorkflowService {
     }
   }
 
+  @override
   Future<void> upload(
     IosReleaseRun run, {
     bool retryAfterVerification = false,
@@ -706,6 +752,7 @@ class IosReleaseWorkflowService {
   /// Runs what is left before TestFlight: build, upload, then waits for Apple
   /// processing. Each step keeps its own checks and the first failure stops
   /// the chain; an upload Apple has not confirmed is never repeated here.
+  @override
   Future<void> continueToTestFlight(IosReleaseRun run) async {
     if (!run.uploadAttempted && run.ipaPath == null) await build(run);
     if (!run.uploadAttempted) await upload(run);
@@ -714,10 +761,12 @@ class IosReleaseWorkflowService {
     }
   }
 
+  @override
   Future<void> refresh(IosReleaseRun run) => _guard(run, 'query', () async {
     run.store = await _apple(run, 'query');
     await _updateFromStore(run);
   });
+  @override
   Future<void> waitForProcessing(
     IosReleaseRun run,
   ) => _guard(run, 'query', () async {
@@ -798,6 +847,7 @@ class IosReleaseWorkflowService {
     }
   }
 
+  @override
   Future<void> storeAction(IosReleaseRun run, String action) => _guard(
     run,
     action,
@@ -829,9 +879,21 @@ class IosReleaseWorkflowService {
     },
   );
 
+  @override
   Future<void> cancel() async {
     _canceled = true;
     await runner.stop();
+  }
+
+  @override
+  Future<List<String>> savedLog(IosReleaseRun run, {int lines = 600}) async {
+    final file = File(p.join(run.directory, 'commands.log'));
+    if (!await file.exists()) return const <String>[];
+    final all = utf8
+        .decode(await file.readAsBytes(), allowMalformed: true)
+        .trimRight()
+        .split('\n');
+    return all.length > lines ? all.sublist(all.length - lines) : all;
   }
 
   Future<void> _guard(

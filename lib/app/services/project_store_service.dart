@@ -8,6 +8,7 @@ import 'package:app_management_center/app/models/app_store_project.dart';
 import 'package:app_management_center/app/models/ch_play_project.dart';
 import 'package:app_management_center/app/models/flowfin_settings.dart';
 import 'package:app_management_center/app/models/google_drive_release_settings.dart';
+import 'package:app_management_center/app/models/ios_build_host.dart';
 import 'package:app_management_center/app/models/release_notification.dart';
 import 'package:app_management_center/app/models/resource_catalog.dart';
 import 'package:app_management_center/app/models/resource_collection.dart';
@@ -42,6 +43,8 @@ class ProjectStoreService extends GetxService implements AuthSessionStore {
   static const _apiToolHistoryKey = 'api_tool_history';
   static const _apiToolTimeoutSecondsKey = 'api_tool_timeout_seconds';
   static const _recentCommandIdsKey = 'recent_command_ids';
+  static const _iosBuildHostLinkKey = 'ios_build_host_link';
+  static const _iosBuildHostActiveStepKey = 'ios_build_host_active_step';
   static const _apiToolHistoryLimit = 50;
   static const _recentCommandIdsLimit = 12;
   static const _defaultApiToolTimeoutSeconds = 30;
@@ -710,5 +713,50 @@ class ProjectStoreService extends GetxService implements AuthSessionStore {
 
   Future<void> clearRemoteUnlockSession() async {
     await _preferences.remove(_remoteUnlockSessionKey);
+  }
+
+  /// The Mac this desktop sends iOS builds to. The control token is not in
+  /// here; it lives in secure storage.
+  IosBuildHostLink get iosBuildHostLink {
+    final json = _jsonMap(_iosBuildHostLinkKey);
+    return json == null
+        ? const IosBuildHostLink()
+        : IosBuildHostLink.fromJson(json);
+  }
+
+  Future<void> saveIosBuildHostLink(IosBuildHostLink? link) async {
+    if (link == null) {
+      await _preferences.remove(_iosBuildHostLinkKey);
+      return;
+    }
+    await _preferences.setString(
+      _iosBuildHostLinkKey,
+      jsonEncode(link.toJson()),
+    );
+  }
+
+  /// A remote iOS step this desktop sent and has not yet seen finish, so a
+  /// restart can pick its progress back up instead of losing track of it.
+  Map<String, Object?>? get iosBuildHostActiveStep =>
+      _jsonMap(_iosBuildHostActiveStepKey);
+
+  Future<void> saveIosBuildHostActiveStep(Map<String, Object?>? step) async {
+    if (step == null) {
+      await _preferences.remove(_iosBuildHostActiveStepKey);
+      return;
+    }
+    await _preferences.setString(_iosBuildHostActiveStepKey, jsonEncode(step));
+  }
+
+  Map<String, Object?>? _jsonMap(String key) {
+    final entry = _preferences.getString(key);
+    if (entry == null || entry.trim().isEmpty) return null;
+    try {
+      final json = jsonDecode(entry);
+      if (json is Map) return Map<String, Object?>.from(json);
+    } catch (_) {
+      // Ignore invalid entries and fall back to defaults.
+    }
+    return null;
   }
 }

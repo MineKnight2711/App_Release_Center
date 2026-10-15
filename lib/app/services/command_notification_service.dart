@@ -114,15 +114,21 @@ class CommandNotificationService extends GetxService
   /// [scopes] is what the phone linked by this pairing will be allowed to do.
   /// The relay copies it onto the device and ignores anything the phone asks
   /// for, so this call is the only place the grant is decided.
+  ///
+  /// [desktopId] is this desktop's id on the relay. A device linked through
+  /// the code may then send this desktop the commands only it may receive.
   Future<NotificationPairingSession> createPairingSession({
     List<String> scopes = const ['run'],
+    String desktopId = '',
   }) async {
     final currentSettings = _requireConfiguredSettings();
-    final response = await _httpClient.postJson(
-      _endpoint(currentSettings, 'pairings'),
-      {'source': 'desktop', 'app': 'app_management_center', 'scopes': scopes},
-      headers: await _headers(),
-    );
+    final response = await _httpClient
+        .postJson(_endpoint(currentSettings, 'pairings'), {
+          'source': 'desktop',
+          'app': 'app_management_center',
+          'scopes': scopes,
+          if (desktopId.isNotEmpty) 'desktopId': desktopId,
+        }, headers: await _headers());
     _ensureOk(response, 'create pairing');
     return NotificationPairingSession.fromJson(_bodyMap(response.body));
   }
