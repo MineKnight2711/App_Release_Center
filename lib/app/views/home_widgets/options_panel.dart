@@ -4058,6 +4058,16 @@ class _NotificationOptions extends GetView<HomeController> {
                 icon: const Icon(Icons.send_to_mobile_outlined),
                 label: const Text('Thử'),
               ),
+              // Release pushes go to Android phones that opted in, not to the
+              // web push devices selected above.
+              OutlinedButton.icon(
+                key: const Key('test-release-push'),
+                onPressed: settings.hasEndpoint
+                    ? controller.sendTestReleasePush
+                    : null,
+                icon: const Icon(Icons.notifications_active_outlined),
+                label: const Text('Thử báo release (Android)'),
+              ),
             ],
           ),
           if (controller.notificationStatus.value.isNotEmpty) ...[

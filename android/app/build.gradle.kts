@@ -4,6 +4,13 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+// Release notifications arrive through Firebase Cloud Messaging, configured by
+// the Firebase app registered for this package. A checkout without that file
+// still builds; the app then reports push as unavailable.
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
+}
+
 android {
     namespace = "com.example.app_release_center"
     compileSdk = flutter.compileSdkVersion
@@ -42,4 +49,10 @@ kotlin {
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    implementation(platform("com.google.firebase:firebase-bom:34.0.0"))
+    implementation("com.google.firebase:firebase-messaging")
+    implementation("androidx.core:core-ktx:1.13.1")
 }

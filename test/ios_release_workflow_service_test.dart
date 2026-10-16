@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:app_management_center/app/models/app_store_credentials.dart';
 import 'package:app_management_center/app/models/app_store_project.dart';
 import 'package:app_management_center/app/models/ios_release.dart';
+import 'package:app_management_center/app/models/release_notification.dart';
 import 'package:app_management_center/app/models/release_workflow.dart';
 import 'package:app_management_center/app/services/ios_release_workflow_service.dart';
 import 'package:app_management_center/app/services/release_runner_service.dart';
@@ -218,6 +219,37 @@ void main() {
       expect(run.status, IosReleaseStatus.ready);
       expect(runner.buildCalls, 1);
       expect(runner.appleActions.where((a) => a == 'upload').length, 1);
+    },
+  );
+
+  test(
+    'tells the phone once when TestFlight is ready or a step fails',
+    () async {
+      final run = await service.prepare(project: project, settings: settings);
+      await service.continueToTestFlight(run);
+      expect(run.status, IosReleaseStatus.processing);
+      expect(runner.pushes, isEmpty, reason: 'still waiting on Apple');
+
+      runner.processingState = 'VALID';
+      await service.continueToTestFlight(run);
+      expect(runner.pushes.single.outcome, ReleasePushOutcome.succeeded);
+      expect(runner.pushes.single.title, startsWith('TestFlight sẵn sàng'));
+
+      // Refreshing a run that is already there says nothing new.
+      await service.refresh(run);
+      expect(runner.pushes, hasLength(1));
+
+      final broken = await service.prepare(
+        project: project,
+        settings: settings,
+      );
+      runner.ipaVersion = '9.9.9';
+      await expectLater(service.continueToTestFlight(broken), throwsStateError);
+      final failure = runner.pushes.last;
+      expect(runner.pushes, hasLength(2));
+      expect(failure.outcome, ReleasePushOutcome.failed);
+      expect(failure.body, contains('Build IPA lỗi'));
+      expect(failure.tag, 'ios-${broken.id}');
     },
   );
 
@@ -746,6 +778,9 @@ class _Runner extends ReleaseRunnerService {
   Future<void> Function()? onBuild;
   Future<void> Function()? onConfigure;
   Future<void> Function(String)? onApple;
+  final pushes = <ReleasePushEvent>[];
+  @override
+  void notifyRelease(ReleasePushEvent event) => pushes.add(event);
   bool uploaded = false,
       missingCompliance = false,
       failUpload = false,

@@ -258,6 +258,20 @@ class ReleaseRunnerService extends GetxService {
     _append(message);
   }
 
+  /// Tells linked phones that a release finished or failed.
+  ///
+  /// Fire and forget: a phone that cannot be reached must not turn a finished
+  /// release into a failed one, nor hold up whatever runs next.
+  void notifyRelease(ReleasePushEvent event) {
+    final sender = _notificationService;
+    if (sender == null) return;
+    unawaited(
+      sender.sendReleaseEvent(event).catchError((Object error) {
+        _append('Gửi thông báo release tới điện thoại lỗi: $error');
+      }),
+    );
+  }
+
   void beginWorkflow({required int totalSteps, required String label}) {
     final normalizedTotal = totalSteps < 1 ? 1 : totalSteps;
     _workflowTitle = label.trim().isEmpty ? 'Chuỗi lệnh' : label.trim();

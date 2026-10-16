@@ -83,6 +83,7 @@ class IosBuildHostState {
     this.busy = false,
     this.status = '',
     this.xcode = '',
+    this.activeCommandId = '',
     this.lastSeenAt,
   });
 
@@ -99,6 +100,10 @@ class IosBuildHostState {
 
   /// `xcodebuild -version`, first line, when the Mac could read it.
   final String xcode;
+
+  /// The relay command the Mac is executing right now, if any. Empty from a
+  /// Mac too old to say.
+  final String activeCommandId;
   final DateTime? lastSeenAt;
 
   /// Reads one entry of the relay's desktop list.
@@ -121,6 +126,7 @@ class IosBuildHostState {
       busy: state['isRunning'] == true,
       status: _string(state['status']),
       xcode: _string(host['xcode']),
+      activeCommandId: _string(state['activeCommandId']),
       lastSeenAt: DateTime.tryParse(_string(json['lastSeenAt']))?.toLocal(),
     );
   }

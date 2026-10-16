@@ -33,6 +33,8 @@ import 'package:app_management_center/app/services/gemini_env_service.dart';
 import 'package:app_management_center/app/services/google_drive_release_upload_service.dart';
 import 'package:app_management_center/app/services/machine_power_service.dart';
 import 'package:app_management_center/app/services/ios_release_workflow_service.dart';
+import 'package:app_management_center/app/controllers/remote_release_bridge.dart';
+import 'package:app_management_center/app/services/remote_control_service.dart';
 import 'package:app_management_center/app/services/remote_ios_release_service.dart';
 import 'package:app_management_center/app/services/project_store_service.dart';
 import 'package:app_management_center/app/services/release_apk_artifact_service.dart';
@@ -309,6 +311,13 @@ class HomeController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    // The phone runs releases through the same calls this controller's
+    // dialogs make; see RemoteReleaseBridge.
+    if (Get.isRegistered<RemoteControlService>()) {
+      Get.find<RemoteControlService>().releaseHandler = RemoteReleaseBridge(
+        this,
+      );
+    }
     geminiApiKeyController.addListener(_syncGeminiKeyState);
     telegramBotTokenController.addListener(_syncTelegramFormState);
     telegramChatIdController.addListener(_syncTelegramFormState);
@@ -2713,6 +2722,34 @@ class HomeController extends GetxController {
     } catch (error) {
       notificationStatus.value = error.toString();
       runner.appendSystemLog('Gửi thông báo thử lỗi: $error');
+    }
+  }
+
+  /// Sends a "release finished" push to every Android phone that turned
+  /// release notifications on, end to end through the relay and FCM.
+  Future<void> sendTestReleasePush() async {
+    await saveNotificationConfiguration();
+    try {
+      final result = await notifications.sendReleasePush(
+        const ReleasePushEvent(
+          outcome: ReleasePushOutcome.succeeded,
+          title: 'Thử thông báo release',
+          body:
+              'Máy tính gửi tới điện thoại được. Release thật sẽ báo xong '
+              'hoặc lỗi như thế này.',
+          tag: 'release-push-test',
+        ),
+      );
+      notificationStatus.value = result.devices == 0
+          ? 'Chưa có điện thoại nào bật thông báo release. Trong app Android: '
+                'Máy tính → Thông báo release.'
+          : result.failed == 0
+          ? 'Đã gửi thông báo release tới ${result.sent} điện thoại Android.'
+          : 'Gửi được ${result.sent}/${result.devices}: '
+                '${result.failures.join('; ')}';
+    } catch (error) {
+      notificationStatus.value = error.toString();
+      runner.appendSystemLog('Gửi thử thông báo release lỗi: $error');
     }
   }
 

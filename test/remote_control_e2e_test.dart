@@ -2,6 +2,7 @@
 @Timeout(Duration(minutes: 5))
 library;
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -15,6 +16,7 @@ import 'package:app_management_center/app/services/notification_credential_store
 import 'package:app_management_center/app/services/project_store_service.dart';
 import 'package:app_management_center/app/services/release_runner_service.dart';
 import 'package:app_management_center/app/services/remote_control_service.dart';
+import 'package:app_management_center/app/services/remote_release_handler.dart';
 import 'package:app_management_center/app/services/script_catalog_service.dart';
 import 'package:app_management_center/app/services/wake_diagnostics_service.dart';
 import 'package:app_management_center/app/services/windows_auto_start_service.dart';
@@ -186,6 +188,66 @@ void main() {
         ),
       ),
     );
+  }, skip: skipReason);
+
+  test('a phone runs a desktop release step and watches it land', () async {
+    final harness = await _Harness.create(relay!, scopes: ['run']);
+    final releases = _FakeReleases();
+    harness.desktop.releaseHandler = releases;
+    await harness.desktop.setEnabled(true);
+    await harness.waitForDesktopOnline();
+    await harness.phone.refreshMobileDesktopState();
+
+    final overview = await harness.phone.releaseControl({'action': 'overview'});
+    expect((overview['android']! as List).single, containsPair('path', 'C:/p'));
+
+    final queued = await harness.phone.enqueueRelease({
+      'platform': 'android',
+      'action': 'prepare',
+      'projectPath': 'C:/p',
+      'track': 'internal',
+    });
+    releases.finish.complete();
+    final finished = await harness.waitForCommand(
+      queued.commandId,
+      'completed',
+    );
+
+    expect(releases.calls.single, {
+      'platform': 'android',
+      'action': 'prepare',
+      'projectPath': 'C:/p',
+      'track': 'internal',
+    });
+    final run = (finished['result']! as Map)['androidRun'] as Map;
+    expect(run['proposedVersion'], '1.0.1+2');
+    // The Run tab keeps whatever it was showing.
+    expect(harness.phone.activeMobileCommand.value, isNull);
+  }, skip: skipReason);
+
+  test('a phone stops a release and reads it while it runs', () async {
+    final harness = await _Harness.create(relay!, scopes: ['run']);
+    final releases = _FakeReleases();
+    harness.desktop.releaseHandler = releases;
+    await harness.desktop.setEnabled(true);
+    await harness.waitForDesktopOnline();
+    await harness.phone.refreshMobileDesktopState();
+
+    final queued = await harness.phone.enqueueRelease({
+      'platform': 'android',
+      'action': 'start',
+      'confirmProduction': true,
+    });
+    await harness.waitForCommand(queued.commandId, 'running');
+
+    // The control lane answers while the release holds the release lane.
+    final overview = await harness.phone.releaseControl({'action': 'overview'});
+    expect(overview['androidBusy'], isTrue);
+
+    await harness.phone.stopMobileCommand(queued.commandId);
+    final stopped = await harness.waitForCommand(queued.commandId, 'canceled');
+    expect(releases.canceled, ['android']);
+    expect(stopped['status'], 'canceled');
   }, skip: skipReason);
 
   test('the heartbeat carries wake diagnostics to the phone', () async {
@@ -455,5 +517,65 @@ class _MemorySecureKeyValueStore implements SecureKeyValueStore {
   @override
   Future<void> delete({required String key}) async {
     values.remove(key);
+  }
+}
+
+/// The desktop's release flows, standing in for the home controller.
+class _FakeReleases implements RemoteReleaseHandler {
+  final calls = <Map<String, Object?>>[];
+  final canceled = <String>[];
+  final finish = Completer<void>();
+  bool _running = false;
+
+  Map<String, Object?> get _run => {
+    'id': 'r1',
+    'projectPath': 'C:/p',
+    'projectName': 'Demo',
+    'track': 'internal',
+    'currentVersion': '1.0.0+1',
+    'proposedVersion': '1.0.1+2',
+    'steps': const [],
+    'createdAt': DateTime.now().toUtc().toIso8601String(),
+  };
+
+  @override
+  Future<Map<String, Object?>> overview() async => {
+    'android': [
+      {
+        'path': 'C:/p',
+        'name': 'Demo',
+        'applicationId': 'demo',
+        'track': 'internal',
+      },
+    ],
+    'ios': const [],
+    'androidBusy': _running,
+  };
+
+  @override
+  Future<Map<String, Object?>> iosProject(String projectId) async => const {};
+
+  @override
+  Future<Map<String, Object?>> run(Map<String, Object?> payload) async {
+    calls.add(payload);
+    _running = true;
+    try {
+      await finish.future;
+    } finally {
+      _running = false;
+    }
+    return {'androidRun': _run};
+  }
+
+  @override
+  Map<String, Object?>? get live => _running ? {'androidRun': _run} : null;
+
+  @override
+  List<String>? get liveLog => null;
+
+  @override
+  Future<void> cancel(String platform) async {
+    canceled.add(platform);
+    if (!finish.isCompleted) finish.completeError(StateError('Đã hủy.'));
   }
 }

@@ -38,6 +38,8 @@ class RemoteIosReleaseService implements IosReleaseBackend {
     this.pollInterval = const Duration(milliseconds: 1500),
     this.queryTimeout = const Duration(seconds: 25),
     this.connectionGrace = const Duration(minutes: 3),
+    this.staleAfter = const Duration(seconds: 90),
+    this.stopGrace = const Duration(seconds: 20),
   }) : _store = store,
        _connect = connect,
        _credentials = credentials,
@@ -59,6 +61,15 @@ class RemoteIosReleaseService implements IosReleaseBackend {
   /// How long the relay may be unreachable before a step stops being followed.
   /// The Mac carries on regardless; reopening the dialog picks it back up.
   final Duration connectionGrace;
+
+  /// How long a claimed step may go without a progress report before the Mac
+  /// is asked whether it is still running it. It reports every two seconds.
+  final Duration staleAfter;
+
+  /// How long the Mac has to confirm a stop before this desktop stops
+  /// following the step anyway. A Mac that already let go of the step never
+  /// will, and the dialog must not stay stuck on it.
+  final Duration stopGrace;
 
   /// How long a sealed step stays valid, including time spent queued behind
   /// another build on the Mac.
@@ -88,6 +99,7 @@ class RemoteIosReleaseService implements IosReleaseBackend {
   /// checkout path, and files to send along are read from here.
   final _projects = <String, AppStoreProject>{};
   String? _activeCommandId;
+  DateTime? _stopRequestedAt;
   Future<void>? _loading;
 
   Future<void> _ensureLoaded() => _loading ??= () async {
@@ -252,23 +264,8 @@ class RemoteIosReleaseService implements IosReleaseBackend {
     // and keep whatever history this session already has.
     final state = await refreshHost();
     if (state == null || !state.online) return;
-    final answer = await _query(
-      linked,
-      action: 'history',
-      projectId: project.id,
-    );
-    final runs = <IosReleaseRun>[];
-    for (final entry in (answer.result['runs'] as List? ?? const [])) {
-      if (entry is! Map) continue;
-      try {
-        runs.add(iosRunFromWire(Map<String, dynamic>.from(entry)));
-      } catch (_) {
-        /* A run from a newer host must not hide the others. */
-      }
-    }
-    history
-      ..removeWhere((run) => run.project.id == project.id)
-      ..insertAll(0, runs);
+    await _syncHistory(linked, project.id);
+    final runs = history.where((run) => run.project.id == project.id);
     final active = _store.iosBuildHostActiveStep;
     if (!busy.value &&
         active != null &&
@@ -374,13 +371,16 @@ class RemoteIosReleaseService implements IosReleaseBackend {
     final commandId = _activeCommandId;
     final linked = link.value;
     if (commandId == null || !linked.isLinked) return;
+    // Counted from now even if the request fails: the follow loop lets go
+    // after [stopGrace] whether or not the Mac ever hears about it.
+    _stopRequestedAt = _now();
+    status.value = 'Đã gửi yêu cầu dừng tới Mac…';
     final response = await _connect.post(
       _url(linked.endpointBaseUrl, 'mobile/commands/$commandId/stop'),
       const {},
       headers: _headers(linked),
     );
     _ensureOk(response.statusCode, response.body, 'Gửi lệnh dừng');
-    status.value = 'Đã gửi yêu cầu dừng tới Mac…';
   }
 
   @override
@@ -548,7 +548,7 @@ class RemoteIosReleaseService implements IosReleaseBackend {
         'runId': runId,
         'action': action,
       });
-      return await _follow(linked, command.commandId);
+      return await _follow(linked, command.commandId, projectId: projectId);
     } finally {
       busy.value = false;
       status.value = '';
@@ -564,7 +564,7 @@ class RemoteIosReleaseService implements IosReleaseBackend {
     if (commandId.isEmpty || busy.value) return;
     busy.value = true;
     try {
-      await _follow(linked, commandId);
+      await _follow(linked, commandId, projectId: _text(active['projectId']));
     } on RemoteIosReleaseException catch (error) {
       // The run snapshot already says how a step that failed on the Mac
       // ended; this is for losing the relay while following it.
@@ -577,10 +577,14 @@ class RemoteIosReleaseService implements IosReleaseBackend {
 
   Future<Map<String, Object?>> _follow(
     IosBuildHostLink linked,
-    String commandId,
-  ) async {
+    String commandId, {
+    required String projectId,
+  }) async {
     _activeCommandId = commandId;
+    _stopRequestedAt = null;
     DateTime? lostSince;
+    var lastUpdate = '';
+    var lastProgressAt = _now();
     try {
       while (true) {
         final RemoteCommand command;
@@ -606,10 +610,40 @@ class RemoteIosReleaseService implements IosReleaseBackend {
           _absorb(iosRunFromWire(Map<String, dynamic>.from(run)));
         }
         status.value = switch (command.status) {
+          _ when command.isActive && _stopRequestedAt != null =>
+            'Đang chờ ${linked.displayName} dừng…',
           'queued' => 'Đang chờ ${linked.displayName} nhận lệnh…',
           'claimed' || 'running' => '${linked.displayName} đang chạy…',
           _ => '',
         };
+        if (command.updatedAt != lastUpdate) {
+          lastUpdate = command.updatedAt;
+          lastProgressAt = _progressTime(command.updatedAt);
+        }
+        if (command.isActive) {
+          final stopAt = _stopRequestedAt;
+          if (stopAt != null && _now().difference(stopAt) > stopGrace) {
+            await _letGo(linked, projectId);
+            throw RemoteIosReleaseException(
+              '${linked.displayName} chưa xác nhận lệnh dừng sau '
+              '${stopGrace.inSeconds} giây. AMC ngừng theo dõi bước này; nếu '
+              'Mac vẫn đang build, dừng trực tiếp trên Mac.',
+            );
+          }
+          // A queued step waits on the Mac being free and reports nothing.
+          if (command.status != 'queued' &&
+              _now().difference(lastProgressAt) > staleAfter) {
+            if (!await _hostStillRunning(linked, commandId)) {
+              await _letGo(linked, projectId);
+              throw RemoteIosReleaseException(
+                '${linked.displayName} không còn chạy bước này (AMC trên Mac '
+                'đã dừng, khởi động lại hoặc offline) nên kết quả sẽ không '
+                'về nữa. Trạng thái run đã được đọc lại từ Mac.',
+              );
+            }
+            lastProgressAt = _now();
+          }
+        }
         if (!command.isActive) {
           await _store.saveIosBuildHostActiveStep(null);
           return switch (command.status) {
@@ -630,6 +664,72 @@ class RemoteIosReleaseService implements IosReleaseBackend {
       rethrow;
     } finally {
       _activeCommandId = null;
+      _stopRequestedAt = null;
+    }
+  }
+
+  /// The relay's clock for a report, kept from running ahead of this one so a
+  /// skewed clock cannot make a live step look stale or a dead one fresh
+  /// forever.
+  DateTime _progressTime(String updatedAt) {
+    final now = _now();
+    final at = DateTime.tryParse(updatedAt)?.toLocal();
+    return at == null || at.isAfter(now) ? now : at;
+  }
+
+  /// Whether the Mac is still working on [commandId], as its heartbeat says.
+  /// A Mac too old to name its command counts as running it while busy.
+  Future<bool> _hostStillRunning(
+    IosBuildHostLink linked,
+    String commandId,
+  ) async {
+    try {
+      final state = await _fetchHost(linked);
+      if (state != null) host.value = state;
+      if (state == null || !state.online) return false;
+      return state.activeCommandId.isNotEmpty
+          ? state.activeCommandId == commandId
+          : state.busy;
+    } catch (_) {
+      // Not hearing from the relay is no evidence the Mac stopped.
+      return true;
+    }
+  }
+
+  /// Stops tracking a step that will not report back, and shows what the Mac
+  /// actually has for the run instead of the last snapshot that arrived.
+  Future<void> _letGo(IosBuildHostLink linked, String projectId) async {
+    await _store.saveIosBuildHostActiveStep(null);
+    if (projectId.isEmpty) return;
+    try {
+      await _syncHistory(linked, projectId);
+    } catch (_) {
+      // The message says what happened; history refreshes on the next open.
+    }
+  }
+
+  Future<void> _syncHistory(IosBuildHostLink linked, String projectId) async {
+    final answer = await _query(
+      linked,
+      action: 'history',
+      projectId: projectId,
+    );
+    final runs = <IosReleaseRun>[];
+    for (final entry in (answer.result['runs'] as List? ?? const [])) {
+      if (entry is! Map) continue;
+      try {
+        runs.add(iosRunFromWire(Map<String, dynamic>.from(entry)));
+      } catch (_) {
+        /* A run from a newer host must not hide the others. */
+      }
+    }
+    history
+      ..removeWhere((run) => run.project.id == projectId)
+      ..insertAll(0, runs);
+    final shown = current.value;
+    if (shown != null && shown.project.id == projectId) {
+      current.value =
+          runs.where((run) => run.id == shown.id).firstOrNull ?? shown;
     }
   }
 

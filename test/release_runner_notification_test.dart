@@ -146,14 +146,26 @@ class _FailingSender implements CommandNotificationSender {
   Future<void> sendCommandEvent(CommandNotificationEvent event) async {
     throw Exception('offline');
   }
+
+  @override
+  Future<void> sendReleaseEvent(ReleasePushEvent event) async {
+    throw Exception('offline');
+  }
 }
 
 class _RecordingSender implements CommandNotificationSender {
   final events = <CommandNotificationEvent>[];
 
+  final releases = <ReleasePushEvent>[];
+
   @override
   Future<void> sendCommandEvent(CommandNotificationEvent event) async {
     events.add(event);
+  }
+
+  @override
+  Future<void> sendReleaseEvent(ReleasePushEvent event) async {
+    releases.add(event);
   }
 }
 

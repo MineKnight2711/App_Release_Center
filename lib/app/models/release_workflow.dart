@@ -80,6 +80,47 @@ class ReleaseWorkflowStepRun {
     return (finish ?? DateTime.now()).difference(start);
   }
 
+  /// For the relay. A step's log is cut to its tail: the phone shows where a
+  /// step stands, the full log stays on the desktop.
+  Map<String, Object?> toJson({int logTail = 40}) => {
+    'kind': kind.name,
+    'label': label,
+    'status': status.name,
+    'startedAt': startedAt?.toUtc().toIso8601String(),
+    'finishedAt': finishedAt?.toUtc().toIso8601String(),
+    'exitCode': exitCode,
+    'logLines': logLines.length > logTail
+        ? logLines.sublist(logLines.length - logTail)
+        : logLines,
+    'error': error,
+    'artifactPath': artifactPath,
+    'retryable': retryable,
+  };
+
+  factory ReleaseWorkflowStepRun.fromJson(Map<String, Object?> json) =>
+      ReleaseWorkflowStepRun(
+        kind: ReleaseWorkflowStepKind.values.firstWhere(
+          (kind) => kind.name == json['kind'],
+          orElse: () => ReleaseWorkflowStepKind.release,
+        ),
+        label: json['label']?.toString() ?? '',
+        status: ReleaseStepStatus.values.firstWhere(
+          (status) => status.name == json['status'],
+          orElse: () => ReleaseStepStatus.pending,
+        ),
+        startedAt: _date(json['startedAt']),
+        finishedAt: _date(json['finishedAt']),
+        exitCode: json['exitCode'] is num
+            ? (json['exitCode']! as num).toInt()
+            : null,
+        logLines: json['logLines'] is List
+            ? (json['logLines']! as List).map((line) => '$line').toList()
+            : const [],
+        error: json['error']?.toString(),
+        artifactPath: json['artifactPath']?.toString(),
+        retryable: json['retryable'] == true,
+      );
+
   bool get isTerminal => switch (status) {
     ReleaseStepStatus.succeeded ||
     ReleaseStepStatus.failed ||
@@ -176,6 +217,54 @@ class ReleaseWorkflowRun {
 
   bool get isRunning => activeStep != null;
 
+  Map<String, Object?> toJson() => {
+    'id': id,
+    'projectPath': projectPath,
+    'projectName': projectName,
+    'track': track,
+    'currentBranch': currentBranch,
+    'currentVersion': currentVersion,
+    'proposedVersion': proposedVersion,
+    'changedFiles': changedFiles.take(50).toList(),
+    'supportsSplitBuildDeploy': supportsSplitBuildDeploy,
+    'steps': [for (final step in steps) step.toJson()],
+    'createdAt': createdAt.toUtc().toIso8601String(),
+    'startedAt': startedAt?.toUtc().toIso8601String(),
+    'finishedAt': finishedAt?.toUtc().toIso8601String(),
+    'releaseNotes': releaseNotes,
+    'artifactPath': artifactPath,
+  };
+
+  factory ReleaseWorkflowRun.fromJson(Map<String, Object?> json) =>
+      ReleaseWorkflowRun(
+        id: json['id']?.toString() ?? '',
+        projectPath: json['projectPath']?.toString() ?? '',
+        projectName: json['projectName']?.toString() ?? '',
+        track: json['track']?.toString() ?? '',
+        currentBranch: json['currentBranch']?.toString() ?? '',
+        currentVersion: json['currentVersion']?.toString() ?? '',
+        proposedVersion: json['proposedVersion']?.toString() ?? '',
+        changedFiles: json['changedFiles'] is List
+            ? (json['changedFiles']! as List).map((file) => '$file').toList()
+            : const [],
+        supportsSplitBuildDeploy: json['supportsSplitBuildDeploy'] == true,
+        steps: json['steps'] is List
+            ? (json['steps']! as List)
+                  .whereType<Map>()
+                  .map(
+                    (step) => ReleaseWorkflowStepRun.fromJson(
+                      Map<String, Object?>.from(step),
+                    ),
+                  )
+                  .toList()
+            : const [],
+        createdAt: _date(json['createdAt']) ?? DateTime.now(),
+        startedAt: _date(json['startedAt']),
+        finishedAt: _date(json['finishedAt']),
+        releaseNotes: json['releaseNotes']?.toString() ?? '',
+        artifactPath: json['artifactPath']?.toString(),
+      );
+
   bool get isCompleted =>
       steps.isNotEmpty &&
       steps.every(
@@ -266,3 +355,6 @@ class ReleaseWorkflowException implements Exception {
   @override
   String toString() => message;
 }
+
+DateTime? _date(Object? value) =>
+    DateTime.tryParse(value?.toString() ?? '')?.toLocal();

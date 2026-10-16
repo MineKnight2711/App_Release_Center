@@ -1,5 +1,76 @@
 enum CommandNotificationEventType { started, completed, failed }
 
+/// How a release run ended, which decides the sound and buzz on the phone.
+enum ReleasePushOutcome { succeeded, failed }
+
+/// A release that finished or failed, sent to phones that turned release
+/// notifications on. One per run outcome, not one per command: the per-command
+/// web push already covers those.
+class ReleasePushEvent {
+  const ReleasePushEvent({
+    required this.outcome,
+    required this.title,
+    this.body = '',
+    this.tag = '',
+    this.projectName = '',
+    this.platform = '',
+    this.version = '',
+  });
+
+  final ReleasePushOutcome outcome;
+  final String title;
+  final String body;
+
+  /// Same tag, same notification: a retry that succeeds replaces the failure.
+  final String tag;
+  final String projectName;
+  final String platform;
+  final String version;
+
+  Map<String, Object?> toJson() => {
+    'outcome': outcome.name,
+    'title': title,
+    'body': body,
+    'tag': tag,
+    'projectName': projectName,
+    'platform': platform,
+    'version': version,
+  };
+}
+
+/// What the relay did with a release push.
+class ReleasePushResult {
+  const ReleasePushResult({
+    this.devices = 0,
+    this.sent = 0,
+    this.failed = 0,
+    this.removed = 0,
+    this.failures = const [],
+  });
+
+  /// Phones with release notifications on.
+  final int devices;
+  final int sent;
+  final int failed;
+
+  /// Phones whose app was uninstalled; the relay forgot their token.
+  final int removed;
+  final List<String> failures;
+
+  factory ReleasePushResult.fromJson(Map<String, Object?> json) {
+    int count(String key) => json[key] is num ? (json[key]! as num).toInt() : 0;
+    return ReleasePushResult(
+      devices: count('devices'),
+      sent: count('sent'),
+      failed: count('failed'),
+      removed: count('removed'),
+      failures: json['failures'] is List
+          ? (json['failures']! as List).map((entry) => '$entry').toList()
+          : const [],
+    );
+  }
+}
+
 class LinkedNotificationDevice {
   const LinkedNotificationDevice({
     required this.id,

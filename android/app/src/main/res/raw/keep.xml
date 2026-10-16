@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Release builds shrink resources, and these two are only ever named in a
+     notification channel's sound URI or by FCM, never through R. Without this
+     both were stripped and Android played its default sound for both. -->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@raw/release_success,@raw/release_failure" />
