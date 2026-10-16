@@ -509,6 +509,57 @@ void main() {
     },
   );
 
+  test(
+    'answers export compliance only when enabled and only when missing',
+    () async {
+      runner.missingCompliance = true;
+      final undeclared = await service.prepare(
+        project: project,
+        settings: settings,
+      );
+      await service.build(undeclared);
+      await service.upload(undeclared);
+      runner.processingState = 'VALID';
+      await service.refresh(undeclared);
+      expect(undeclared.status, IosReleaseStatus.ready);
+      expect(undeclared.message, contains('Thiếu Export Compliance'));
+      expect(runner.appleActions, isNot(contains('compliance')));
+      expect(runner.inputs.last['declare_no_encryption'], isFalse);
+
+      const declaring = IosReleaseSettings(
+        teamId: 'TEAM',
+        groups: ['Internal'],
+        declareNoEncryption: true,
+      );
+      expect(
+        IosReleaseSettings.fromJson(declaring.toJson()).declareNoEncryption,
+        isTrue,
+      );
+      final reused = await service.prepare(
+        project: project,
+        settings: declaring,
+        existingBuild: const IosStoreBuild(
+          id: 'existing',
+          version: '1.2.3',
+          number: 10,
+          processingState: 'VALID',
+        ),
+      );
+      expect(runner.appleActions.where((a) => a == 'compliance').length, 1);
+      expect(runner.inputs.last['declare_no_encryption'], isTrue);
+      expect(runner.inputs.last['build_number'], 10);
+      expect(reused.store.findBuild('1.2.3', 10)!.missingCompliance, isFalse);
+
+      runner.missingCompliance = true;
+      await service.refresh(reused);
+      expect(reused.status, IosReleaseStatus.ready);
+      expect(reused.message, isNot(contains('Export Compliance')));
+      expect(runner.appleActions.where((a) => a == 'compliance').length, 2);
+      await service.refresh(reused);
+      expect(runner.appleActions.where((a) => a == 'compliance').length, 2);
+    },
+  );
+
   test('does not label another selected build as publicly released', () async {
     final existing = const IosStoreBuild(
       id: 'existing',
@@ -696,6 +747,7 @@ class _Runner extends ReleaseRunnerService {
   Future<void> Function()? onConfigure;
   Future<void> Function(String)? onApple;
   bool uploaded = false,
+      missingCompliance = false,
       failUpload = false,
       pubspecDirty = false,
       echoPrivateKey = false;
@@ -803,12 +855,15 @@ class _Runner extends ReleaseRunnerService {
         if (failUpload) return const CommandRunResult(exitCode: 1);
         uploaded = true;
       }
+      if (action == 'compliance' && input['declare_no_encryption'] == true) {
+        missingCompliance = false;
+      }
       output =
           '${echoPrivateKey ? 'PRIVATE TEST FIXTURE\n' : ''}AMC_IOS_RESULT:${jsonEncode({
             'builds': [
-              {'id': 'existing', 'version': '1.2.3', 'number': '10', 'state': 'VALID', 'expired': false},
+              {'id': 'existing', 'version': '1.2.3', 'number': '10', 'state': 'VALID', 'expired': false, 'missingCompliance': missingCompliance},
               {'id': 'processing', 'version': '1.2.3', 'number': '11', 'state': 'PROCESSING', 'expired': false},
-              if (uploaded) {'id': 'new', 'version': '1.2.3', 'number': '12', 'state': processingState, 'expired': false},
+              if (uploaded) {'id': 'new', 'version': '1.2.3', 'number': '12', 'state': processingState, 'expired': false, 'missingCompliance': missingCompliance},
             ],
             'versions': versions,
           })}\n';

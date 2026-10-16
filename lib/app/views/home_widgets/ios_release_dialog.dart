@@ -1547,6 +1547,7 @@ class _IosReleaseSettingsDialogState extends State<_IosReleaseSettingsDialog> {
   late bool _external = widget.settings.externalTesting;
   late bool _useAppStoreLocale = widget.settings.useAppStoreLocale;
   late bool _automatic = widget.settings.automaticRelease;
+  late bool _declareNoEncryption = widget.settings.declareNoEncryption;
   bool _saving = false;
   String? _error;
 
@@ -1590,6 +1591,7 @@ class _IosReleaseSettingsDialogState extends State<_IosReleaseSettingsDialog> {
           .toList(),
       externalTesting: _external,
       automaticRelease: _automatic,
+      declareNoEncryption: _declareNoEncryption,
       extraBuildArguments: _arguments.text
           .split('\n')
           .map((argument) => argument.trim())
@@ -1813,6 +1815,16 @@ class _IosReleaseSettingsDialogState extends State<_IosReleaseSettingsDialog> {
                 'Tự phát hành sau khi Apple duyệt',
                 _automatic,
                 (value) => _automatic = value,
+              ),
+              _option(
+                'Export Compliance: không dùng mã hoá ngoài iOS',
+                _declareNoEncryption,
+                (value) => _declareNoEncryption = value,
+                subtitle:
+                    'Tự trả lời "None of the algorithms mentioned above" cho '
+                    'build chưa khai báo, để TestFlight không báo Missing '
+                    'Compliance. Info.plist có ITSAppUsesNonExemptEncryption '
+                    'thì giữ theo Info.plist.',
               ),
               if (_error != null) ...[
                 const SizedBox(height: 8),

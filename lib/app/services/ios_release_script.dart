@@ -33,7 +33,8 @@ def apple(action, run):
                     locale=SETTINGS.get('locale', 'vi-VN') if 'useAppStoreLocale' in SETTINGS or SETTINGS.get('locale') not in (None, '', 'en-US') else 'vi-VN',
                     use_app_store_locale=SETTINGS.get('useAppStoreLocale', False),
                     external_testing=SETTINGS['externalTesting'],
-                    automatic_release=SETTINGS['automaticRelease'])
+                    automatic_release=SETTINGS['automaticRelease'],
+                    declare_no_encryption=SETTINGS.get('declareNoEncryption', False))
         file = temp / 'input.json'
         file.write_text(json.dumps(data))
         file.chmod(0o600)
@@ -197,6 +198,9 @@ def main():
             elif args.action == 'status':
                 state = apple('query', run)
                 selected = build_match(state, run)
+                if selected and selected['state'] == 'VALID' and not selected.get('expired') and selected.get('missingCompliance') and SETTINGS.get('declareNoEncryption'):
+                    state = apple('compliance', run)
+                    selected = build_match(state, run)
                 run.update(store=state, status=selected['state'] if selected else 'verificationRequired')
             else:
                 run['store'] = apple(args.action, run)

@@ -16,6 +16,7 @@ class IosReleaseSettings {
     this.useAppStoreLocale = false,
     this.notes = '',
     this.automaticRelease = false,
+    this.declareNoEncryption = false,
     this.extraBuildArguments = const [],
     this.remoteFiles = const [],
   });
@@ -23,6 +24,12 @@ class IosReleaseSettings {
   final String flutterExecutable, teamId, locale, notes;
   final List<String> groups, extraBuildArguments;
   final bool externalTesting, automaticRelease, useAppStoreLocale;
+
+  /// Answers App Store Connect's export compliance question with "None of
+  /// the algorithms mentioned above" for builds whose Info.plist leaves
+  /// `ITSAppUsesNonExemptEncryption` out, so they are not held at Missing
+  /// Compliance. A legal declaration, so it is never on by default.
+  final bool declareNoEncryption;
 
   /// Gitignored files, relative to the project, that a Mac build host needs
   /// and cannot get from the commit — `.env`, `GoogleService-Info.plist`.
@@ -43,6 +50,7 @@ class IosReleaseSettings {
     'useAppStoreLocale': useAppStoreLocale,
     'notes': notes,
     'automaticRelease': automaticRelease,
+    'declareNoEncryption': declareNoEncryption,
     'extraBuildArguments': extraBuildArguments,
     'remoteFiles': remoteFiles,
   };
@@ -67,6 +75,7 @@ class IosReleaseSettings {
         useAppStoreLocale: json['useAppStoreLocale'] as bool? ?? false,
         notes: json['notes'] as String? ?? '',
         automaticRelease: json['automaticRelease'] == true,
+        declareNoEncryption: json['declareNoEncryption'] == true,
         extraBuildArguments: List<String>.from(
           json['extraBuildArguments'] as List? ?? [],
         ),
@@ -96,10 +105,15 @@ class IosStoreBuild {
     required this.number,
     required this.processingState,
     this.expired = false,
+    this.missingCompliance = false,
   });
   final String id, version, processingState;
   final int number;
   final bool expired;
+
+  /// No export compliance answer yet, from Info.plist or App Store Connect.
+  /// TestFlight holds such a build at Missing Compliance.
+  final bool missingCompliance;
   bool get isReady => processingState == 'VALID' && !expired;
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -107,6 +121,7 @@ class IosStoreBuild {
     'number': number,
     'state': processingState,
     'expired': expired,
+    'missingCompliance': missingCompliance,
   };
   factory IosStoreBuild.fromJson(Map<String, dynamic> json) => IosStoreBuild(
     id: json['id'] as String,
@@ -114,6 +129,7 @@ class IosStoreBuild {
     number: int.parse(json['number'].toString()),
     processingState: json['state'] as String,
     expired: json['expired'] == true,
+    missingCompliance: json['missingCompliance'] == true,
   );
 }
 

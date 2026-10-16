@@ -323,13 +323,17 @@ class IosReleaseWorkflowService implements IosReleaseBackend {
         dirty: dirty.output.trim().isNotEmpty,
         createdAt: DateTime.now(),
       );
-      final state = await _apple(run, 'query');
-      if (existingBuild != null &&
-          state.findBuild(releaseVersion, existingBuild.number)?.isReady !=
-              true) {
+      var state = await _apple(run, 'query');
+      final reused = existingBuild == null
+          ? null
+          : state.findBuild(releaseVersion, existingBuild.number);
+      if (existingBuild != null && reused?.isReady != true) {
         throw StateError(
           'Build đã chọn chưa sẵn sàng hoặc không thuộc app/version này.',
         );
+      }
+      if (reused != null && _shouldDeclareCompliance(run, reused)) {
+        state = await _apple(run, 'compliance');
       }
       final result = IosReleaseRun(
         id: run.id,
@@ -830,6 +834,12 @@ class IosReleaseWorkflowService implements IosReleaseBackend {
         'Build bị Apple từ chối/hết hạn: ${build.processingState}. Chuẩn bị build mới.',
       );
     } else if (build.isReady) {
+      var latest = build;
+      if (_shouldDeclareCompliance(run, build)) {
+        run.store = await _apple(run, 'compliance');
+        latest =
+            run.store.findBuild(run.version, run.buildNumber) ?? latest;
+      }
       final version = run.store.versions
           .where((v) => v['version'] == run.version)
           .firstOrNull;
@@ -854,7 +864,8 @@ class IosReleaseWorkflowService implements IosReleaseBackend {
       await _status(
         run,
         status,
-        'TestFlight ${run.version}+${run.buildNumber}: VALID${state.isEmpty ? '' : '. App Store: $state'}.',
+        'TestFlight ${run.version}+${run.buildNumber}: VALID${state.isEmpty ? '' : '. App Store: $state'}.'
+        '${latest.missingCompliance ? ' Thiếu Export Compliance: trả lời trên App Store Connect, thêm ITSAppUsesNonExemptEncryption vào Info.plist, hoặc bật khai báo trong cấu hình release.' : ''}',
       );
     } else {
       await _status(
@@ -864,6 +875,11 @@ class IosReleaseWorkflowService implements IosReleaseBackend {
       );
     }
   }
+
+  bool _shouldDeclareCompliance(IosReleaseRun run, IosStoreBuild build) =>
+      run.settings.declareNoEncryption &&
+      build.isReady &&
+      build.missingCompliance;
 
   @override
   Future<void> storeAction(IosReleaseRun run, String action) => _guard(
@@ -1259,6 +1275,7 @@ Artifacts and manifests stay in runs/. Android scripts are unchanged.
           'locale': run.settings.locale,
           'use_app_store_locale': run.settings.useAppStoreLocale,
           'automatic_release': run.settings.automaticRelease,
+          'declare_no_encryption': run.settings.declareNoEncryption,
         }),
       );
       final gemfiles = [

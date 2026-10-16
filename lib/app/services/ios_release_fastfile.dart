@@ -22,9 +22,19 @@ platform :ios do
     )
     build = builds.find { |b| b.version.to_s == number }
     ready = build && build.processing_state == 'VALID' && !build.expired
+    if input.fetch('declare_no_encryption', false) && ready &&
+       build.uses_non_exempt_encryption.nil? && %w[compliance draft submit].include?(action)
+      # "None of the algorithms mentioned above" in App Store Connect. Only
+      # fills a missing answer; Info.plist or an earlier answer is kept.
+      # distribute leaves it to upload_to_testflight, which waits for Apple.
+      build.update(attributes: { usesNonExemptEncryption: false })
+    end
     case action
     when 'query'
       # Read only, also includes failed/processing builds for collision checks.
+    when 'compliance'
+      UI.user_error!('Selected build is not ready') unless ready
+      UI.user_error!('Export compliance declaration is off for this project') unless input.fetch('declare_no_encryption', false)
     when 'upload'
       UI.user_error!('Build number already exists on Apple; refresh status') if build
       upload_to_testflight(
@@ -92,7 +102,7 @@ platform :ios do
     versions = (versions.first(20) + versions.select { |v| v.version_string == version }).uniq(&:id)
     result = {
       primaryLocale: app.primary_locale,
-      builds: builds.map { |b| { id: b.id, version: b.app_version, number: b.version, state: b.processing_state, expired: b.expired } },
+      builds: builds.map { |b| { id: b.id, version: b.app_version, number: b.version, state: b.processing_state, expired: b.expired, missingCompliance: b.uses_non_exempt_encryption.nil? } },
       versions: versions.map { |v| { version: v.version_string, state: v.app_version_state || v.app_store_state, id: v.id, buildNumber: v.version_string == version ? v.get_build&.version : nil } }
     }
     puts "AMC_IOS_RESULT:#{JSON.generate(result)}"
