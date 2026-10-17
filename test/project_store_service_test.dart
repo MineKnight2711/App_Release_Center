@@ -5,7 +5,6 @@ import 'package:app_management_center/app/models/app_store_project.dart';
 import 'package:app_management_center/app/models/ch_play_project.dart';
 import 'package:app_management_center/app/models/release_notification.dart';
 import 'package:app_management_center/app/models/resource_catalog.dart';
-import 'package:app_management_center/app/models/resource_collection.dart';
 import 'package:app_management_center/app/services/project_store_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -129,36 +128,15 @@ void main() {
     expect(service.linkedNotificationDevices.single.label, 'Pixel');
   });
 
-  test(
-    'stores resource collection preferences without secret values',
-    () async {
-      SharedPreferences.setMockInitialValues({});
-      final service = await ProjectStoreService().init();
+  test('drops the retired resource collector settings on start', () async {
+    SharedPreferences.setMockInitialValues({
+      'resource_collection_settings': '{"sourcePath": "/apps/demo"}',
+    });
+    await ProjectStoreService().init();
 
-      await service.saveResourceCollectionSettings(
-        const ResourceCollectionSettings(
-          sourcePath: r'C:\apps\demo',
-          targetPath: r'D:\exports',
-          preset: ResourceCollectionPreset.custom,
-          customKinds: {
-            ResourceTargetKind.envFile,
-            ResourceTargetKind.signingKey,
-          },
-          includeSigningCredentials: true,
-        ),
-      );
-
-      final settings = service.resourceCollectionSettings;
-      expect(settings.sourcePath, r'C:\apps\demo');
-      expect(settings.targetPath, r'D:\exports');
-      expect(settings.preset, ResourceCollectionPreset.custom);
-      expect(settings.customKinds, {
-        ResourceTargetKind.envFile,
-        ResourceTargetKind.signingKey,
-      });
-      expect(settings.includeSigningCredentials, isTrue);
-    },
-  );
+    final preferences = await SharedPreferences.getInstance();
+    expect(preferences.containsKey('resource_collection_settings'), isFalse);
+  });
 
   test('stores resource catalogs by project path without passwords', () async {
     SharedPreferences.setMockInitialValues({});

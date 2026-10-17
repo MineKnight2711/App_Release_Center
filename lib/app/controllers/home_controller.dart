@@ -16,7 +16,6 @@ import 'package:app_management_center/app/models/release_project.dart';
 import 'package:app_management_center/app/models/release_script.dart';
 import 'package:app_management_center/app/models/release_workflow.dart';
 import 'package:app_management_center/app/models/resource_catalog.dart';
-import 'package:app_management_center/app/models/resource_collection.dart';
 import 'package:app_management_center/app/models/telegram_release_settings.dart';
 import 'package:app_management_center/app/services/android_cicd_clone_service.dart';
 import 'package:app_management_center/app/services/android_keystore_generation_service.dart';
@@ -45,9 +44,6 @@ import 'package:app_management_center/app/services/release_workflow_service.dart
 import 'package:app_management_center/app/services/resource_catalog_crypto_service.dart';
 import 'package:app_management_center/app/services/resource_catalog_excel_service.dart';
 import 'package:app_management_center/app/services/resource_catalog_password_store_service.dart';
-import 'package:app_management_center/app/services/resource_credential_resolver.dart';
-import 'package:app_management_center/app/services/resource_discovery_service.dart';
-import 'package:app_management_center/app/services/resource_export_service.dart';
 import 'package:app_management_center/app/services/script_catalog_service.dart';
 import 'package:app_management_center/app/services/telegram_release_notification_service.dart';
 import 'package:file_picker/file_picker.dart';
@@ -60,8 +56,6 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:uuid/uuid.dart';
 
 enum PlayUploadChoice { ask, upload, skip }
-
-enum ResourcePanelMode { catalog, collector }
 
 class HomeController extends GetxController {
   HomeController({
@@ -87,9 +81,6 @@ class HomeController extends GetxController {
     required this.appStoreVersionChecker,
     IosReleaseWorkflowService? iosRelease,
     RemoteIosReleaseService? remoteIosRelease,
-    ResourceDiscoveryService? resourceDiscovery,
-    ResourceExportService? resourceExports,
-    ResourceCredentialResolver? resourceCredentials,
     ResourceCatalogPasswordStoreService? resourceCatalogPasswords,
     ResourceCatalogExcelService? resourceCatalogExcel,
     CiCdDependencyDoctorService? cicdDoctor,
@@ -107,11 +98,6 @@ class HomeController extends GetxController {
              chPlayVersionChecker: chPlayVersionChecker,
              releaseNotesGenerator: releaseNotesGenerator,
            ),
-       resourceDiscovery = resourceDiscovery ?? ResourceDiscoveryService(),
-       resourceExports = resourceExports ?? ResourceExportService(),
-       resourceCredentials =
-           resourceCredentials ??
-           ResourceCredentialResolver(store: chPlayCredentialStore),
        cicdDoctor = cicdDoctor ?? CiCdDependencyDoctorService(),
        cicdInstaller = cicdInstaller ?? const CiCdDependencyInstallerService() {
     final passwordStore =
@@ -165,9 +151,6 @@ class HomeController extends GetxController {
         connect: connect,
         credentials: readAppStoreCredentials,
       );
-  final ResourceDiscoveryService resourceDiscovery;
-  final ResourceExportService resourceExports;
-  final ResourceCredentialResolver resourceCredentials;
   final CiCdDependencyDoctorService cicdDoctor;
   final CiCdDependencyInstallerService cicdInstaller;
   late final ResourceCatalogPasswordStoreService resourceCatalogPasswords;
@@ -225,24 +208,6 @@ class HomeController extends GetxController {
   final hasGoogleDriveOAuthClientSecret = false.obs;
   final hasGoogleDriveCredentials = false.obs;
   final googleDriveReleaseStatus = ''.obs;
-  final resourceCollectionSettings = const ResourceCollectionSettings().obs;
-  final resourcePreset = ResourceCollectionPreset.allRecommended.obs;
-  final resourceCustomKinds = <ResourceTargetKind>{
-    ...resourceRecommendedTargetKinds,
-  }.obs;
-  final resourceFindings = <ResourceFinding>[].obs;
-  final selectedResourceFindingIds = <String>{}.obs;
-  final resourceExcludedPaths = <String>[].obs;
-  final isScanningResources = false.obs;
-  final isExportingResources = false.obs;
-  final resourceIncludeSigningCredentials = true.obs;
-  final resourceIncludeStoredKeys = true.obs;
-  final resourceStoredKeys = const StoredReleaseKeys().obs;
-  final resourceSigningCredentials =
-      <String, SigningCredentialBundleEntry>{}.obs;
-  final activeResourceSigningFindingId = ''.obs;
-  final resourceStatus = ''.obs;
-  final resourcePanelMode = ResourcePanelMode.catalog.obs;
   final resourceCatalogItems = <ResourceCatalogItem>[].obs;
   final resourcePasswordEntries = <ResourcePasswordEntry>[].obs;
   final selectedResourceCatalogKind = Rxn<ResourceCatalogKind>();
@@ -273,23 +238,10 @@ class HomeController extends GetxController {
   final stdinController = TextEditingController();
   final notificationEndpointController = TextEditingController();
   final notificationTokenController = TextEditingController();
-  final resourceSourcePathController = TextEditingController();
-  final resourceTargetPathController = TextEditingController();
-  final resourceKeyAliasController = TextEditingController();
-  final resourceStorePasswordController = TextEditingController();
-  final resourceKeyPasswordController = TextEditingController();
-
-  /// The zip password is never saved; the fields are cleared once an export
-  /// succeeds.
-  final resourceArchivePasswordController = TextEditingController();
-  final resourceArchivePasswordConfirmController = TextEditingController();
   final resourceCatalogSearchController = TextEditingController();
   final _sessionChPlayCredentials = <String, ChPlayCredentials>{};
   final _sessionAppStoreCredentials = <String, AppStoreCredentials>{};
-  final _manualResourceSigningCredentials =
-      <String, SigningCredentialBundleEntry>{};
   _GeneratedReleaseContext? _generatedReleaseContext;
-  bool _syncingResourceSigningCredentialFields = false;
 
   bool get _isGoogleDriveBusy =>
       isConnectingGoogleDrive.value ||
@@ -326,15 +278,12 @@ class HomeController extends GetxController {
       _syncGoogleDriveFormState,
     );
     releaseNotesController.addListener(_syncReleaseNoteState);
-    resourceSourcePathController.addListener(_persistResourceCollectionState);
-    resourceTargetPathController.addListener(_persistResourceCollectionState);
     resourceCatalogSearchController.addListener(_syncResourceCatalogSearch);
     recentPaths.assignAll(_initialProjectPaths());
     _loadGeminiApiKey();
     _loadTelegramReleaseState();
     _loadGoogleDriveReleaseState();
     _loadNotificationState();
-    _loadResourceCollectionState();
     _loadManagedStoreProjects();
     final savedPath = store.lastProjectPath;
     if (savedPath != null && Directory(savedPath).existsSync()) {
@@ -354,12 +303,6 @@ class HomeController extends GetxController {
       _syncGoogleDriveFormState,
     );
     releaseNotesController.removeListener(_syncReleaseNoteState);
-    resourceSourcePathController.removeListener(
-      _persistResourceCollectionState,
-    );
-    resourceTargetPathController.removeListener(
-      _persistResourceCollectionState,
-    );
     resourceCatalogSearchController.removeListener(_syncResourceCatalogSearch);
     releaseNotesController.dispose();
     geminiApiKeyController.dispose();
@@ -372,13 +315,6 @@ class HomeController extends GetxController {
     stdinController.dispose();
     notificationEndpointController.dispose();
     notificationTokenController.dispose();
-    resourceSourcePathController.dispose();
-    resourceTargetPathController.dispose();
-    resourceKeyAliasController.dispose();
-    resourceStorePasswordController.dispose();
-    resourceKeyPasswordController.dispose();
-    resourceArchivePasswordController.dispose();
-    resourceArchivePasswordConfirmController.dispose();
     resourceCatalogSearchController.dispose();
     super.onClose();
   }
@@ -609,285 +545,6 @@ class HomeController extends GetxController {
     );
   }
 
-  String get effectiveResourceSourcePath {
-    final configured = resourceSourcePathController.text.trim();
-    if (configured.isNotEmpty) return p.normalize(configured);
-    final currentProject = project.value;
-    if (currentProject != null) return currentProject.path;
-    return '';
-  }
-
-  Set<ResourceTargetKind> get activeResourceTargetKinds {
-    return switch (resourcePreset.value) {
-      ResourceCollectionPreset.release => ResourceTargetKind.values.toSet(),
-      ResourceCollectionPreset.allRecommended => resourceRecommendedTargetKinds,
-      ResourceCollectionPreset.envOnly => {ResourceTargetKind.envFile},
-      ResourceCollectionPreset.custom => resourceCustomKinds.toSet(),
-    };
-  }
-
-  List<ResourceFinding> get selectedResourceFindings {
-    final selected = selectedResourceFindingIds.toSet();
-    return resourceFindings
-        .where((finding) => selected.contains(finding.id))
-        .toList();
-  }
-
-  List<ResourceFinding> get resourceSigningFindings {
-    return resourceFindings
-        .where((finding) => finding.kind == ResourceTargetKind.signingKey)
-        .toList();
-  }
-
-  List<ResourceFinding> get selectedResourceSigningFindings {
-    final selected = selectedResourceFindingIds.toSet();
-    return resourceSigningFindings
-        .where((finding) => selected.contains(finding.id))
-        .toList();
-  }
-
-  SigningCredentialBundleEntry? get activeResourceSigningCredential {
-    final activeId = activeResourceSigningFindingId.value;
-    if (activeId.isEmpty) return null;
-    return resourceSigningCredentials[activeId];
-  }
-
-  bool get canIncludeResourceSigningCredentials {
-    return selectedResourceSigningFindings.isNotEmpty;
-  }
-
-  List<SigningCredentialBundleEntry> _selectedSigningCredentialsForExport(
-    Iterable<ResourceFinding> findings,
-  ) {
-    if (!resourceIncludeSigningCredentials.value) {
-      return const [];
-    }
-    final selectedIds = findings.map((finding) => finding.id).toSet();
-    return resourceSigningCredentials.entries
-        .where((entry) => selectedIds.contains(entry.key))
-        .map((entry) => entry.value)
-        .toList();
-  }
-
-  /// Whether the next export carries signing or store keys, which deserve a
-  /// zip password.
-  bool get resourceBundleHasKeys {
-    const keyKinds = {
-      ResourceTargetKind.signingKey,
-      ResourceTargetKind.appStoreKey,
-      ResourceTargetKind.fastlaneServiceAccount,
-    };
-    final findings = selectedResourceFindings;
-    return findings.any((finding) => keyKinds.contains(finding.kind)) ||
-        !_storedKeysForExport().isEmpty ||
-        _selectedSigningCredentialsForExport(
-          findings,
-        ).any((entry) => entry.hasAnyCredential);
-  }
-
-  String? get resourceArchivePasswordError => validateResourceArchivePassword(
-    resourceArchivePasswordController.text,
-    resourceArchivePasswordConfirmController.text,
-  );
-
-  bool get canExportResourceBundle {
-    if (isScanningResources.value || isExportingResources.value) return false;
-    return selectedResourceFindings.isNotEmpty ||
-        !_storedKeysForExport().isEmpty;
-  }
-
-  /// Stored keys the next export adds, following both export options.
-  /// Key IDs are not secrets, so they stay even when stored keys are left out.
-  StoredReleaseKeys _storedKeysForExport() {
-    final keys = resourceStoredKeys.value;
-    final appStore = keys.appStore;
-    if (!resourceIncludeStoredKeys.value) {
-      return StoredReleaseKeys(
-        appStore: appStore == null
-            ? null
-            : AppStoreCredentials(
-                keyId: appStore.keyId,
-                issuerId: appStore.issuerId,
-                teamId: appStore.teamId,
-                inHouse: appStore.inHouse,
-              ),
-        bundleId: keys.bundleId,
-        projectAppStoreKeyPath: keys.projectAppStoreKeyPath,
-      );
-    }
-    if (resourceIncludeSigningCredentials.value) return keys;
-    return StoredReleaseKeys(
-      appStore: appStore,
-      bundleId: keys.bundleId,
-      projectAppStoreKeyPath: keys.projectAppStoreKeyPath,
-      playServiceAccountJson: keys.playServiceAccountJson,
-      keystorePath: keys.keystorePath,
-    );
-  }
-
-  /// Release keys AMC keeps for the project at [sourceRoot] that the scan did
-  /// not already find as project files, plus the App Store key IDs.
-  Future<StoredReleaseKeys> _storedReleaseKeysFor(
-    String sourceRoot,
-    List<ResourceFinding> findings,
-  ) async {
-    final root = p.normalize(sourceRoot);
-    bool sameRoot(String path) =>
-        p.normalize(path).toLowerCase() == root.toLowerCase();
-    final appStoreProject = appStoreProjects
-        .where((project) => sameRoot(project.path))
-        .firstOrNull;
-    final chPlayProject = chPlayProjects
-        .where((project) => sameRoot(project.path))
-        .firstOrNull;
-    try {
-      final stored = appStoreProject == null
-          ? null
-          : await readAppStoreCredentials(appStoreProject.id);
-      final chPlay = chPlayProject == null
-          ? null
-          : await readChPlayCredentials(chPlayProject.id);
-      final hasServiceAccountFile = findings.any(
-        (finding) => finding.kind == ResourceTargetKind.fastlaneServiceAccount,
-      );
-      // A keystore inside the project is a scan finding with its credentials
-      // already resolved; only one kept elsewhere needs adding.
-      final keystore = _storedKeystoreOutside(root, chPlay?.jksPath, findings);
-      final projectKey = await _projectAppStoreKey(findings, stored);
-      final storedKeyIsInProject =
-          projectKey != null && (stored?.hasP8PrivateKey ?? false);
-      AppStoreCredentials? appStore;
-      if (appStoreProject != null || projectKey != null) {
-        final keyId =
-            _nonBlank(stored?.keyId) ??
-            RegExp(
-              r'AuthKey_([A-Za-z0-9]+)',
-              caseSensitive: false,
-            ).firstMatch(projectKey?.relativePath ?? '')?.group(1);
-        final teamId =
-            _nonBlank(stored?.teamId) ??
-            await _iosTeamId(root, appStoreProject);
-        appStore = AppStoreCredentials(
-          p8PrivateKey: storedKeyIsInProject ? null : stored?.p8PrivateKey,
-          keyId: keyId,
-          issuerId: stored?.issuerId,
-          teamId: teamId,
-          inHouse: stored?.inHouse ?? false,
-        );
-      }
-      return StoredReleaseKeys(
-        appStore: appStore,
-        bundleId: appStoreProject?.bundleId,
-        projectAppStoreKeyPath: projectKey?.relativePath,
-        playServiceAccountJson: hasServiceAccountFile
-            ? null
-            : chPlay?.googlePlayJson,
-        keystorePath: keystore,
-        keystoreCredential: keystore == null
-            ? null
-            : SigningCredentialBundleEntry(
-                relativePath: p.basename(keystore),
-                source: SigningCredentialSource.secureStore,
-                keyAlias: chPlay!.keyAlias,
-                storePassword: chPlay.storePassword,
-                keyPassword: (chPlay.keyPassword?.trim().isNotEmpty ?? false)
-                    ? chPlay.keyPassword
-                    : chPlay.storePassword,
-              ),
-      );
-    } catch (error) {
-      runner.appendSystemLog('Không đọc được key lưu trong AMC: $error');
-      return const StoredReleaseKeys();
-    }
-  }
-
-  /// The project's copy of the stored .p8, or its only .p8 when AMC has none.
-  Future<ResourceFinding?> _projectAppStoreKey(
-    List<ResourceFinding> findings,
-    AppStoreCredentials? stored,
-  ) async {
-    final keys = findings
-        .where((finding) => finding.kind == ResourceTargetKind.appStoreKey)
-        .toList();
-    if (!(stored?.hasP8PrivateKey ?? false)) return keys.firstOrNull;
-    String bare(String pem) => pem.replaceAll(RegExp(r'\s'), '');
-    final storedKey = bare(stored!.p8PrivateKey!);
-    for (final finding in keys) {
-      try {
-        final content = await File(finding.sourcePath).readAsString();
-        if (bare(content) == storedKey) return finding;
-      } on FileSystemException {
-        continue;
-      }
-    }
-    return null;
-  }
-
-  /// Team ID from the iOS release settings, or the single team in Xcode.
-  Future<String?> _iosTeamId(String root, AppStoreProject? project) async {
-    try {
-      if (project != null) {
-        return _nonBlank((await iosRelease.readSettings(project)).teamId);
-      }
-      final pbx = File(
-        p.join(root, 'ios', 'Runner.xcodeproj', 'project.pbxproj'),
-      );
-      if (!pbx.existsSync()) return null;
-      final teams = RegExp(r'DEVELOPMENT_TEAM\s*=\s*"?([A-Z0-9]+)"?;')
-          .allMatches(await pbx.readAsString())
-          .map((match) => match.group(1)!)
-          .toSet();
-      return teams.length == 1 ? teams.single : null;
-    } on Object {
-      return null;
-    }
-  }
-
-  String? _nonBlank(String? value) {
-    final text = value?.trim() ?? '';
-    return text.isEmpty ? null : text;
-  }
-
-  String? _storedKeystoreOutside(
-    String root,
-    String? jksPath,
-    List<ResourceFinding> findings,
-  ) {
-    final path = jksPath?.trim() ?? '';
-    if (path.isEmpty) return null;
-    final candidates = p.isAbsolute(path)
-        ? [path]
-        : [
-            for (final base in [
-              root,
-              p.join(root, 'android'),
-              p.join(root, 'android', 'app'),
-            ])
-              p.join(base, path),
-          ];
-    for (final candidate in candidates.map(p.normalize)) {
-      final file = File(candidate);
-      if (!file.existsSync()) continue;
-      if (p.isWithin(root, candidate)) return null;
-      // A copy already in the project carries the same credentials.
-      final bytes = file.readAsBytesSync();
-      final copied = findings.any((finding) {
-        if (finding.kind != ResourceTargetKind.signingKey) return false;
-        final other = File(finding.sourcePath);
-        if (!other.existsSync() || other.lengthSync() != bytes.length) {
-          return false;
-        }
-        final otherBytes = other.readAsBytesSync();
-        for (var index = 0; index < bytes.length; index++) {
-          if (bytes[index] != otherBytes[index]) return false;
-        }
-        return true;
-      });
-      return copied ? null : candidate;
-    }
-    return null;
-  }
-
   bool get canUseResourceCatalog => project.value != null;
 
   bool get isResourceCatalogBusy {
@@ -908,10 +565,6 @@ class HomeController extends GetxController {
     return resourcePasswordEntries
         .where((entry) => _matchesResourcePasswordEntry(entry, query))
         .toList();
-  }
-
-  void setResourcePanelMode(ResourcePanelMode mode) {
-    resourcePanelMode.value = mode;
   }
 
   void setResourceCatalogKindFilter(ResourceCatalogKind? kind) {
@@ -1189,224 +842,6 @@ class HomeController extends GetxController {
     }
   }
 
-  Future<void> pickResourceSourceDirectory() async {
-    final selectedPath = await _pickDirectoryPath(
-      dialogTitle: 'Chọn thư mục nguồn tài nguyên',
-      initialDirectory: effectiveResourceSourcePath.isNotEmpty
-          ? effectiveResourceSourcePath
-          : _initialDirectory(),
-    );
-
-    if (selectedPath == null) return;
-    resourceSourcePathController.text = p.normalize(selectedPath);
-    resourceStatus.value = '';
-    await scanResources();
-  }
-
-  Future<void> pickResourceTargetDirectory() async {
-    final selectedPath = await _pickDirectoryPath(
-      dialogTitle: 'Chọn thư mục xuất tài nguyên',
-      initialDirectory: resourceTargetPathController.text.trim().isNotEmpty
-          ? resourceTargetPathController.text.trim()
-          : Directory.current.parent.path,
-    );
-
-    if (selectedPath == null) return;
-    resourceTargetPathController.text = p.normalize(selectedPath);
-  }
-
-  Future<void> scanResources() async {
-    if (isScanningResources.value || isExportingResources.value) return;
-    final sourcePath = effectiveResourceSourcePath;
-    if (sourcePath.isEmpty) {
-      resourceStatus.value = 'Chọn thư mục nguồn trước khi quét.';
-      return;
-    }
-
-    _commitActiveResourceSigningCredentialFields();
-    isScanningResources.value = true;
-    resourceStatus.value = 'Đang quét tài nguyên...';
-    try {
-      final result = await resourceDiscovery.scan(
-        sourceRoot: sourcePath,
-        preset: resourcePreset.value,
-        customKinds: resourceCustomKinds.toSet(),
-      );
-      if (resourceSourcePathController.text.trim().isEmpty) {
-        resourceSourcePathController.text = result.sourceRoot;
-      }
-      _pruneManualResourceSigningCredentials(result.findings);
-      final signingCredentials = await resourceCredentials.resolve(
-        sourceRoot: result.sourceRoot,
-        findings: result.findings,
-        chPlayProjects: chPlayProjects.toList(),
-        manualCredentials: _manualResourceSigningCredentials,
-      );
-      resourceSigningCredentials.assignAll(signingCredentials);
-      resourceFindings.assignAll(
-        result.findings.map((finding) {
-          if (finding.kind != ResourceTargetKind.signingKey) return finding;
-          return finding.withSigningCredential(signingCredentials[finding.id]);
-        }),
-      );
-      selectedResourceFindingIds.assignAll(
-        result.findings.map((finding) => finding.id),
-      );
-      _syncActiveResourceSigningFinding();
-      resourceStoredKeys.value = await _storedReleaseKeysFor(
-        result.sourceRoot,
-        result.findings,
-      );
-      resourceExcludedPaths.assignAll(result.excludedPaths);
-      final count = result.findings.length;
-      resourceStatus.value = count == 0
-          ? 'Không tìm thấy file tài nguyên nào khớp.'
-          : '$count resource file(s) found.';
-      runner.appendSystemLog(
-        'Quét tài nguyên xong: $count file, '
-        'bỏ qua ${result.excludedPaths.length} đường dẫn.',
-      );
-      await _saveResourceCollectionState();
-    } catch (error) {
-      resourceStatus.value = 'Quét tài nguyên lỗi: $error';
-      runner.appendSystemLog('Quét tài nguyên lỗi: $error');
-    } finally {
-      isScanningResources.value = false;
-    }
-  }
-
-  void setResourcePreset(ResourceCollectionPreset preset) {
-    if (resourcePreset.value == preset) return;
-    resourcePreset.value = preset;
-    resourceFindings.clear();
-    selectedResourceFindingIds.clear();
-    resourceStoredKeys.value = const StoredReleaseKeys();
-    resourceSigningCredentials.clear();
-    activeResourceSigningFindingId.value = '';
-    _syncResourceSigningCredentialFields(null);
-    resourceStatus.value = '';
-    _persistResourceCollectionState();
-  }
-
-  void toggleResourceTargetKind(ResourceTargetKind kind, bool selected) {
-    final next = resourceCustomKinds.toSet();
-    if (selected) {
-      next.add(kind);
-    } else {
-      next.remove(kind);
-    }
-    resourceCustomKinds.assignAll(next);
-    resourceFindings.clear();
-    selectedResourceFindingIds.clear();
-    resourceStoredKeys.value = const StoredReleaseKeys();
-    resourceSigningCredentials.clear();
-    activeResourceSigningFindingId.value = '';
-    _syncResourceSigningCredentialFields(null);
-    resourceStatus.value = '';
-    _persistResourceCollectionState();
-  }
-
-  void toggleResourceFinding(ResourceFinding finding, bool selected) {
-    final next = selectedResourceFindingIds.toSet();
-    if (selected) {
-      next.add(finding.id);
-    } else {
-      next.remove(finding.id);
-    }
-    selectedResourceFindingIds.assignAll(next);
-    _syncActiveResourceSigningFinding();
-  }
-
-  void setAllResourceFindingsSelected(bool selected) {
-    selectedResourceFindingIds.assignAll(
-      selected ? resourceFindings.map((finding) => finding.id) : const [],
-    );
-    _syncActiveResourceSigningFinding();
-  }
-
-  void setResourceIncludeSigningCredentials(bool enabled) {
-    resourceIncludeSigningCredentials.value = enabled;
-    _persistResourceCollectionState();
-  }
-
-  void setResourceIncludeStoredKeys(bool enabled) {
-    resourceIncludeStoredKeys.value = enabled;
-    _persistResourceCollectionState();
-  }
-
-  void setActiveResourceSigningFinding(String? findingId) {
-    final id = findingId ?? '';
-    if (activeResourceSigningFindingId.value == id) return;
-    _commitActiveResourceSigningCredentialFields();
-    activeResourceSigningFindingId.value = id;
-    _syncResourceSigningCredentialFields(
-      id.isEmpty ? null : resourceSigningCredentials[id],
-    );
-  }
-
-  Future<ResourceExportResult?> exportResources() async {
-    if (isScanningResources.value || isExportingResources.value) return null;
-    final sourcePath = effectiveResourceSourcePath;
-    if (sourcePath.isEmpty) {
-      resourceStatus.value = 'Chọn thư mục nguồn trước khi xuất.';
-      return null;
-    }
-    _commitActiveResourceSigningCredentialFields();
-    final findingsForExport = selectedResourceFindings;
-    final storedKeysForExport = _storedKeysForExport();
-    if (findingsForExport.isEmpty && storedKeysForExport.isEmpty) {
-      resourceStatus.value = 'Chọn ít nhất một file tài nguyên.';
-      return null;
-    }
-    final passwordError = resourceArchivePasswordError;
-    if (passwordError != null) {
-      resourceStatus.value = passwordError;
-      return null;
-    }
-    final signingCredentialsForExport = _selectedSigningCredentialsForExport(
-      findingsForExport,
-    );
-    if (resourceTargetPathController.text.trim().isEmpty) {
-      await pickResourceTargetDirectory();
-      if (resourceTargetPathController.text.trim().isEmpty) {
-        resourceStatus.value = 'Chọn thư mục xuất trước khi xuất.';
-        return null;
-      }
-    }
-    isExportingResources.value = true;
-    resourceStatus.value = 'Đang xuất tài nguyên...';
-    try {
-      await _saveResourceCollectionState();
-      final result = await resourceExports.export(
-        sourceRoot: sourcePath,
-        targetRoot: resourceTargetPathController.text.trim(),
-        findings: findingsForExport,
-        signingCredentials: signingCredentialsForExport,
-        storedKeys: storedKeysForExport,
-        password: resourceArchivePasswordController.text,
-      );
-      resourceArchivePasswordController.clear();
-      resourceArchivePasswordConfirmController.clear();
-      resourceStatus.value =
-          'Đã xuất ${result.fileCount} file tài nguyên'
-          '${result.storedKeyCount > 0 ? ', ${result.storedKeyCount} file key từ AMC' : ''}'
-          '${result.signingCredentialCount > 0 ? ', kèm ${result.signingCredentialCount} thông tin ký' : ''}'
-          ' và README hướng dẫn setup.'
-          '${result.isLocked ? ' Zip khoá AES-256, ${p.basename(result.guidePath!)} cạnh zip ghi cách mở. Gửi mật khẩu qua kênh khác.' : ''}';
-      runner.appendSystemLog(
-        'Đã xuất gói tài nguyên${result.isLocked ? ' có mật khẩu' : ''}: '
-        '${result.archivePath}',
-      );
-      return result;
-    } catch (error) {
-      resourceStatus.value = 'Xuất tài nguyên lỗi: $error';
-      runner.appendSystemLog('Xuất tài nguyên lỗi: $error');
-      return null;
-    } finally {
-      isExportingResources.value = false;
-    }
-  }
-
   Future<ChPlayCredentials> readChPlayCredentials(String projectId) async {
     return _sessionChPlayCredentials[projectId] ??
         await chPlayCredentialStore.read(projectId);
@@ -1538,9 +973,6 @@ class HomeController extends GetxController {
       }
       project.value = loadedProject;
       _loadResourceCatalogForProject(loadedProject.path);
-      if (resourceSourcePathController.text.trim().isEmpty) {
-        resourceSourcePathController.text = loadedProject.path;
-      }
       playUploadChoice.value = loadedProject.hasPlayReleaseTools
           ? PlayUploadChoice.ask
           : PlayUploadChoice.skip;
@@ -3437,137 +2869,6 @@ class HomeController extends GetxController {
     hasReleaseNoteText.value = releaseNotesController.text.trim().isNotEmpty;
   }
 
-  void _commitActiveResourceSigningCredentialFields() {
-    if (_syncingResourceSigningCredentialFields) return;
-    final activeId = activeResourceSigningFindingId.value;
-    if (activeId.isEmpty) return;
-    final finding = _resourceFindingById(activeId);
-    if (finding == null) return;
-    final existing = resourceSigningCredentials[activeId];
-    final keyAliasInput = resourceKeyAliasController.text.trim();
-    final storePasswordInput = resourceStorePasswordController.text.trim();
-    final keyPasswordInput = resourceKeyPasswordController.text.trim();
-    final keyAlias = keyAliasInput.isNotEmpty
-        ? keyAliasInput
-        : existing?.keyAlias;
-    final storePassword = storePasswordInput.isNotEmpty
-        ? storePasswordInput
-        : existing?.storePassword;
-    final keyPassword = keyPasswordInput.isNotEmpty
-        ? keyPasswordInput
-        : existing?.keyPassword ?? storePassword;
-
-    final entry = SigningCredentialBundleEntry(
-      relativePath: finding.relativePath,
-      source: SigningCredentialSource.manual,
-      keyAlias: keyAlias,
-      storePassword: storePassword,
-      keyPassword: keyPassword,
-      maskedPreview: _resourceSigningMaskedPreview(
-        keyAlias: keyAlias ?? '',
-        storePassword: storePassword ?? '',
-        keyPassword: keyPassword ?? '',
-      ),
-    );
-
-    if (entry.hasAnyCredential) {
-      _manualResourceSigningCredentials[activeId] = entry;
-      resourceSigningCredentials[activeId] = entry;
-    } else {
-      _manualResourceSigningCredentials.remove(activeId);
-      resourceSigningCredentials[activeId] = SigningCredentialBundleEntry(
-        relativePath: finding.relativePath,
-        source: SigningCredentialSource.projectFile,
-      );
-    }
-    _applyResourceSigningCredentialState();
-  }
-
-  void _syncActiveResourceSigningFinding() {
-    final selectedIds = selectedResourceFindingIds.toSet();
-    final candidates = resourceSigningFindings
-        .where((finding) => selectedIds.contains(finding.id))
-        .toList();
-    final currentId = activeResourceSigningFindingId.value;
-    final nextId = candidates.any((finding) => finding.id == currentId)
-        ? currentId
-        : candidates.isNotEmpty
-        ? candidates.first.id
-        : '';
-    if (activeResourceSigningFindingId.value != nextId) {
-      activeResourceSigningFindingId.value = nextId;
-    }
-    _syncResourceSigningCredentialFields(
-      nextId.isEmpty ? null : resourceSigningCredentials[nextId],
-    );
-  }
-
-  void _syncResourceSigningCredentialFields(
-    SigningCredentialBundleEntry? entry,
-  ) {
-    _syncingResourceSigningCredentialFields = true;
-    try {
-      resourceKeyAliasController.text = entry?.keyAlias ?? '';
-      resourceStorePasswordController.clear();
-      resourceKeyPasswordController.clear();
-    } finally {
-      _syncingResourceSigningCredentialFields = false;
-    }
-  }
-
-  void _pruneManualResourceSigningCredentials(List<ResourceFinding> findings) {
-    final validIds = findings
-        .where((finding) => finding.kind == ResourceTargetKind.signingKey)
-        .map((finding) => finding.id)
-        .toSet();
-    _manualResourceSigningCredentials.removeWhere(
-      (id, _) => !validIds.contains(id),
-    );
-  }
-
-  void _applyResourceSigningCredentialState() {
-    final updatedFindings = resourceFindings
-        .map((finding) {
-          if (finding.kind != ResourceTargetKind.signingKey) return finding;
-          return finding.withSigningCredential(
-            resourceSigningCredentials[finding.id],
-          );
-        })
-        .toList(growable: false);
-    resourceFindings.assignAll(updatedFindings);
-  }
-
-  ResourceFinding? _resourceFindingById(String id) {
-    for (final finding in resourceFindings) {
-      if (finding.id == id) return finding;
-    }
-    return null;
-  }
-
-  List<String> _resourceSigningMaskedPreview({
-    required String keyAlias,
-    required String storePassword,
-    required String keyPassword,
-  }) {
-    return [
-      if (keyAlias.trim().isNotEmpty) 'alias=${keyAlias.trim()}',
-      if (storePassword.trim().isNotEmpty)
-        'storePassword=${_maskResourceSecret(storePassword)}',
-      if (keyPassword.trim().isNotEmpty)
-        'keyPassword=${_maskResourceSecret(keyPassword)}',
-    ];
-  }
-
-  String _maskResourceSecret(String value) {
-    final trimmed = value.trim();
-    if (trimmed.isEmpty) return '********';
-    if (trimmed.length <= 4) return '****';
-    if (trimmed.length <= 8) {
-      return '${trimmed.substring(0, 1)}***${trimmed.substring(trimmed.length - 1)}';
-    }
-    return '${trimmed.substring(0, 3)}***${trimmed.substring(trimmed.length - 3)}';
-  }
-
   void _syncResourceCatalogSearch() {
     resourceCatalogSearch.value = resourceCatalogSearchController.text.trim();
   }
@@ -3720,35 +3021,6 @@ class HomeController extends GetxController {
       return normalized;
     }
     return '$normalized$extension';
-  }
-
-  void _loadResourceCollectionState() {
-    final settings = store.resourceCollectionSettings;
-    resourceCollectionSettings.value = settings;
-    resourcePreset.value = settings.preset;
-    resourceCustomKinds.assignAll(settings.customKinds);
-    resourceIncludeSigningCredentials.value =
-        settings.includeSigningCredentials;
-    resourceIncludeStoredKeys.value = settings.includeStoredKeys;
-    resourceSourcePathController.text = settings.sourcePath;
-    resourceTargetPathController.text = settings.targetPath;
-  }
-
-  void _persistResourceCollectionState() {
-    unawaited(_saveResourceCollectionState());
-  }
-
-  Future<void> _saveResourceCollectionState() async {
-    final settings = ResourceCollectionSettings(
-      sourcePath: resourceSourcePathController.text.trim(),
-      targetPath: resourceTargetPathController.text.trim(),
-      preset: resourcePreset.value,
-      customKinds: resourceCustomKinds.toSet(),
-      includeSigningCredentials: resourceIncludeSigningCredentials.value,
-      includeStoredKeys: resourceIncludeStoredKeys.value,
-    );
-    resourceCollectionSettings.value = settings;
-    await store.saveResourceCollectionSettings(settings);
   }
 
   void _clearGeneratedReleaseContext({bool clearReleaseNotes = false}) {

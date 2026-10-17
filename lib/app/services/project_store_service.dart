@@ -11,7 +11,6 @@ import 'package:app_management_center/app/models/google_drive_release_settings.d
 import 'package:app_management_center/app/models/ios_build_host.dart';
 import 'package:app_management_center/app/models/release_notification.dart';
 import 'package:app_management_center/app/models/resource_catalog.dart';
-import 'package:app_management_center/app/models/resource_collection.dart';
 import 'package:app_management_center/app/models/remote_control.dart';
 import 'package:app_management_center/app/models/telegram_release_settings.dart';
 import 'package:get/get.dart';
@@ -34,7 +33,11 @@ class ProjectStoreService extends GetxService implements AuthSessionStore {
   static const _telegramReleaseSettingsKey = 'telegram_release_settings';
   static const _googleDriveReleaseSettingsKey = 'google_drive_release_settings';
   static const _flowFinSettingsKey = 'flowfin_settings';
-  static const _resourceCollectionSettingsKey = 'resource_collection_settings';
+
+  /// Settings of the resource collector, which the safe's folder scan
+  /// replaced. Removed on start so it does not linger in preferences.
+  static const _retiredResourceCollectionSettingsKey =
+      'resource_collection_settings';
   static const _resourceCatalogsKey = 'resource_catalogs';
   static const _apiToolCollectionsKey = 'api_tool_collections';
   static const _apiToolFoldersKey = 'api_tool_folders';
@@ -53,6 +56,9 @@ class ProjectStoreService extends GetxService implements AuthSessionStore {
 
   Future<ProjectStoreService> init() async {
     _preferences = await SharedPreferences.getInstance();
+    if (_preferences.containsKey(_retiredResourceCollectionSettingsKey)) {
+      await _preferences.remove(_retiredResourceCollectionSettingsKey);
+    }
     return this;
   }
 
@@ -204,24 +210,6 @@ class ProjectStoreService extends GetxService implements AuthSessionStore {
     }
 
     return const GoogleDriveReleaseSettings();
-  }
-
-  ResourceCollectionSettings get resourceCollectionSettings {
-    final entry = _preferences.getString(_resourceCollectionSettingsKey);
-    if (entry == null || entry.trim().isEmpty) {
-      return const ResourceCollectionSettings();
-    }
-
-    try {
-      final json = jsonDecode(entry);
-      if (json is Map<String, Object?>) {
-        return ResourceCollectionSettings.fromJson(json);
-      }
-    } catch (_) {
-      // Ignore invalid or legacy entries and fall back to safe defaults.
-    }
-
-    return const ResourceCollectionSettings();
   }
 
   List<ResourceCatalogBundle> get resourceCatalogs {
@@ -571,15 +559,6 @@ class ProjectStoreService extends GetxService implements AuthSessionStore {
   ) async {
     await _preferences.setString(
       _googleDriveReleaseSettingsKey,
-      jsonEncode(settings.toJson()),
-    );
-  }
-
-  Future<void> saveResourceCollectionSettings(
-    ResourceCollectionSettings settings,
-  ) async {
-    await _preferences.setString(
-      _resourceCollectionSettingsKey,
       jsonEncode(settings.toJson()),
     );
   }

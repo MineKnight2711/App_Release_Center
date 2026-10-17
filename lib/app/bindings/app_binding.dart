@@ -49,9 +49,6 @@ import 'package:app_management_center/app/services/release_workflow_service.dart
 import 'package:app_management_center/app/services/resource_catalog_crypto_service.dart';
 import 'package:app_management_center/app/services/resource_catalog_excel_service.dart';
 import 'package:app_management_center/app/services/resource_catalog_password_store_service.dart';
-import 'package:app_management_center/app/services/resource_credential_resolver.dart';
-import 'package:app_management_center/app/services/resource_discovery_service.dart';
-import 'package:app_management_center/app/services/resource_export_service.dart';
 import 'package:app_management_center/app/services/remote_control_service.dart';
 import 'package:app_management_center/app/services/script_catalog_service.dart';
 import 'package:app_management_center/app/services/theme_service.dart';
@@ -207,11 +204,6 @@ class AppBinding extends Bindings {
       ),
       permanent: true,
     );
-    Get.put<ResourceDiscoveryService>(
-      ResourceDiscoveryService(),
-      permanent: true,
-    );
-    Get.put<ResourceExportService>(ResourceExportService(), permanent: true);
     Get.put<ResourceCatalogPasswordStoreService>(
       ResourceCatalogPasswordStoreService(),
       permanent: true,
@@ -271,12 +263,6 @@ class AppBinding extends Bindings {
     );
     Get.put<ChPlayCredentialStoreService>(
       ChPlayCredentialStoreService(),
-      permanent: true,
-    );
-    Get.put<ResourceCredentialResolver>(
-      ResourceCredentialResolver(
-        store: Get.find<ChPlayCredentialStoreService>(),
-      ),
       permanent: true,
     );
     Get.put<ChPlayVersionCheckService>(
@@ -378,9 +364,6 @@ class AppBinding extends Bindings {
         appStoreInspector: Get.find<AppStoreProjectInspectorService>(),
         appStoreCredentialStore: Get.find<AppStoreCredentialStoreService>(),
         appStoreVersionChecker: Get.find<AppStoreVersionCheckService>(),
-        resourceDiscovery: Get.find<ResourceDiscoveryService>(),
-        resourceExports: Get.find<ResourceExportService>(),
-        resourceCredentials: Get.find<ResourceCredentialResolver>(),
         resourceCatalogPasswords:
             Get.find<ResourceCatalogPasswordStoreService>(),
         resourceCatalogExcel: Get.find<ResourceCatalogExcelService>(),
