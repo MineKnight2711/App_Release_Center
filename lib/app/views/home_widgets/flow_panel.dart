@@ -717,6 +717,7 @@ enum _AutomationMenuAction {
   apiTool,
   apiMonitor,
   flowFin,
+  safe,
   mailCleaner,
   bundleCheck,
   qaDesk,
@@ -740,6 +741,8 @@ Future<void> _runAutomationMenuAction(
       await showApiMonitorDialog(context);
     case _AutomationMenuAction.flowFin:
       await showFlowFinDialog(context);
+    case _AutomationMenuAction.safe:
+      await showSafe(context);
     case _AutomationMenuAction.mailCleaner:
       await showMailCleaner(context);
     case _AutomationMenuAction.bundleCheck:
@@ -822,6 +825,14 @@ class _AutomationMenuButton extends GetView<HomeController> {
               icon: Icons.account_balance_wallet_outlined,
               title: 'FlowFin',
               subtitle: 'Ví, ngân sách và giao dịch.',
+            ),
+          ),
+          const PopupMenuItem(
+            value: _AutomationMenuAction.safe,
+            child: _ExtendedMenuItem(
+              icon: Icons.lock_outline_rounded,
+              title: 'Két sắt',
+              subtitle: 'Mật khẩu, API key, env, JSON key đã mã hoá.',
             ),
           ),
           const PopupMenuItem(
