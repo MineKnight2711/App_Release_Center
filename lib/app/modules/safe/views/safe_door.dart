@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../controllers/safe_controller.dart';
 import '../services/safe_password_tools.dart';
+import '../services/safe_sounds.dart';
 import '../widgets/safe_metal.dart';
 import 'safe_dialogs.dart';
 
@@ -36,9 +37,13 @@ class SafeDoorScene extends StatefulWidget {
     super.key,
     required this.controller,
     required this.reveal,
+    required this.sounds,
   });
 
   final SafeController controller;
+
+  /// Clicks as the code is typed, a buzz when it is refused.
+  final SafeSounds sounds;
 
   /// 0 shut, 1 open and zoomed into; owned by the page.
   final Animation<double> reveal;
@@ -67,6 +72,7 @@ class _SafeDoorSceneState extends State<SafeDoorScene>
   bool _showCode = false;
   double _dialTurns = 0;
   int _typedLength = 0;
+  int _confirmLength = 0;
   late int _seenRefusals = widget.controller.refusals;
   Timer? _cooldownTicker;
 
@@ -79,6 +85,7 @@ class _SafeDoorSceneState extends State<SafeDoorScene>
     super.initState();
     _safe.addListener(_onSafeChanged);
     _code.addListener(_onTyped);
+    _confirm.addListener(_onConfirmTyped);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && !_safe.isOpen) _codeFocus.requestFocus();
     });
@@ -101,7 +108,10 @@ class _SafeDoorSceneState extends State<SafeDoorScene>
     if (_safe.refusals != _seenRefusals) {
       _seenRefusals = _safe.refusals;
       if (!_reducedMotion) _shake.forward(from: 0);
+      widget.sounds.play(SafeSound.denied);
       if (_safe.stage == SafeStage.locked) {
+        // Cleared quietly: the buzz says enough.
+        _typedLength = 0;
         _code.clear();
         _codeFocus.requestFocus();
       }
@@ -119,6 +129,8 @@ class _SafeDoorSceneState extends State<SafeDoorScene>
 
     if (_safe.isOpen) {
       // The code has done its job; it does not stay in a text field.
+      _typedLength = 0;
+      _confirmLength = 0;
       _code.clear();
       _confirm.clear();
       _showCode = false;
@@ -148,10 +160,18 @@ class _SafeDoorSceneState extends State<SafeDoorScene>
     if (length == _typedLength) return;
     final added = length > _typedLength;
     _typedLength = length;
+    widget.sounds.play(SafeSound.tick);
     setState(() {
       final step = 0.035 + _random.nextDouble() * 0.11;
       _dialTurns += (length.isEven ? 1 : -1) * (added ? step : step * 0.5);
     });
+  }
+
+  void _onConfirmTyped() {
+    final length = _confirm.text.length;
+    if (length == _confirmLength) return;
+    _confirmLength = length;
+    widget.sounds.play(SafeSound.tick);
   }
 
   Future<void> _submit() async {

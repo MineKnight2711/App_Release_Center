@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../controllers/safe_controller.dart';
+import '../services/safe_sounds.dart';
 import '../widgets/safe_metal.dart';
 import 'safe_dialogs.dart';
 import 'safe_door.dart';
@@ -21,10 +22,13 @@ Future<void> showSafe(BuildContext context, {SafeController? controller}) =>
 /// inside) forwards when the safe opens and backwards when it locks, so
 /// locking from anywhere, including the idle timer, plays the door shut.
 class SafeView extends StatefulWidget {
-  const SafeView({super.key, this.controller});
+  const SafeView({super.key, this.controller, this.sounds});
 
   /// Injected by the tests; left null the page uses the app-wide safe.
   final SafeController? controller;
+
+  /// Injected by the tests; left null the page uses the app-wide sounds.
+  final SafeSounds? sounds;
 
   @override
   State<SafeView> createState() => _SafeViewState();
@@ -33,6 +37,7 @@ class SafeView extends StatefulWidget {
 class _SafeViewState extends State<SafeView>
     with SingleTickerProviderStateMixin {
   late final SafeController _safe = widget.controller ?? SafeController.shared;
+  late final SafeSounds _sounds = widget.sounds ?? SafeSounds.shared;
   late final AnimationController _reveal = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 1500),
@@ -58,6 +63,7 @@ class _SafeViewState extends State<SafeView>
       if (mounted) setState(() {});
     });
     unawaited(_safe.load());
+    unawaited(_sounds.load());
     HardwareKeyboard.instance.addHandler(_onKey);
   }
 
@@ -79,6 +85,8 @@ class _SafeViewState extends State<SafeView>
     if (open &&
         _reveal.value < 1 &&
         _reveal.status != AnimationStatus.forward) {
+      // Timed to the opening: latch, handle, bolts, then the door.
+      _sounds.play(SafeSound.unlock);
       if (_reducedMotion) {
         _reveal.value = 1;
       } else {
@@ -87,6 +95,7 @@ class _SafeViewState extends State<SafeView>
     } else if (!open &&
         _reveal.value > 0 &&
         _reveal.status != AnimationStatus.reverse) {
+      _sounds.play(SafeSound.lock);
       if (_reducedMotion) {
         _reveal.value = 0;
       } else {
@@ -143,6 +152,21 @@ class _SafeViewState extends State<SafeView>
           ],
         ),
         actions: [
+          ListenableBuilder(
+            listenable: _sounds,
+            builder: (context, _) => IconButton(
+              key: const Key('safe-sounds'),
+              tooltip: _sounds.enabled
+                  ? 'Tắt âm thanh két'
+                  : 'Bật âm thanh két',
+              onPressed: () => _sounds.setEnabled(!_sounds.enabled),
+              icon: Icon(
+                _sounds.enabled
+                    ? Icons.volume_up_outlined
+                    : Icons.volume_off_outlined,
+              ),
+            ),
+          ),
           if (open) ...[
             if (_safe.isSaving)
               const Padding(
@@ -226,7 +250,11 @@ class _SafeViewState extends State<SafeView>
                   child: IgnorePointer(
                     ignoring: !shut,
                     child: RepaintBoundary(
-                      child: SafeDoorScene(controller: _safe, reveal: _reveal),
+                      child: SafeDoorScene(
+                        controller: _safe,
+                        reveal: _reveal,
+                        sounds: _sounds,
+                      ),
                     ),
                   ),
                 ),
