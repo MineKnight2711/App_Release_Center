@@ -11,6 +11,7 @@ import '../widgets/safe_look.dart';
 import '../widgets/safe_metal.dart';
 import 'safe_item_detail.dart';
 import 'safe_item_editor.dart';
+import 'safe_pack_dialog.dart';
 import 'safe_scan_dialog.dart';
 
 /// The inside of the open safe: drawers down the left, deposit boxes in the
@@ -79,6 +80,19 @@ class _SafeInteriorState extends State<SafeInterior> {
     _say(
       'Đã cất ${result.imported} khoá từ ${result.projects} dự án vào két.$failed',
     );
+  }
+
+  /// Packs the project being browsed, or lets the person pick one.
+  Future<void> _pack() async {
+    final filter = _safe.filter;
+    final result = await showSafePackDialog(
+      context,
+      _safe,
+      project: filter is SafeFilterProject ? filter.project : null,
+    );
+    if (result != null && mounted) {
+      _say('Đã lưu ${result.path}.');
+    }
   }
 
   Future<void> _pickImport() async {
@@ -200,6 +214,8 @@ class _SafeInteriorState extends State<SafeInterior> {
             onAdd: _add,
             onImport: _pickImport,
             onScan: _scanFolders,
+            onPack: _safe.items.isEmpty ? null : _pack,
+            iconsOnly: width < 1080,
           ),
           if (_safe.error.isNotEmpty) ...[
             const SizedBox(height: 10),
@@ -287,6 +303,8 @@ class _Toolbar extends StatelessWidget {
     required this.onAdd,
     required this.onImport,
     required this.onScan,
+    required this.onPack,
+    required this.iconsOnly,
   });
 
   final TextEditingController search;
@@ -296,6 +314,12 @@ class _Toolbar extends StatelessWidget {
   final ValueChanged<SafeItemKind> onAdd;
   final VoidCallback onImport;
   final VoidCallback onScan;
+
+  /// Null while there is nothing to pack.
+  final VoidCallback? onPack;
+
+  /// The side actions as bare icons, for a window too narrow for labels.
+  final bool iconsOnly;
 
   @override
   Widget build(BuildContext context) {
@@ -332,26 +356,47 @@ class _Toolbar extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 10),
-        if (compact)
-          IconButton(
-            key: const Key('safe-scan'),
-            tooltip: 'Dò khoá trong thư mục project',
-            onPressed: onScan,
-            icon: const Icon(Icons.radar_rounded),
-          )
-        else ...[
-          OutlinedButton.icon(
-            key: const Key('safe-scan'),
-            onPressed: onScan,
-            icon: const Icon(Icons.radar_rounded, size: 18),
-            label: const Text('Dò thư mục…'),
+        for (final (key, icon, label, tooltip, onPressed) in [
+          (
+            const Key('safe-scan'),
+            Icons.radar_rounded,
+            'Dò thư mục…',
+            'Dò khoá trong thư mục project',
+            onScan,
           ),
-          const SizedBox(width: 8),
-          OutlinedButton.icon(
-            onPressed: onImport,
-            icon: const Icon(Icons.upload_file_rounded, size: 18),
-            label: const Text('Cất tệp…'),
+          (
+            const Key('safe-pack'),
+            Icons.folder_zip_outlined,
+            'Đóng gói ZIP…',
+            'Đóng gói ZIP có mật khẩu bộ keys của một dự án',
+            onPack,
           ),
+          if (!compact)
+            (
+              const Key('safe-import-file'),
+              Icons.upload_file_rounded,
+              'Cất tệp…',
+              'Cất một tệp vào két',
+              onImport,
+            ),
+        ]) ...[
+          if (iconsOnly)
+            IconButton(
+              key: key,
+              tooltip: tooltip,
+              onPressed: onPressed,
+              icon: Icon(icon),
+            )
+          else
+            Tooltip(
+              message: tooltip,
+              child: OutlinedButton.icon(
+                key: key,
+                onPressed: onPressed,
+                icon: Icon(icon, size: 18),
+                label: Text(label),
+              ),
+            ),
           const SizedBox(width: 8),
         ],
         PopupMenuButton<SafeItemKind>(
