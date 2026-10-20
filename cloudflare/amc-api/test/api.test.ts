@@ -10,6 +10,7 @@ beforeEach(async () => {
   clientIp = `10.0.0.${Math.floor(Math.random() * 250)}-${crypto.randomUUID()}`;
   await env.DB.batch(
     [
+      'safe_shares',
       'qa_account_audit',
       'qa_account_leases',
       'qa_account_status',
@@ -30,9 +31,9 @@ beforeEach(async () => {
 async function call(
   method: string,
   path: string,
-  options: { token?: string; body?: unknown } = {},
+  options: { token?: string; body?: unknown; ip?: string } = {},
 ): Promise<{ status: number; body: any }> {
-  const headers: Record<string, string> = { 'CF-Connecting-IP': clientIp };
+  const headers: Record<string, string> = { 'CF-Connecting-IP': options.ip ?? clientIp };
   if (options.token) headers.Authorization = `Bearer ${options.token}`;
   if (options.body !== undefined) headers['Content-Type'] = 'application/json';
   const response = await exports.default.fetch(
@@ -473,5 +474,242 @@ describe('ai release notes', () => {
     expect((await notes(user.token, { input: '  ' })).status).toBe(400);
     expect((await notes(user.token, { input: 'x'.repeat(40_001) })).status).toBe(413);
     expect(calls).toEqual([]);
+  });
+});
+
+describe('safe share links', () => {
+  function base64Url(bytes: Uint8Array): string {
+    return btoa(String.fromCharCode(...bytes)).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/, '');
+  }
+
+  function randomId(): string {
+    return base64Url(crypto.getRandomValues(new Uint8Array(16)));
+  }
+
+  async function sha256(text: string): Promise<string> {
+    return base64Url(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))));
+  }
+
+  /** A share as the app uploads it; the Worker never sees anything else. */
+  async function newShare(token: string, overrides: Record<string, unknown> = {}) {
+    const id = randomId();
+    const access = base64Url(crypto.getRandomValues(new Uint8Array(32)));
+    const ciphertext = base64Url(crypto.getRandomValues(new Uint8Array(64)));
+    const response = await call('POST', '/v1/shares', {
+      token,
+      body: {
+        id,
+        itemId: 'item-1',
+        ciphertext,
+        accessHash: await sha256(access),
+        expiresInHours: 24,
+        maxViews: null,
+        ...overrides,
+      },
+    });
+    return { id, access, ciphertext, response };
+  }
+
+  function open(id: string, access: string, ip?: string) {
+    return call('POST', `/v1/shares/${id}/open`, { body: { access }, ip });
+  }
+
+  it('needs a session to create, and serves the ciphertext to the right key only', async () => {
+    const owner = await registerUser('owner@example.com');
+    expect((await call('POST', '/v1/shares', { body: {} })).status).toBe(401);
+
+    const share = await newShare(owner.token, {
+      passwordSalt: randomId(),
+      kdfIterations: 600_000,
+    });
+    expect(share.response.status).toBe(201);
+    expect(share.response.body.url).toBe(`${BASE}/s/${share.id}`);
+    expect(share.response.body.share).toMatchObject({
+      id: share.id,
+      itemId: 'item-1',
+      status: 'active',
+      passwordProtected: true,
+      maxViews: null,
+      views: 0,
+    });
+
+    const meta = await call('GET', `/v1/shares/${share.id}/meta`);
+    expect(meta.status).toBe(200);
+    expect(meta.body).toMatchObject({ passwordRequired: true, kdfIterations: 600_000, viewsLeft: null });
+    expect(meta.body).not.toHaveProperty('ciphertext');
+
+    const wrong = await open(share.id, base64Url(new Uint8Array(32)));
+    expect(wrong.status).toBe(403);
+    expect(wrong.body.error).toMatchObject({ code: 'wrong-password', attemptsLeft: 9 });
+
+    const right = await open(share.id, share.access);
+    expect(right.status).toBe(200);
+    expect(right.body).toMatchObject({ ciphertext: share.ciphertext, viewsLeft: null });
+
+    const listed = await call('GET', '/v1/shares', { token: owner.token });
+    expect(listed.body.shares).toHaveLength(1);
+    expect(listed.body.shares[0]).toMatchObject({ views: 1, failedAttempts: 1, status: 'active' });
+    expect(listed.body.shares[0].lastViewedAt).toBeTruthy();
+  });
+
+  it('burns a one-view link after its view and wipes the ciphertext', async () => {
+    const owner = await registerUser('owner@example.com');
+    const share = await newShare(owner.token, { maxViews: 1 });
+    expect((await call('GET', `/v1/shares/${share.id}/meta`)).body.viewsLeft).toBe(1);
+
+    const first = await open(share.id, share.access);
+    expect(first.body).toMatchObject({ ciphertext: share.ciphertext, viewsLeft: 0 });
+    const second = await open(share.id, share.access);
+    expect(second.status).toBe(404);
+    expect(second.body.error.code).toBe('share-gone');
+    expect((await call('GET', `/v1/shares/${share.id}/meta`)).status).toBe(404);
+
+    const row = await env.DB.prepare('SELECT ciphertext FROM safe_shares WHERE id = ?1')
+      .bind(share.id)
+      .first<{ ciphertext: string }>();
+    expect(row?.ciphertext).toBe('');
+    const listed = await call('GET', '/v1/shares', { token: owner.token });
+    expect(listed.body.shares[0]).toMatchObject({ status: 'used-up', views: 1, maxViews: 1 });
+  });
+
+  it('destroys a link after too many wrong keys, from any address', async () => {
+    const owner = await registerUser('owner@example.com');
+    const share = await newShare(owner.token);
+    const wrongKey = base64Url(new Uint8Array(32));
+    let last: { status: number; body: any } | undefined;
+    for (let attempt = 0; attempt < 10; attempt++) {
+      last = await open(share.id, wrongKey, `10.1.0.${attempt}`);
+    }
+    expect(last!.status).toBe(403);
+    expect(last!.body.error).toMatchObject({ code: 'invalid-link', attemptsLeft: 0 });
+    expect((await open(share.id, share.access, '10.2.0.1')).status).toBe(404);
+    const listed = await call('GET', '/v1/shares', { token: owner.token });
+    expect(listed.body.shares[0].status).toBe('locked');
+  });
+
+  it('stops opening once expired', async () => {
+    const owner = await registerUser('owner@example.com');
+    const share = await newShare(owner.token);
+    await env.DB.prepare("UPDATE safe_shares SET expires_at = '2000-01-01T00:00:00.000Z'").run();
+    expect((await call('GET', `/v1/shares/${share.id}/meta`)).status).toBe(404);
+    expect((await open(share.id, share.access)).status).toBe(404);
+    const listed = await call('GET', '/v1/shares', { token: owner.token });
+    expect(listed.body.shares[0].status).toBe('expired');
+  });
+
+  it('lets only the owner list and revoke', async () => {
+    const owner = await registerUser('owner@example.com');
+    const other = await registerUser('other@example.com');
+    const share = await newShare(owner.token);
+
+    expect((await call('GET', '/v1/shares', { token: other.token })).body.shares).toEqual([]);
+    const stolen = await call('DELETE', `/v1/shares/${share.id}`, { token: other.token });
+    expect(stolen.status).toBe(404);
+    expect((await call('GET', `/v1/shares/${share.id}/meta`)).status).toBe(200);
+
+    expect((await call('DELETE', `/v1/shares/${share.id}`, { token: owner.token })).status).toBe(204);
+    expect((await call('GET', `/v1/shares/${share.id}/meta`)).status).toBe(404);
+    expect((await call('GET', '/v1/shares', { token: owner.token })).body.shares).toEqual([]);
+  });
+
+  it('rejects malformed and oversized shares', async () => {
+    const owner = await registerUser('owner@example.com');
+    expect((await newShare(owner.token, { id: 'short' })).response.status).toBe(400);
+    expect((await newShare(owner.token, { accessHash: 'nope' })).response.status).toBe(400);
+    expect((await newShare(owner.token, { expiresInHours: 24 * 31 })).response.status).toBe(400);
+    expect((await newShare(owner.token, { maxViews: 0 })).response.status).toBe(400);
+    expect((await newShare(owner.token, { passwordSalt: randomId() })).response.status).toBe(400);
+    const large = await newShare(owner.token, { ciphertext: 'A'.repeat(1_500_001) });
+    expect(large.response.status).toBe(413);
+    expect(large.response.body.error.code).toBe('share-too-large');
+
+    const share = await newShare(owner.token);
+    const duplicate = await newShare(owner.token, { id: share.id });
+    expect(duplicate.response.status).toBe(409);
+  });
+
+  it('opens a share sealed by the app with the page algorithm', async () => {
+    // From test/safe_share_test.dart; the same steps as src/sharePage.html.
+    const vector = {
+      id: 'HGW-FZJe6hd71He22BrlUA',
+      secret: 'BUjd8zykgy2SfDRVaT6o0ortQKuGtIImb65ahvhaZ3s',
+      ciphertext:
+        'y5z3ieEzK4sQDZjQVpoclOJXOSvwH1y7PcRmLOZ34H4QXc-Riqdzb8-DxxUWth7B-l7PM8dc' +
+        'AHgoYVUk3WAbPwki8Qe1mflHIIrgfOYGskihzKvte2xEtK45mQzP9Zk2',
+      accessHash: 'PAaCOW2JQecbbNhHnh3lkOGga25FlKq341DlBVqzj-Y',
+      passwordSalt: 'dSU7QM9nq5lVIOYkqv3jPQ',
+      kdfIterations: 100_000,
+    };
+    const owner = await registerUser('owner@example.com');
+    const created = await call('POST', '/v1/shares', {
+      token: owner.token,
+      body: { ...vector, itemId: 'item-1', expiresInHours: 1, maxViews: 1 },
+    });
+    expect(created.status).toBe(201);
+
+    const fromBase64Url = (text: string) =>
+      Uint8Array.from(atob(text.replaceAll('-', '+').replaceAll('_', '/') + '==='.slice((text.length + 3) % 4)), (c) =>
+        c.charCodeAt(0),
+      );
+    const encoder = new TextEncoder();
+    const meta = (await call('GET', `/v1/shares/${vector.id}/meta`)).body;
+    const passwordKey = await crypto.subtle.importKey('raw', encoder.encode('Correct-Horse-9'), 'PBKDF2', false, [
+      'deriveBits',
+    ]);
+    const stretched = new Uint8Array(
+      await crypto.subtle.deriveBits(
+        { name: 'PBKDF2', hash: 'SHA-256', salt: fromBase64Url(meta.passwordSalt), iterations: meta.kdfIterations },
+        passwordKey,
+        256,
+      ),
+    );
+    const root = await crypto.subtle.importKey(
+      'raw',
+      new Uint8Array([...fromBase64Url(vector.secret), ...stretched]),
+      'HKDF',
+      false,
+      ['deriveBits'],
+    );
+    const context = encoder.encode(`amc-share.v1:${vector.id}`);
+    const derive = async (info: string) =>
+      new Uint8Array(
+        await crypto.subtle.deriveBits(
+          { name: 'HKDF', hash: 'SHA-256', salt: context, info: encoder.encode(info) },
+          root,
+          256,
+        ),
+      );
+
+    const opened = await open(vector.id, base64Url(await derive('access')));
+    expect(opened.status).toBe(200);
+    expect(opened.body.viewsLeft).toBe(0);
+    const sealed = fromBase64Url(opened.body.ciphertext);
+    const key = await crypto.subtle.importKey('raw', await derive('enc'), 'AES-GCM', false, ['decrypt']);
+    const clear = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv: sealed.slice(0, 12), additionalData: context, tagLength: 128 },
+      key,
+      sealed.slice(12),
+    );
+    expect(JSON.parse(new TextDecoder().decode(clear))).toEqual({
+      v: 1,
+      kind: 'apiKey',
+      title: 'Khoá thử',
+      secret: 'sk_live_123',
+    });
+  });
+
+  it('serves the opening page with a locked-down policy', async () => {
+    const response = await exports.default.fetch(new Request(`${BASE}/s/${randomId()}`));
+    expect(response.status).toBe(200);
+    expect(response.headers.get('Content-Type')).toContain('text/html');
+    expect(response.headers.get('Cache-Control')).toBe('no-store');
+    expect(response.headers.get('Referrer-Policy')).toBe('no-referrer');
+    const policy = response.headers.get('Content-Security-Policy')!;
+    const nonce = /script-src 'nonce-([A-Za-z0-9_-]+)'/.exec(policy)?.[1];
+    expect(nonce).toBeTruthy();
+    expect(policy).toContain("connect-src 'self'");
+    const html = await response.text();
+    expect(html).toContain(`<script nonce="${nonce}">`);
+    expect(html).not.toContain('__NONCE__');
   });
 });

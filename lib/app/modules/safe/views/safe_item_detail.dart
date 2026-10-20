@@ -14,6 +14,7 @@ import '../widgets/safe_look.dart';
 import '../widgets/safe_metal.dart';
 import 'safe_dialogs.dart';
 import 'safe_item_editor.dart';
+import 'safe_share_dialog.dart';
 
 const _mono = TextStyle(
   fontFamily: 'JetBrains Mono',
@@ -121,6 +122,10 @@ class _SafeItemDetailState extends State<SafeItemDetail> {
     if (removed) widget.onClose?.call();
   }
 
+  Future<void> _share() async {
+    await showSafeShareDialog(context, widget.safe, _item);
+  }
+
   Future<void> _open(String url) async {
     final uri = Uri.tryParse(url.contains('://') ? url : 'https://$url');
     if (uri != null) await launchUrl(uri);
@@ -196,6 +201,12 @@ class _SafeItemDetailState extends State<SafeItemDetail> {
                         : Icons.star_outline_rounded,
                     color: _item.favorite ? const Color(0xFFE0A526) : null,
                   ),
+                ),
+                IconButton(
+                  key: const Key('safe-detail-share'),
+                  tooltip: 'Chia sẻ qua link',
+                  onPressed: _share,
+                  icon: const Icon(Icons.link_rounded),
                 ),
                 IconButton(
                   key: const Key('safe-detail-edit'),

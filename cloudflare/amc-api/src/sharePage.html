@@ -1,0 +1,1128 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<meta name="color-scheme" content="light dark">
+<title>Mục chia sẻ · AMC</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='2' y='3' width='20' height='18' rx='3' fill='%23596169'/%3E%3Ccircle cx='12' cy='12' r='5' fill='%23e0c06a'/%3E%3Ccircle cx='12' cy='12' r='2' fill='%23596169'/%3E%3C/svg%3E">
+<style nonce="__NONCE__">
+:root {
+  --bg: #e7eaee;
+  --bg-glow: #f6f7f9;
+  --surface: #ffffff;
+  --surface-2: #f3f5f7;
+  --border: #d6dbe1;
+  --border-strong: #b9c1ca;
+  --text: #1a1f25;
+  --muted: #5b646e;
+  --brass: #a87f22;
+  --brass-soft: #f6ecd2;
+  --primary: #2563d9;
+  --primary-ink: #ffffff;
+  --danger: #c9302c;
+  --danger-soft: #fbe9e8;
+  --warn: #9a6a00;
+  --warn-soft: #fbf1d9;
+  --ok: #23854f;
+  --ok-soft: #e3f4ea;
+  --code: #f1f3f6;
+  --shadow: 0 1px 2px rgba(20, 26, 33, .06), 0 12px 32px rgba(20, 26, 33, .10);
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, "Courier New", monospace;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0e1114;
+    --bg-glow: #171b20;
+    --surface: #181c21;
+    --surface-2: #20252b;
+    --border: #2f363e;
+    --border-strong: #46505a;
+    --text: #e6eaee;
+    --muted: #98a2ad;
+    --brass: #e0c06a;
+    --brass-soft: #2c2715;
+    --primary: #6f9dff;
+    --primary-ink: #0b1220;
+    --danger: #ff7570;
+    --danger-soft: #34191a;
+    --warn: #f1bf4c;
+    --warn-soft: #2f2712;
+    --ok: #4fd18b;
+    --ok-soft: #142a1f;
+    --code: #12161a;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 16px 40px rgba(0, 0, 0, .45);
+  }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: radial-gradient(1200px 600px at 50% -200px, var(--bg-glow), var(--bg)) no-repeat, var(--bg);
+  color: var(--text);
+  font: 15px/1.5 var(--sans);
+}
+.shell { width: 100%; max-width: 640px; margin: 0 auto; padding: 28px 16px 40px; }
+.brand { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; color: var(--muted); font-size: 13px; }
+.brand svg { width: 26px; height: 26px; flex: none; }
+.brand b { color: var(--text); font-size: 15px; letter-spacing: .02em; }
+.card {
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.card::before { content: ""; display: block; height: 4px; background: var(--strip, var(--brass)); }
+.pad { padding: 26px 26px 24px; }
+.center { text-align: center; }
+.dial {
+  width: 64px; height: 64px; margin: 4px auto 14px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--brass-soft); color: var(--brass);
+  border: 1px solid color-mix(in srgb, var(--brass) 40%, transparent);
+}
+.dial svg { width: 30px; height: 30px; }
+.dial.bad { background: var(--danger-soft); color: var(--danger); border-color: color-mix(in srgb, var(--danger) 35%, transparent); }
+.dial.ok { background: var(--ok-soft); color: var(--ok); border-color: color-mix(in srgb, var(--ok) 35%, transparent); }
+h1 { font-size: 21px; line-height: 1.3; margin: 0 0 6px; letter-spacing: -.01em; }
+h2 { font-size: 18px; line-height: 1.3; margin: 0; word-break: break-word; }
+p { margin: 0; }
+.lead { color: var(--muted); }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 18px 0 4px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 10px; border-radius: 999px; font-size: 13px;
+  background: var(--surface-2); border: 1px solid var(--border); color: var(--text);
+}
+.chip svg { width: 15px; height: 15px; color: var(--muted); }
+.notice {
+  display: flex; gap: 10px; align-items: flex-start;
+  margin-top: 16px; padding: 11px 13px; border-radius: 10px; font-size: 14px; text-align: left;
+  background: var(--surface-2); border: 1px solid var(--border);
+}
+.notice svg { width: 18px; height: 18px; flex: none; margin-top: 1px; }
+.notice.warn { background: var(--warn-soft); border-color: color-mix(in srgb, var(--warn) 35%, transparent); }
+.notice.warn svg { color: var(--warn); }
+.notice.bad { background: var(--danger-soft); border-color: color-mix(in srgb, var(--danger) 35%, transparent); }
+.notice.bad svg { color: var(--danger); }
+.notice.good { background: var(--ok-soft); border-color: color-mix(in srgb, var(--ok) 35%, transparent); }
+.notice.good svg { color: var(--ok); }
+form.unlock { margin-top: 20px; display: grid; gap: 10px; }
+label.field-label { font-size: 13px; font-weight: 600; color: var(--muted); text-align: left; }
+.input-wrap { position: relative; }
+input[type=password], input[type=text] {
+  width: 100%; padding: 12px 46px 12px 14px; border-radius: 10px;
+  border: 1px solid var(--border-strong); background: var(--surface); color: var(--text);
+  font: 15px var(--mono); outline: none;
+}
+input::placeholder { font-family: var(--sans); color: var(--muted); }
+input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 22%, transparent); }
+.input-wrap .icon-btn { position: absolute; right: 5px; top: 50%; transform: translateY(-50%); }
+button { font: inherit; color: inherit; cursor: pointer; }
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 11px 16px; border-radius: 10px; border: 1px solid transparent; font-weight: 600;
+  background: var(--primary); color: var(--primary-ink); min-height: 44px;
+}
+.btn:hover { filter: brightness(1.06); }
+.btn:disabled { opacity: .6; cursor: progress; }
+.btn svg { width: 18px; height: 18px; }
+.btn.ghost { background: transparent; color: var(--text); border-color: var(--border-strong); font-weight: 500; }
+.btn.ghost:hover { background: var(--surface-2); filter: none; }
+.btn.small { min-height: 34px; padding: 6px 11px; font-size: 13px; border-radius: 8px; }
+.btn.wide { width: 100%; }
+.icon-btn {
+  display: inline-grid; place-items: center; width: 36px; height: 36px; border-radius: 8px;
+  border: 1px solid transparent; background: transparent; color: var(--muted);
+}
+.icon-btn:hover { background: var(--surface-2); color: var(--text); }
+.icon-btn svg { width: 18px; height: 18px; }
+.icon-btn.done { color: var(--ok); }
+.spin { width: 18px; height: 18px; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent; animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes shake { 10%, 90% { transform: translateX(-1px); } 20%, 80% { transform: translateX(2px); } 30%, 50%, 70% { transform: translateX(-4px); } 40%, 60% { transform: translateX(4px); } }
+.shake { animation: shake .4s; }
+@media (prefers-reduced-motion: reduce) { .shake, .spin { animation: none; } }
+.error-text { color: var(--danger); font-size: 14px; text-align: left; min-height: 0; }
+.item-head { display: flex; gap: 14px; align-items: center; padding: 20px 22px 16px; border-bottom: 1px solid var(--border); }
+.kind-icon { width: 44px; height: 44px; flex: none; border-radius: 50%; display: grid; place-items: center; background: color-mix(in srgb, var(--tint) 16%, transparent); color: var(--tint); border: 1px solid color-mix(in srgb, var(--tint) 40%, transparent); }
+.kind-icon svg { width: 22px; height: 22px; }
+.item-head .sub { color: var(--muted); font-size: 13px; margin-top: 2px; }
+.body { padding: 18px 22px 22px; display: grid; gap: 14px; }
+.from { padding: 12px 14px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--border); font-size: 14px; }
+.from .who { color: var(--muted); font-size: 12.5px; margin-bottom: 4px; }
+.from .msg { white-space: pre-wrap; word-break: break-word; }
+.field { display: grid; gap: 4px; }
+.field .label { font-size: 12.5px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.row { display: flex; align-items: center; gap: 4px; padding: 4px 4px 4px 12px; border-radius: 10px; background: var(--code); border: 1px solid var(--border); min-height: 46px; }
+.row .value { flex: 1; min-width: 0; font: 14px/1.45 var(--mono); word-break: break-all; padding: 6px 0; }
+.row .value.masked { color: var(--muted); letter-spacing: .1em; }
+.row a.value { color: var(--primary); text-decoration: none; font-family: var(--sans); word-break: break-word; }
+.row a.value:hover { text-decoration: underline; }
+.block { position: relative; border-radius: 10px; background: var(--code); border: 1px solid var(--border); }
+.block pre { margin: 0; padding: 12px 14px; max-height: 420px; overflow: auto; font: 13px/1.5 var(--mono); white-space: pre-wrap; word-break: break-word; }
+.block pre.masked { color: var(--muted); user-select: none; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.toolbar .grow { flex: 1; }
+.env-list { border-radius: 10px; background: var(--code); border: 1px solid var(--border); overflow: hidden; font: 13px/1.45 var(--mono); }
+.env-row { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr) 36px; gap: 2px 10px; align-items: center; padding: 5px 4px 5px 12px; border-top: 1px solid var(--border); }
+.env-row:first-child { border-top: 0; }
+.env-row .k { font-weight: 700; word-break: break-all; }
+.env-row .v { word-break: break-all; }
+.env-row .v.masked { color: var(--muted); letter-spacing: .1em; white-space: nowrap; overflow: hidden; }
+.file-card { display: flex; gap: 14px; align-items: center; padding: 14px; border-radius: 12px; background: var(--code); border: 1px solid var(--border); }
+.file-card .meta { flex: 1; min-width: 0; }
+.file-card .name { font-weight: 600; overflow-wrap: anywhere; }
+.file-card .size { color: var(--muted); font-size: 13px; }
+.hash { font: 12px/1.6 var(--mono); color: var(--muted); overflow-wrap: anywhere; }
+.notes { white-space: pre-wrap; word-break: break-word; font-size: 14px; }
+.foot { margin-top: 16px; display: flex; gap: 8px; align-items: flex-start; justify-content: center; color: var(--muted); font-size: 12.5px; text-align: center; }
+.foot svg { width: 14px; height: 14px; flex: none; margin-top: 2px; }
+.end { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; padding: 14px 22px; border-top: 1px solid var(--border); background: var(--surface-2); font-size: 13px; color: var(--muted); }
+.download-all { display: flex; gap: 14px; align-items: center; padding: 14px; border-radius: 12px; background: var(--brass-soft); border: 1px solid color-mix(in srgb, var(--brass) 35%, transparent); }
+.download-all .meta { flex: 1; min-width: 0; }
+.download-all .name { font-weight: 600; }
+.download-all .size { color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
+.bundle-list { display: grid; gap: 8px; }
+details.entry { border: 1px solid var(--border); border-radius: 12px; background: var(--surface); overflow: hidden; }
+details.entry > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 12px; padding: 10px 12px; }
+details.entry > summary::-webkit-details-marker { display: none; }
+details.entry > summary:hover { background: var(--surface-2); }
+details.entry > summary:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+details.entry[open] > summary { background: var(--surface-2); border-bottom: 1px solid var(--border); }
+.mini-icon { width: 32px; height: 32px; flex: none; border-radius: 50%; display: grid; place-items: center; background: color-mix(in srgb, var(--tint) 16%, transparent); color: var(--tint); }
+.mini-icon svg { width: 16px; height: 16px; }
+.entry-text { display: grid; min-width: 0; flex: 1; }
+.entry-title { font-weight: 600; overflow-wrap: anywhere; }
+.entry-path { font: 12px/1.4 var(--mono); color: var(--muted); overflow-wrap: anywhere; }
+.chev { display: grid; color: var(--muted); transition: transform .15s; }
+.chev svg { width: 16px; height: 16px; }
+details.entry[open] .chev { transform: rotate(90deg); }
+.entry-body { padding: 14px 12px; display: grid; gap: 12px; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+@media (max-width: 480px) {
+  .pad { padding: 22px 18px 20px; }
+  .item-head { padding: 18px 16px 14px; }
+  .body { padding: 16px; }
+  .end { padding: 12px 16px; }
+  h1 { font-size: 19px; }
+  .toolbar .label.grow { flex: 1 1 100%; }
+  .env-row { grid-template-columns: minmax(0, 1fr) 36px; }
+  .env-row .v { grid-row: 2; }
+  .env-row .c { grid-column: 2; grid-row: 1 / span 2; }
+  .file-card { flex-wrap: wrap; }
+  .file-card .btn { width: 100%; }
+  .download-all { flex-wrap: wrap; }
+  .download-all .btn { width: 100%; }
+}
+</style>
+</head>
+<body>
+<main class="shell">
+  <div class="brand">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="3" width="20" height="18" rx="3" fill="#596169"/><rect x="3.5" y="4.5" width="17" height="15" rx="2" fill="#6f7882"/><circle cx="12" cy="12" r="5" fill="#e0c06a"/><circle cx="12" cy="12" r="2" fill="#596169"/><rect x="11.4" y="6.4" width="1.2" height="2.4" rx=".6" fill="#8f6c24"/></svg>
+    <span><b>AMC</b> · Két sắt</span>
+  </div>
+  <section class="card" id="card" aria-live="polite">
+    <div id="view" class="pad center">
+      <noscript>Trang này cần bật JavaScript để giải mã nội dung ngay trên máy bạn.</noscript>
+    </div>
+  </section>
+  <p class="foot">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+    <span>Mã hoá đầu-cuối: nội dung chỉ được giải mã trên trình duyệt này. Khoá nằm sau dấu # của link và không bao giờ được gửi lên máy chủ.</span>
+  </p>
+</main>
+<script nonce="__NONCE__">
+'use strict';
+(() => {
+  const CONTEXT = 'amc-share.v1:';
+  const encoder = new TextEncoder();
+  const decoder = new TextDecoder();
+  const view = document.getElementById('view');
+  const card = document.getElementById('card');
+  const shareId = decodeURIComponent(location.pathname.split('/').filter(Boolean).pop() || '');
+  const fragment = location.hash.replace(/^#/, '');
+  let burned = false;
+
+  // ---------- DOM helpers: payload text only ever goes in via textContent.
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+  const ICONS = {
+    lock: '<rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+    unlock: '<rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/>',
+    clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+    eye: '<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+    eyeOff: '<path d="M3 3l18 18"/><path d="M10.6 5.1A10 10 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.2 4.2M6.6 6.6C3.8 8.4 2 12 2 12s3.6 7 10 7a9.6 9.6 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/>',
+    copy: '<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/>',
+    check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+    download: '<path d="M12 4v11"/><path d="M7 10.5l5 5 5-5"/><path d="M5 20h14"/>',
+    alert: '<path d="M12 3l10 18H2L12 3z"/><path d="M12 10v4.5"/><path d="M12 17.6v.1"/>',
+    info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v6"/><path d="M12 7.6v.1"/>',
+    flame: '<path d="M12 3c1 3.5 5 5.5 5 10a5 5 0 0 1-10 0c0-2.5 1.5-4 2.5-5 .3 1.6 1 2.6 2 3 0-3-1-5.5.5-8z"/>',
+    eyeCount: '<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+    external: '<path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/>',
+    password: '<rect x="2.5" y="7" width="19" height="10" rx="2.5"/><path d="M7 12h.01M11 12h.01M15 12h.01"/>',
+    apiKey: '<circle cx="8" cy="15" r="4"/><path d="M11 12l9-9"/><path d="M16 7l3 3"/><path d="M14 9l2 2"/>',
+    env: '<path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/>',
+    jsonKey: '<path d="M8 4H7a2 2 0 0 0-2 2v4a2 2 0 0 1-2 2 2 2 0 0 1 2 2v4a2 2 0 0 0 2 2h1"/><path d="M16 4h1a2 2 0 0 1 2 2v4a2 2 0 0 0 2 2 2 2 0 0 0-2 2v4a2 2 0 0 1-2 2h-1"/>',
+    note: '<path d="M5 4h14v11l-5 5H5z"/><path d="M14 20v-5h5"/><path d="M8 9h8M8 13h4"/>',
+    file: '<path d="M6 3h8l5 5v13H6z"/><path d="M14 3v5h5"/>',
+    gone: '<circle cx="12" cy="12" r="9"/><path d="M8.5 8.5l7 7M15.5 8.5l-7 7"/>',
+    bundle: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M13 10h-2M13 13h-2M13 16h-2"/>',
+    chevron: '<path d="M9 6l6 6-6 6"/>',
+    hide: '<path d="M3 3l18 18"/><path d="M10.6 5.1A10 10 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.2 4.2M6.6 6.6C3.8 8.4 2 12 2 12s3.6 7 10 7a9.6 9.6 0 0 0 5.4-1.6"/>',
+  };
+  /** Where the app's kit puts secrets that were never files. */
+  const SECRETS_FILE = 'secrets.txt';
+  const KINDS = {
+    password: { label: 'Mật khẩu', tint: '#5B8DEF' },
+    apiKey: { label: 'API key', tint: '#E0A526' },
+    env: { label: 'Env', tint: '#3DBE7A' },
+    jsonKey: { label: 'JSON key', tint: '#9B7BEA' },
+    note: { label: 'Ghi chú', tint: '#2BB3B1' },
+    file: { label: 'Tệp', tint: '#E07B4F' },
+  };
+
+  function icon(name) {
+    const svg = document.createElementNS(SVG_NS, 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('fill', 'none');
+    svg.setAttribute('stroke', 'currentColor');
+    svg.setAttribute('stroke-width', '2');
+    svg.setAttribute('stroke-linecap', 'round');
+    svg.setAttribute('stroke-linejoin', 'round');
+    svg.setAttribute('aria-hidden', 'true');
+    svg.innerHTML = ICONS[name] || ICONS.info; // static markup from ICONS only
+    return svg;
+  }
+
+  function h(tag, props, ...children) {
+    const el = document.createElement(tag);
+    for (const [key, value] of Object.entries(props || {})) {
+      if (value === undefined || value === null || value === false) continue;
+      if (key === 'class') el.className = value;
+      else if (key === 'text') el.textContent = value;
+      else if (key.startsWith('on')) el.addEventListener(key.slice(2), value);
+      else el.setAttribute(key, value === true ? '' : value);
+    }
+    for (const child of children.flat()) {
+      if (child === null || child === undefined || child === false) continue;
+      el.append(child instanceof Node ? child : document.createTextNode(String(child)));
+    }
+    return el;
+  }
+
+  function render(...nodes) {
+    view.replaceChildren(...nodes.filter(Boolean));
+  }
+
+  function setStrip(color) {
+    if (color) card.style.setProperty('--strip', color);
+    else card.style.removeProperty('--strip');
+  }
+
+  // ---------- Encoding and crypto (mirrors lib/app/modules/safe/services/safe_share_crypto.dart).
+  function fromBase64Url(text) {
+    if (!/^[A-Za-z0-9_-]*$/.test(text)) throw new Error('not base64url');
+    const padded = text.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((text.length + 3) % 4);
+    return fromBinary(atob(padded));
+  }
+
+  function fromBinary(binary) {
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return bytes;
+  }
+
+  function toBase64Url(bytes) {
+    let binary = '';
+    for (const byte of bytes) binary += String.fromCharCode(byte);
+    return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+
+  async function deriveKeys(secret, password, meta) {
+    let ikm = secret;
+    if (meta.passwordRequired) {
+      const base = await crypto.subtle.importKey('raw', encoder.encode(password), 'PBKDF2', false, ['deriveBits']);
+      const stretched = new Uint8Array(await crypto.subtle.deriveBits(
+        { name: 'PBKDF2', hash: 'SHA-256', salt: fromBase64Url(meta.passwordSalt), iterations: meta.kdfIterations },
+        base,
+        256,
+      ));
+      ikm = new Uint8Array(secret.length + stretched.length);
+      ikm.set(secret);
+      ikm.set(stretched, secret.length);
+    }
+    const root = await crypto.subtle.importKey('raw', ikm, 'HKDF', false, ['deriveBits']);
+    const salt = encoder.encode(CONTEXT + shareId);
+    const derive = async (info) => new Uint8Array(await crypto.subtle.deriveBits(
+      { name: 'HKDF', hash: 'SHA-256', salt, info: encoder.encode(info) },
+      root,
+      256,
+    ));
+    return { enc: await derive('enc'), access: await derive('access') };
+  }
+
+  async function decrypt(encKey, ciphertext) {
+    const sealed = fromBase64Url(ciphertext);
+    const key = await crypto.subtle.importKey('raw', encKey, 'AES-GCM', false, ['decrypt']);
+    const clear = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv: sealed.slice(0, 12), additionalData: encoder.encode(CONTEXT + shareId), tagLength: 128 },
+      key,
+      sealed.slice(12),
+    );
+    return JSON.parse(decoder.decode(clear));
+  }
+
+  // ---------- Formatting.
+  const dateFormat = new Intl.DateTimeFormat('vi-VN', {
+    hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric',
+  });
+
+  function fromNow(iso) {
+    const ms = Date.parse(iso) - Date.now();
+    const rtf = new Intl.RelativeTimeFormat('vi', { numeric: 'auto' });
+    const minutes = Math.round(ms / 60000);
+    if (Math.abs(minutes) < 60) return rtf.format(minutes, 'minute');
+    const hours = Math.round(ms / 3600000);
+    if (Math.abs(hours) < 48) return rtf.format(hours, 'hour');
+    return rtf.format(Math.round(ms / 86400000), 'day');
+  }
+
+  function byteSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  }
+
+  function dots(text, max = 24) {
+    return '•'.repeat(Math.max(8, Math.min(text.length, max)));
+  }
+
+  function maskBlock(text) {
+    const head = text.length > 900 ? text.slice(0, 900) + '\n…' : text;
+    return head.replace(/[^\s]/g, '•');
+  }
+
+  function safeFileName(name, fallback) {
+    const cleaned = String(name || '').replace(/[\\/:*?"<>|\u0000-\u001f]+/g, '-').trim();
+    return cleaned || fallback;
+  }
+
+  function safeHref(url) {
+    try {
+      const parsed = new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(url) ? url : 'https://' + url);
+      return parsed.protocol === 'https:' || parsed.protocol === 'http:' ? parsed.href : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function parseEnv(text) {
+    const entries = [];
+    for (const line of text.split(/\r?\n/)) {
+      const match = /^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_.-]*)\s*=\s*(.*?)\s*$/.exec(line);
+      if (!match) continue;
+      let value = match[2];
+      const quote = value[0];
+      if ((quote === '"' || quote === "'") && value.length >= 2 && value.endsWith(quote)) {
+        value = value.slice(1, -1);
+      } else {
+        const comment = value.indexOf(' #');
+        if (comment >= 0) value = value.slice(0, comment).trimEnd();
+      }
+      entries.push([match[1], value]);
+    }
+    return entries;
+  }
+
+  // ---------- Actions.
+  async function copyText(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      const area = h('textarea', { class: 'sr', 'aria-hidden': 'true' });
+      area.value = text;
+      document.body.append(area);
+      area.select();
+      let ok = false;
+      try { ok = document.execCommand('copy'); } catch { ok = false; }
+      area.remove();
+      return ok;
+    }
+  }
+
+  function copyButton(getText, label) {
+    const button = h('button', { class: 'icon-btn', type: 'button', title: label, 'aria-label': label }, icon('copy'));
+    button.addEventListener('click', async () => {
+      const ok = await copyText(getText());
+      button.replaceChildren(icon(ok ? 'check' : 'alert'));
+      button.classList.toggle('done', ok);
+      button.title = ok ? 'Đã sao chép' : 'Không sao chép được';
+      setTimeout(() => {
+        button.replaceChildren(icon('copy'));
+        button.classList.remove('done');
+        button.title = label;
+      }, 1600);
+    });
+    return button;
+  }
+
+  function copyTextButton(getText, label) {
+    const button = h('button', { class: 'btn ghost small', type: 'button' }, icon('copy'), label);
+    button.addEventListener('click', async () => {
+      const ok = await copyText(getText());
+      button.replaceChildren(icon(ok ? 'check' : 'alert'), ok ? 'Đã sao chép' : 'Không sao chép được');
+      setTimeout(() => button.replaceChildren(icon('copy'), label), 1600);
+    });
+    return button;
+  }
+
+  function download(data, name, type) {
+    const url = URL.createObjectURL(new Blob([data], { type: type || 'application/octet-stream' }));
+    const link = h('a', { href: url, download: name, class: 'sr' });
+    document.body.append(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+  }
+
+  function downloadButton(label, makeData, name, type) {
+    return h('button', {
+      class: 'btn ghost small',
+      type: 'button',
+      onclick: () => download(makeData(), name, type),
+    }, icon('download'), label);
+  }
+
+  function eyeButton(onToggle, labelShow, labelHide) {
+    let shown = false;
+    const button = h('button', { class: 'icon-btn', type: 'button', title: labelShow, 'aria-label': labelShow, 'aria-pressed': 'false' }, icon('eye'));
+    button.addEventListener('click', () => {
+      shown = !shown;
+      onToggle(shown);
+      button.replaceChildren(icon(shown ? 'eyeOff' : 'eye'));
+      button.title = shown ? labelHide : labelShow;
+      button.setAttribute('aria-label', button.title);
+      button.setAttribute('aria-pressed', String(shown));
+    });
+    return button;
+  }
+
+  // ---------- Screens.
+  function showMessage({ tone, iconName, title, text, action }) {
+    setStrip(tone === 'bad' ? 'var(--danger)' : null);
+    render(
+      h('div', { class: 'dial' + (tone ? ' ' + tone : '') }, icon(iconName)),
+      h('h1', { text: title }),
+      h('p', { class: 'lead', text }),
+      action ? h('div', { class: 'chips' }, action) : null,
+    );
+  }
+
+  function showLoading(text) {
+    setStrip(null);
+    render(h('div', { class: 'dial' }, h('div', { class: 'spin' })), h('p', { class: 'lead', text }));
+  }
+
+  function showGone(text) {
+    showMessage({
+      tone: 'bad',
+      iconName: 'gone',
+      title: 'Link không còn hiệu lực',
+      text: text || 'Link đã hết hạn, đã dùng hết lượt xem hoặc đã bị người gửi thu hồi. Hãy nhờ người gửi tạo link mới.',
+    });
+  }
+
+  function showRetry(text) {
+    showMessage({
+      tone: 'bad',
+      iconName: 'alert',
+      title: 'Không tải được link',
+      text,
+      action: h('button', { class: 'btn ghost', type: 'button', onclick: start }, 'Thử lại'),
+    });
+  }
+
+  function showReady(meta, secret) {
+    setStrip(null);
+    const chips = h('div', { class: 'chips' },
+      h('span', { class: 'chip', title: dateFormat.format(new Date(meta.expiresAt)) },
+        icon('clock'), 'Hết hạn ' + fromNow(meta.expiresAt)),
+      h('span', { class: 'chip' }, icon('eyeCount'),
+        meta.viewsLeft === null ? 'Không giới hạn lượt xem' : 'Còn ' + meta.viewsLeft + ' lượt xem'),
+      meta.passwordRequired ? h('span', { class: 'chip' }, icon('lock'), 'Có mật khẩu') : null,
+    );
+    const lastView = meta.viewsLeft === 1
+      ? h('div', { class: 'notice warn' }, icon('flame'),
+        h('span', { text: 'Đây là lượt xem cuối: link sẽ tự huỷ ngay khi mở. Hãy lưu lại nội dung trước khi đóng trang.' }))
+      : null;
+
+    const error = h('p', { class: 'error-text', role: 'alert' });
+    const submit = h('button', { class: 'btn wide', type: 'submit' }, icon('unlock'),
+      meta.passwordRequired ? 'Mở khoá' : 'Xem nội dung');
+    let input = null;
+    const form = h('form', { class: 'unlock', autocomplete: 'off' });
+    if (meta.passwordRequired) {
+      input = h('input', {
+        id: 'password',
+        type: 'password',
+        autocomplete: 'off',
+        autocapitalize: 'off',
+        spellcheck: 'false',
+        required: true,
+        placeholder: 'Nhập mật khẩu',
+      });
+      const toggle = eyeButton((shown) => { input.type = shown ? 'text' : 'password'; }, 'Hiện mật khẩu', 'Ẩn mật khẩu');
+      form.append(
+        h('label', { class: 'field-label', for: 'password', text: 'Mật khẩu của link' }),
+        h('div', { class: 'input-wrap' }, input, toggle),
+      );
+    }
+    form.append(error, submit);
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const password = input ? input.value : '';
+      if (input && !password) {
+        error.textContent = 'Nhập mật khẩu trước đã.';
+        input.focus();
+        return;
+      }
+      submit.disabled = true;
+      submit.replaceChildren(h('span', { class: 'spin' }), 'Đang giải mã…');
+      error.textContent = '';
+      const problem = await unlock(meta, secret, password);
+      if (!problem) return;
+      submit.disabled = false;
+      submit.replaceChildren(icon('unlock'), meta.passwordRequired ? 'Mở khoá' : 'Xem nội dung');
+      error.textContent = problem;
+      form.classList.remove('shake');
+      void form.offsetWidth;
+      form.classList.add('shake');
+      if (input) { input.select(); input.focus(); }
+    });
+
+    render(
+      h('div', { class: 'dial' }, icon('lock')),
+      h('h1', { text: 'Bạn nhận được một mục bí mật' }),
+      h('p', { class: 'lead', text: 'Được gửi từ két sắt App Management Center. Nội dung chỉ hiện ra sau khi bạn mở khoá.' }),
+      chips,
+      lastView,
+      form,
+    );
+    if (input) input.focus();
+  }
+
+  /** Returns an error message to show, or nothing when the item is on screen. */
+  async function unlock(meta, secret, password) {
+    let keys;
+    try {
+      keys = await deriveKeys(secret, password, meta);
+    } catch {
+      return 'Trình duyệt không tính được khoá. Hãy thử trình duyệt khác.';
+    }
+    let response;
+    try {
+      response = await fetch('/v1/shares/' + encodeURIComponent(shareId) + '/open', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ access: toBase64Url(keys.access) }),
+        cache: 'no-store',
+      });
+    } catch {
+      return 'Không kết nối được máy chủ. Kiểm tra mạng rồi thử lại.';
+    }
+    const body = await response.json().catch(() => ({}));
+    if (response.status === 404) {
+      showGone();
+      return null;
+    }
+    if (response.status === 403) {
+      const left = body && body.error ? body.error.attemptsLeft : undefined;
+      if (left === 0) {
+        showGone('Link đã tự huỷ vì nhập sai mật khẩu quá nhiều lần. Hãy nhờ người gửi tạo link mới.');
+        return null;
+      }
+      const tail = typeof left === 'number' ? ' Còn ' + left + ' lần thử trước khi link tự huỷ.' : '';
+      return body && body.error && body.error.code === 'invalid-link'
+        ? 'Link không đầy đủ hoặc đã bị sửa. Hãy sao chép lại nguyên link.' + tail
+        : 'Sai mật khẩu.' + tail;
+    }
+    if (response.status === 429) return 'Thử quá nhiều lần. Đợi một phút rồi thử lại.';
+    if (!response.ok || !body.ciphertext) return 'Máy chủ đang lỗi (HTTP ' + response.status + '). Thử lại sau.';
+
+    let item;
+    try {
+      item = await decrypt(keys.enc, body.ciphertext);
+    } catch {
+      showMessage({
+        tone: 'bad',
+        iconName: 'alert',
+        title: 'Không giải mã được',
+        text: 'Nội dung không khớp với khoá trong link. Link có thể đã bị sửa; hãy nhờ người gửi tạo link mới.',
+      });
+      return null;
+    }
+    burned = body.viewsLeft === 0;
+    if (item && item.kind === 'bundle') showBundle(item, body);
+    else showItem(item, body);
+    return null;
+  }
+
+  function showItem(item, status) {
+    const kind = KINDS[item.kind] || KINDS.note;
+    setStrip(kind.tint);
+    view.className = '';
+    view.style.setProperty('--tint', kind.tint);
+
+    const subParts = [kind.label];
+    if (item.project) subParts.push(item.project);
+    const head = h('div', { class: 'item-head' },
+      h('div', { class: 'kind-icon' }, icon(KINDS[item.kind] ? item.kind : 'note')),
+      h('div', { class: 'grow' },
+        h('h2', { text: item.title || 'Không có tên' }),
+        h('div', { class: 'sub', text: subParts.join(' · ') }),
+      ),
+    );
+
+    const body = h('div', { class: 'body' }, burnNotice(), senderBox(item));
+    body.append(...fieldsFor(item), notesField(item));
+    render(head, body, endBar(status));
+  }
+
+  /** A project's whole kit: every item to open on its own, or all as one zip. */
+  function showBundle(bundle, status) {
+    const tint = '#C99A2E';
+    setStrip(tint);
+    view.className = '';
+    view.style.setProperty('--tint', tint);
+    const items = Array.isArray(bundle.items) ? bundle.items.filter((item) => item && typeof item === 'object') : [];
+
+    const subParts = [items.length + ' mục'];
+    if (bundle.project) subParts.push(bundle.project);
+    const head = h('div', { class: 'item-head' },
+      h('div', { class: 'kind-icon' }, icon('bundle')),
+      h('div', { class: 'grow' },
+        h('h2', { text: bundle.title || 'Bộ keys' }),
+        h('div', { class: 'sub', text: subParts.join(' · ') }),
+      ),
+    );
+
+    const folder = zipPath(bundle.folder) || 'keys';
+    const zipName = safeFileName(folder + '-keys.zip', 'keys.zip');
+    const downloadAll = h('div', { class: 'download-all' },
+      h('div', { class: 'meta' },
+        h('div', { class: 'name', text: 'Tải tất cả (.zip)' }),
+        h('div', { class: 'size', text: 'Giải nén vào thư mục gốc của project: mỗi file nằm đúng đường dẫn, mật khẩu và key lẻ ở ' + folder + '/secrets.txt.' }),
+      ),
+      h('button', {
+        class: 'btn',
+        type: 'button',
+        onclick: () => download(buildZip(bundleFiles(bundle, items, folder)), zipName, 'application/zip'),
+      }, icon('download'), 'Tải ZIP'),
+    );
+
+    const entries = items.map((item) => bundleEntry(item, folder));
+    let expanded = false;
+    const toggleAll = h('button', { class: 'btn ghost small', type: 'button' }, 'Mở tất cả');
+    toggleAll.addEventListener('click', () => {
+      expanded = !expanded;
+      for (const entry of entries) entry.open = expanded;
+      toggleAll.textContent = expanded ? 'Thu gọn tất cả' : 'Mở tất cả';
+    });
+
+    const body = h('div', { class: 'body' },
+      burnNotice(),
+      senderBox(bundle),
+      downloadAll,
+      h('div', { class: 'toolbar' }, h('div', { class: 'label grow', text: items.length + ' mục' }), entries.length > 1 ? toggleAll : null),
+      h('div', { class: 'bundle-list' }, entries),
+    );
+    render(head, body, endBar(status));
+  }
+
+  function bundleEntry(item, folder) {
+    const kind = KINDS[item.kind] || KINDS.note;
+    const path = zipPath(item.path);
+    const where = !path
+      ? kind.label
+      : path === SECRETS_FILE
+        ? kind.label + ' · trong ' + folder + '/' + SECRETS_FILE
+        : folder + '/' + path;
+    const entry = h('details', { class: 'entry' },
+      h('summary', {},
+        h('span', { class: 'mini-icon' }, icon(KINDS[item.kind] ? item.kind : 'note')),
+        h('span', { class: 'entry-text' },
+          h('span', { class: 'entry-title', text: item.title || 'Không có tên' }),
+          h('span', { class: 'entry-path', text: where }),
+        ),
+        h('span', { class: 'chev' }, icon('chevron')),
+      ),
+    );
+    entry.style.setProperty('--tint', kind.tint);
+    let filled = false;
+    // Built on first open, so a long kit does not put every secret in the page at once.
+    entry.addEventListener('toggle', () => {
+      if (!entry.open || filled) return;
+      filled = true;
+      entry.append(h('div', { class: 'entry-body' }, ...fieldsFor(item), notesField(item)));
+    });
+    return entry;
+  }
+
+  /** The kit as the app's ZIP lays it out: generated texts plus each item's file. */
+  function bundleFiles(bundle, items, folder) {
+    const files = [];
+    const seen = new Set();
+    const add = (path, data) => {
+      const clean = zipPath(path);
+      if (!clean || seen.has(clean.toLowerCase())) return;
+      seen.add(clean.toLowerCase());
+      files.push([folder + '/' + clean, data]);
+    };
+    for (const file of Array.isArray(bundle.files) ? bundle.files : []) {
+      if (file && typeof file.text === 'string') add(file.path, encoder.encode(file.text));
+    }
+    for (const item of items) {
+      const path = zipPath(item.path);
+      if (!path || path === SECRETS_FILE) continue;
+      const secret = String(item.secret || '');
+      if (item.kind === 'file') {
+        try { add(path, fromBinary(atob(secret))); } catch { /* a damaged file stays out */ }
+      } else {
+        add(path, encoder.encode(secret));
+      }
+    }
+    return files;
+  }
+
+  /** A relative path with no way out of its folder. */
+  function zipPath(path) {
+    return String(path || '')
+      .split(/[\\/]+/)
+      .filter((part) => part && part !== '.' && part !== '..')
+      .map((part) => part.replace(/[\u0000-\u001f:*?"<>|]/g, '_'))
+      .join('/');
+  }
+
+  // ---------- Zip, stored (no compression): keys are tiny, and this needs no library.
+  const CRC_TABLE = (() => {
+    const table = new Uint32Array(256);
+    for (let n = 0; n < 256; n++) {
+      let c = n;
+      for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1;
+      table[n] = c >>> 0;
+    }
+    return table;
+  })();
+
+  function crc32(bytes) {
+    let c = 0xFFFFFFFF;
+    for (let i = 0; i < bytes.length; i++) c = CRC_TABLE[(c ^ bytes[i]) & 0xFF] ^ (c >>> 8);
+    return (c ^ 0xFFFFFFFF) >>> 0;
+  }
+
+  function buildZip(files) {
+    const now = new Date();
+    const time = (now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1);
+    const date = ((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate();
+    const parts = [];
+    const directory = [];
+    let offset = 0;
+    for (const [name, data] of files) {
+      const nameBytes = encoder.encode(name);
+      const crc = crc32(data);
+      const local = new DataView(new ArrayBuffer(30));
+      local.setUint32(0, 0x04034b50, true);
+      local.setUint16(4, 20, true);
+      local.setUint16(6, 0x0800, true); // names are UTF-8
+      local.setUint16(10, time, true);
+      local.setUint16(12, date, true);
+      local.setUint32(14, crc, true);
+      local.setUint32(18, data.length, true);
+      local.setUint32(22, data.length, true);
+      local.setUint16(26, nameBytes.length, true);
+      parts.push(new Uint8Array(local.buffer), nameBytes, data);
+
+      const central = new DataView(new ArrayBuffer(46));
+      central.setUint32(0, 0x02014b50, true);
+      central.setUint16(4, 20, true);
+      central.setUint16(6, 20, true);
+      central.setUint16(8, 0x0800, true);
+      central.setUint16(12, time, true);
+      central.setUint16(14, date, true);
+      central.setUint32(16, crc, true);
+      central.setUint32(20, data.length, true);
+      central.setUint32(24, data.length, true);
+      central.setUint16(28, nameBytes.length, true);
+      central.setUint32(42, offset, true);
+      directory.push(new Uint8Array(central.buffer), nameBytes);
+      offset += 30 + nameBytes.length + data.length;
+    }
+    const directorySize = directory.reduce((size, part) => size + part.length, 0);
+    const end = new DataView(new ArrayBuffer(22));
+    end.setUint32(0, 0x06054b50, true);
+    end.setUint16(8, files.length, true);
+    end.setUint16(10, files.length, true);
+    end.setUint32(12, directorySize, true);
+    end.setUint32(16, offset, true);
+    return new Blob([...parts, ...directory, new Uint8Array(end.buffer)], { type: 'application/zip' });
+  }
+
+  function burnNotice() {
+    if (!burned) return null;
+    return h('div', { class: 'notice warn' }, icon('flame'),
+      h('span', { text: 'Link đã tự huỷ sau lượt xem này. Hãy sao chép hoặc tải nội dung về ngay; tải lại trang sẽ không xem lại được.' }));
+  }
+
+  function senderBox(shared) {
+    if (!shared.message && !shared.from) return null;
+    return h('div', { class: 'from' },
+      shared.from ? h('div', { class: 'who', text: 'Từ ' + shared.from + (shared.sharedAt ? ' · ' + dateFormat.format(new Date(shared.sharedAt)) : '') }) : null,
+      shared.message ? h('div', { class: 'msg', text: shared.message }) : null,
+    );
+  }
+
+  function notesField(item) {
+    if (!item.notes) return null;
+    return h('div', { class: 'field' },
+      h('div', { class: 'label', text: 'Ghi chú' }),
+      h('div', { class: 'notes', text: item.notes }),
+    );
+  }
+
+  function endBar(status) {
+    const remaining = status.viewsLeft === null || status.viewsLeft === undefined
+      ? 'Link còn hiệu lực đến ' + dateFormat.format(new Date(status.expiresAt))
+      : status.viewsLeft === 0
+        ? 'Link đã tự huỷ'
+        : 'Link còn ' + status.viewsLeft + ' lượt xem · hết hạn ' + fromNow(status.expiresAt);
+    const hideButton = h('button', { class: 'btn ghost small', type: 'button' }, icon('hide'), 'Xoá khỏi màn hình');
+    hideButton.addEventListener('click', () => {
+      burned = false;
+      view.className = 'pad center';
+      showMessage({
+        iconName: 'check',
+        tone: 'ok',
+        title: 'Đã xoá khỏi màn hình',
+        text: status.viewsLeft === 0
+          ? 'Nội dung không còn trên trang này và link đã tự huỷ.'
+          : 'Nội dung không còn trên trang này. Tải lại trang để xem lại khi link còn lượt.',
+      });
+    });
+    return h('div', { class: 'end' }, h('span', { text: remaining }), hideButton);
+  }
+
+  function secretRow(label, value, copyLabel) {
+    const text = h('div', { class: 'value masked', text: dots(value) });
+    const eye = eyeButton((shown) => {
+      text.textContent = shown ? value : dots(value);
+      text.classList.toggle('masked', !shown);
+    }, 'Hiện', 'Ẩn');
+    return h('div', { class: 'field' },
+      h('div', { class: 'label', text: label }),
+      h('div', { class: 'row' }, text, eye, copyButton(() => value, copyLabel)),
+    );
+  }
+
+  function plainRow(label, value, copyLabel) {
+    return h('div', { class: 'field' },
+      h('div', { class: 'label', text: label }),
+      h('div', { class: 'row' }, h('div', { class: 'value', text: value }), copyButton(() => value, copyLabel)),
+    );
+  }
+
+  function linkRow(label, url) {
+    const href = safeHref(url);
+    const value = href
+      ? h('a', { class: 'value', href, target: '_blank', rel: 'noopener noreferrer', text: url })
+      : h('div', { class: 'value', text: url });
+    return h('div', { class: 'field' },
+      h('div', { class: 'label', text: label }),
+      h('div', { class: 'row' }, value, copyButton(() => url, 'Sao chép địa chỉ')),
+    );
+  }
+
+  function hiddenBlock(label, text, actions) {
+    const pre = h('pre', { class: 'masked', text: maskBlock(text) });
+    const reveal = h('button', { class: 'btn ghost small', type: 'button' }, icon('eye'), 'Hiện');
+    let shown = false;
+    reveal.addEventListener('click', () => {
+      shown = !shown;
+      pre.textContent = shown ? text : maskBlock(text);
+      pre.classList.toggle('masked', !shown);
+      reveal.replaceChildren(icon(shown ? 'eyeOff' : 'eye'), shown ? 'Ẩn' : 'Hiện');
+    });
+    return h('div', { class: 'field' },
+      h('div', { class: 'toolbar' }, h('div', { class: 'label grow', text: label }), reveal, ...actions),
+      h('div', { class: 'block' }, pre),
+    );
+  }
+
+  function exportName(item, fallbackExt) {
+    if (item.fileName) return safeFileName(item.fileName, 'secret' + fallbackExt);
+    const slug = String(item.title || '').trim().replace(/[\\/:*?"<>|\s]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+    if (fallbackExt === '.env') return slug.startsWith('.env') || slug.endsWith('.env') ? slug : (slug ? slug + '.env' : '.env');
+    if (slug.toLowerCase().endsWith(fallbackExt)) return slug;
+    return (slug || 'secret') + fallbackExt;
+  }
+
+  function fieldsFor(item) {
+    const secret = String(item.secret || '');
+    switch (item.kind) {
+      case 'password':
+        return [
+          item.username ? plainRow('Tài khoản', item.username, 'Sao chép tài khoản') : null,
+          secret ? secretRow('Mật khẩu', secret, 'Sao chép mật khẩu') : null,
+          item.url ? linkRow('Trang web', item.url) : null,
+        ].filter(Boolean);
+      case 'apiKey':
+        return [
+          secretRow('Key', secret, 'Sao chép key'),
+          // A key read from a .p8 or .pem goes back out as that file.
+          item.fileName
+            ? h('div', { class: 'toolbar' },
+              downloadButton('Tải ' + safeFileName(item.fileName, 'key.txt'), () => secret, safeFileName(item.fileName, 'key.txt'), 'text/plain'))
+            : null,
+          item.url ? linkRow('Dashboard', item.url) : null,
+        ].filter(Boolean);
+      case 'env':
+        return [envTable(item, secret)];
+      case 'jsonKey': {
+        let pretty = secret;
+        try { pretty = JSON.stringify(JSON.parse(secret), null, 2); } catch { /* shown as sent */ }
+        return [hiddenBlock('JSON', pretty, [
+          copyTextButton(() => secret, 'Sao chép'),
+          downloadButton('Tải về', () => secret, exportName(item, '.json'), 'application/json'),
+        ])];
+      }
+      case 'file':
+        return [fileCard(item, secret)];
+      default:
+        return [hiddenBlock('Nội dung', secret, [
+          copyTextButton(() => secret, 'Sao chép'),
+          item.fileName ? downloadButton('Tải về', () => secret, safeFileName(item.fileName, 'note.txt'), 'text/plain') : null,
+        ].filter(Boolean))];
+    }
+  }
+
+  function envTable(item, text) {
+    const entries = parseEnv(text);
+    let shown = false;
+    const values = [];
+    const rows = entries.map(([key, value]) => {
+      const cell = h('div', { class: 'v masked', text: dots(value, 12) });
+      values.push([cell, value]);
+      return h('div', { class: 'env-row' },
+        h('div', { class: 'k', text: key }),
+        cell,
+        h('div', { class: 'c' }, copyButton(() => value, 'Sao chép ' + key)),
+      );
+    });
+    const reveal = h('button', { class: 'btn ghost small', type: 'button' }, icon('eye'), 'Hiện');
+    reveal.addEventListener('click', () => {
+      shown = !shown;
+      for (const [cell, value] of values) {
+        cell.textContent = shown ? value : dots(value, 12);
+        cell.classList.toggle('masked', !shown);
+      }
+      reveal.replaceChildren(icon(shown ? 'eyeOff' : 'eye'), shown ? 'Ẩn' : 'Hiện');
+    });
+    const table = entries.length
+      ? h('div', { class: 'env-list' }, rows)
+      : h('div', { class: 'block' }, h('pre', { text: text || '(trống)' }));
+    return h('div', { class: 'field' },
+      h('div', { class: 'toolbar' },
+        h('div', { class: 'label grow', text: entries.length + ' biến' }),
+        entries.length ? reveal : null,
+        copyTextButton(() => text, 'Sao chép tất cả'),
+        downloadButton('Tải về', () => text, exportName(item, '.env'), 'text/plain'),
+      ),
+      table,
+    );
+  }
+
+  function fileCard(item, base64) {
+    let bytes;
+    try {
+      bytes = fromBinary(atob(base64));
+    } catch {
+      return h('div', { class: 'notice bad' }, icon('alert'), h('span', { text: 'Tệp bị hỏng, không đọc được.' }));
+    }
+    const name = safeFileName(item.fileName, 'secret.bin');
+    const hash = h('div', { class: 'hash', text: 'SHA-256: đang tính…' });
+    crypto.subtle.digest('SHA-256', bytes).then((digest) => {
+      const hex = Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
+      hash.textContent = 'SHA-256: ' + hex.match(/.{1,8}/g).join(' ');
+    });
+    return h('div', { class: 'field' },
+      h('div', { class: 'file-card' },
+        h('div', { class: 'kind-icon' }, icon('file')),
+        h('div', { class: 'meta' },
+          h('div', { class: 'name', text: name }),
+          h('div', { class: 'size', text: byteSize(bytes.length) }),
+        ),
+        h('button', { class: 'btn', type: 'button', onclick: () => download(bytes, name) }, icon('download'), 'Tải tệp'),
+      ),
+      hash,
+    );
+  }
+
+  // ---------- Start.
+  async function start() {
+    if (!/^[A-Za-z0-9_-]{22}$/.test(shareId)) {
+      showMessage({ tone: 'bad', iconName: 'alert', title: 'Link không hợp lệ', text: 'Đường dẫn này không phải link chia sẻ của AMC.' });
+      return;
+    }
+    let secret = null;
+    try { secret = fromBase64Url(fragment); } catch { secret = null; }
+    if (!secret || secret.length !== 32) {
+      showMessage({
+        tone: 'bad',
+        iconName: 'alert',
+        title: 'Link chưa đầy đủ',
+        text: 'Thiếu phần khoá ở cuối link (sau dấu #). Hãy sao chép lại nguyên link người gửi đưa cho bạn.',
+      });
+      return;
+    }
+    if (!window.crypto || !crypto.subtle) {
+      showMessage({ tone: 'bad', iconName: 'alert', title: 'Trình duyệt không hỗ trợ', text: 'Hãy mở link bằng Chrome, Edge, Safari hoặc Firefox bản mới.' });
+      return;
+    }
+    showLoading('Đang kiểm tra link…');
+    let response;
+    try {
+      response = await fetch('/v1/shares/' + encodeURIComponent(shareId) + '/meta', { cache: 'no-store' });
+    } catch {
+      showRetry('Không kết nối được máy chủ. Kiểm tra mạng rồi thử lại.');
+      return;
+    }
+    if (response.status === 404) {
+      showGone();
+      return;
+    }
+    if (!response.ok) {
+      showRetry('Máy chủ đang lỗi (HTTP ' + response.status + '). Thử lại sau ít phút.');
+      return;
+    }
+    showReady(await response.json(), secret);
+  }
+
+  window.addEventListener('beforeunload', (event) => {
+    if (!burned) return;
+    event.preventDefault();
+    event.returnValue = '';
+  });
+
+  start();
+})();
+</script>
+</body>
+</html>

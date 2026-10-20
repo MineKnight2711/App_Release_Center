@@ -5,13 +5,26 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 
+import '../../../data/amc_api_client.dart';
 import '../../shared/module_widgets.dart';
 import '../controllers/safe_controller.dart';
 import '../models/safe_item.dart';
 import '../services/safe_password_tools.dart';
+import '../services/safe_share_crypto.dart';
+import '../services/safe_share_service.dart';
 import '../services/safe_zip_packer.dart';
 import '../widgets/safe_look.dart';
 import 'safe_dialogs.dart';
+import 'safe_share_dialog.dart';
+
+/// How a project's kit leaves the safe.
+enum SafePackOutput {
+  /// A password-protected zip saved to disk.
+  zip,
+
+  /// One end-to-end encrypted link that opens in a browser.
+  link,
+}
 
 /// The outside world the pack dialog touches, swapped out by the tests.
 class SafePackIo {
@@ -83,18 +96,28 @@ class SafePackResult {
   final int itemCount;
 }
 
-/// Opens the pack dialog, on [project] when given.
+/// Opens the pack dialog, on [project] when given. A zip's result comes
+/// back; a link is shown in the dialog itself and null comes back.
 Future<SafePackResult?> showSafePackDialog(
   BuildContext context,
   SafeController safe, {
   String? project,
+  SafePackOutput output = SafePackOutput.zip,
   SafePackIo io = const SafePackIo(),
+  SafeShareService? shareService,
+  bool? signedIn,
 }) {
   return showDialog<SafePackResult>(
     context: context,
     barrierDismissible: false,
-    builder: (context) =>
-        SafePackDialog(safe: safe, initialProject: project, io: io),
+    builder: (context) => SafePackDialog(
+      safe: safe,
+      initialProject: project,
+      initialOutput: output,
+      io: io,
+      shareService: shareService ?? SafeShareService.resolve(),
+      signedIn: signedIn ?? SafeShareService.signedIn,
+    ),
   );
 }
 
@@ -120,12 +143,22 @@ class SafePackDialog extends StatefulWidget {
     super.key,
     required this.safe,
     this.initialProject,
+    this.initialOutput = SafePackOutput.zip,
     this.io = const SafePackIo(),
+    this.shareService,
+    this.signedIn,
   });
 
   final SafeController safe;
   final String? initialProject;
+  final SafePackOutput initialOutput;
   final SafePackIo io;
+
+  /// Null when this build has no AMC server to keep links on.
+  final SafeShareService? shareService;
+
+  /// False when no AMC account is signed in; null when unknown.
+  final bool? signedIn;
 
   /// Stands for the items that belong to no project.
   static const looseProject = '';
@@ -144,6 +177,9 @@ class _SafePackDialogState extends State<SafePackDialog> {
   bool _busy = false;
   String _error = '';
   SafePackResult? _result;
+  late SafePackOutput _output = widget.initialOutput;
+  final _shareDraft = SafeShareDraft();
+  SafeShareCreated? _shared;
 
   SafeController get _safe => widget.safe;
 
@@ -151,15 +187,21 @@ class _SafePackDialogState extends State<SafePackDialog> {
   void initState() {
     super.initState();
     _safe.addListener(_closeIfLocked);
+    _shareDraft.addListener(_clearError);
   }
 
   @override
   void dispose() {
     _safe.removeListener(_closeIfLocked);
-    // The zip password lives only as long as this dialog.
+    // The zip and link passwords live only as long as this dialog.
     _password.dispose();
     _confirm.dispose();
+    _shareDraft.dispose();
     super.dispose();
+  }
+
+  void _clearError() {
+    if (_error.isNotEmpty) setState(() => _error = '');
   }
 
   void _closeIfLocked() {
@@ -214,6 +256,44 @@ class _SafePackDialogState extends State<SafePackDialog> {
         ),
       ),
     );
+  }
+
+  Future<void> _submit() =>
+      _output == SafePackOutput.zip ? _pack() : _shareKit();
+
+  /// One link for the chosen items, laid out like the zip would be.
+  Future<void> _shareKit() async {
+    final chosen = _chosen;
+    if (chosen.isEmpty) {
+      setState(() => _error = 'Chọn ít nhất một mục để chia sẻ.');
+      return;
+    }
+    final problem = _shareDraft.validate();
+    if (problem != null) {
+      setState(() => _error = problem);
+      return;
+    }
+    setState(() {
+      _error = '';
+      _busy = true;
+    });
+    try {
+      final created = await widget.shareService!.createBundle(
+        project: _project,
+        items: chosen,
+        options: _shareDraft.options,
+      );
+      _safe.touch();
+      if (mounted) setState(() => _shared = created);
+    } on AmcApiException catch (error) {
+      if (mounted) setState(() => _error = error.message);
+    } on SafeShareException catch (error) {
+      if (mounted) setState(() => _error = error.message);
+    } catch (error) {
+      if (mounted) setState(() => _error = 'Không tạo được link: $error');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   Future<void> _pack() async {
@@ -290,7 +370,9 @@ class _SafePackDialogState extends State<SafePackDialog> {
                       color: theme.colorScheme.primary.withValues(alpha: 0.14),
                     ),
                     child: Icon(
-                      Icons.folder_zip_outlined,
+                      _output == SafePackOutput.zip
+                          ? Icons.folder_zip_outlined
+                          : Icons.link_rounded,
                       color: theme.colorScheme.primary,
                     ),
                   ),
@@ -300,14 +382,17 @@ class _SafePackDialogState extends State<SafePackDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Đóng gói ZIP bộ keys',
+                          'Đóng gói bộ keys',
                           style: theme.textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.w700,
                           ),
                         ),
                         Text(
-                          'Nén khoá của một dự án thành một file ZIP có mật '
-                          'khẩu để gửi đi.',
+                          _output == SafePackOutput.zip
+                              ? 'Nén khoá của một dự án thành một file ZIP có '
+                                    'mật khẩu để gửi đi.'
+                              : 'Gửi khoá của một dự án bằng một link mã hoá '
+                                    'đầu-cuối, mở bằng trình duyệt.',
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant,
                           ),
@@ -326,10 +411,22 @@ class _SafePackDialogState extends State<SafePackDialog> {
               ),
             ),
             Divider(height: 1, color: theme.colorScheme.outlineVariant),
-            Flexible(child: _result == null ? _form(theme) : _done(theme)),
+            Flexible(child: _body(theme)),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _body(ThemeData theme) {
+    if (_result != null) return _done(theme);
+    final shared = _shared;
+    if (shared == null) return _form(theme);
+    return SafeShareResultView(
+      result: shared,
+      title: _project.isEmpty ? 'Bộ keys' : 'Bộ keys $_project',
+      onCopy: (value, what) => copySafeShareValue(context, _safe, value, what),
+      onDone: () => Navigator.of(context).pop(),
     );
   }
 
@@ -337,6 +434,9 @@ class _SafePackDialogState extends State<SafePackDialog> {
     final projects = _projects;
     final items = _items;
     final chosen = _chosen;
+    final blocked = _output == SafePackOutput.link
+        ? safeShareBlockedReason(widget.shareService, widget.signedIn)
+        : null;
     final kit = SafeProjectKit.build(project: _project, items: chosen);
     final mono = TextStyle(
       fontFamily: 'JetBrains Mono',
@@ -358,6 +458,31 @@ class _SafePackDialogState extends State<SafePackDialog> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                SegmentedButton<SafePackOutput>(
+                  segments: const [
+                    ButtonSegment(
+                      value: SafePackOutput.zip,
+                      icon: Icon(Icons.folder_zip_outlined),
+                      label: Text('File ZIP', key: Key('safe-pack-output-zip')),
+                    ),
+                    ButtonSegment(
+                      value: SafePackOutput.link,
+                      icon: Icon(Icons.link_rounded),
+                      label: Text(
+                        'Link chia sẻ',
+                        key: Key('safe-pack-output-link'),
+                      ),
+                    ),
+                  ],
+                  selected: {_output},
+                  onSelectionChanged: _busy
+                      ? null
+                      : (value) => setState(() {
+                          _output = value.single;
+                          _error = '';
+                        }),
+                ),
+                const SizedBox(height: 14),
                 if (projects.isEmpty)
                   const NoticeBox(text: 'Két chưa có mục nào để đóng gói.')
                 else
@@ -461,137 +586,163 @@ class _SafePackDialogState extends State<SafePackDialog> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 16),
-                const SectionLabel('Mã hoá'),
-                const SizedBox(height: 8),
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    final cards = [
-                      _EncryptionCard(
-                        key: const Key('safe-pack-aes'),
-                        icon: Icons.shield_outlined,
-                        title: 'AES-256',
-                        subtitle: 'Mạnh nhất · người nhận cần 7-Zip hoặc Keka',
-                        selected: _encryption == SafeZipEncryption.aes256,
-                        onTap: _busy
-                            ? null
-                            : () => setState(
-                                () => _encryption = SafeZipEncryption.aes256,
-                              ),
-                      ),
-                      _EncryptionCard(
-                        key: const Key('safe-pack-zipcrypto'),
-                        icon: Icons.devices_outlined,
-                        title: 'Tương thích Windows/macOS',
-                        subtitle: 'Mở sẵn bằng Explorer, unzip · yếu hơn',
-                        selected: _encryption == SafeZipEncryption.zipCrypto,
-                        onTap: _busy
-                            ? null
-                            : () => setState(
-                                () => _encryption = SafeZipEncryption.zipCrypto,
-                              ),
-                      ),
-                    ];
-                    if (constraints.maxWidth < 520) {
-                      return Column(
-                        children: [
-                          cards[0],
-                          const SizedBox(height: 8),
-                          cards[1],
-                        ],
+                if (_output == SafePackOutput.zip) ...[
+                  const SizedBox(height: 16),
+                  const SectionLabel('Mã hoá'),
+                  const SizedBox(height: 8),
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final cards = [
+                        _EncryptionCard(
+                          key: const Key('safe-pack-aes'),
+                          icon: Icons.shield_outlined,
+                          title: 'AES-256',
+                          subtitle:
+                              'Mạnh nhất · người nhận cần 7-Zip hoặc Keka',
+                          selected: _encryption == SafeZipEncryption.aes256,
+                          onTap: _busy
+                              ? null
+                              : () => setState(
+                                  () => _encryption = SafeZipEncryption.aes256,
+                                ),
+                        ),
+                        _EncryptionCard(
+                          key: const Key('safe-pack-zipcrypto'),
+                          icon: Icons.devices_outlined,
+                          title: 'Tương thích Windows/macOS',
+                          subtitle: 'Mở sẵn bằng Explorer, unzip · yếu hơn',
+                          selected: _encryption == SafeZipEncryption.zipCrypto,
+                          onTap: _busy
+                              ? null
+                              : () => setState(
+                                  () =>
+                                      _encryption = SafeZipEncryption.zipCrypto,
+                                ),
+                        ),
+                      ];
+                      if (constraints.maxWidth < 520) {
+                        return Column(
+                          children: [
+                            cards[0],
+                            const SizedBox(height: 8),
+                            cards[1],
+                          ],
+                        );
+                      }
+                      return IntrinsicHeight(
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Expanded(child: cards[0]),
+                            const SizedBox(width: 10),
+                            Expanded(child: cards[1]),
+                          ],
+                        ),
                       );
-                    }
-                    return IntrinsicHeight(
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Expanded(child: cards[0]),
-                          const SizedBox(width: 10),
-                          Expanded(child: cards[1]),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-                const SizedBox(height: 8),
-                NoticeBox(
-                  tone: _encryption == SafeZipEncryption.aes256
-                      ? NoticeTone.info
-                      : NoticeTone.warning,
-                  text: switch (_encryption) {
-                    SafeZipEncryption.aes256 =>
-                      'Mạnh nhất. Người nhận cần 7-Zip/WinRAR trên Windows, '
-                          'Keka/The Unarchiver hoặc lệnh tar trên macOS. Explorer '
-                          'và Finder không tự mở được.',
-                    SafeZipEncryption.zipCrypto =>
-                      'Mở ngay bằng Explorer của Windows và lệnh unzip của macOS, '
-                          'không cần cài gì. Kiểu mã hoá ZIP cũ, yếu hơn AES: chỉ '
-                          'dùng với mật khẩu dài (từ 16 ký tự).',
-                  },
-                ),
-                const SizedBox(height: 16),
-                const SectionLabel('Mật khẩu nén'),
-                const SizedBox(height: 8),
-                TextField(
-                  key: const Key('safe-pack-password'),
-                  controller: _password,
-                  obscureText: !_showPassword,
-                  autocorrect: false,
-                  enableSuggestions: false,
-                  enabled: !_busy,
-                  onChanged: (_) => setState(() {}),
-                  decoration: InputDecoration(
-                    labelText: 'Mật khẩu',
-                    helperText:
-                        'Chữ không dấu, số, ký hiệu ASCII; ít nhất '
-                        '$safeZipMinPasswordLength ký tự. Không được lưu lại.',
-                    prefixIcon: const Icon(Icons.key_rounded),
-                    suffixIcon: IconButton(
-                      tooltip: _showPassword ? 'Ẩn' : 'Hiện',
-                      onPressed: () =>
-                          setState(() => _showPassword = !_showPassword),
-                      icon: Icon(
-                        _showPassword
-                            ? Icons.visibility_off_outlined
-                            : Icons.visibility_outlined,
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  NoticeBox(
+                    tone: _encryption == SafeZipEncryption.aes256
+                        ? NoticeTone.info
+                        : NoticeTone.warning,
+                    text: switch (_encryption) {
+                      SafeZipEncryption.aes256 =>
+                        'Mạnh nhất. Người nhận cần 7-Zip/WinRAR trên Windows, '
+                            'Keka/The Unarchiver hoặc lệnh tar trên macOS. Explorer '
+                            'và Finder không tự mở được.',
+                      SafeZipEncryption.zipCrypto =>
+                        'Mở ngay bằng Explorer của Windows và lệnh unzip của macOS, '
+                            'không cần cài gì. Kiểu mã hoá ZIP cũ, yếu hơn AES: chỉ '
+                            'dùng với mật khẩu dài (từ 16 ký tự).',
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  const SectionLabel('Mật khẩu nén'),
+                  const SizedBox(height: 8),
+                  TextField(
+                    key: const Key('safe-pack-password'),
+                    controller: _password,
+                    obscureText: !_showPassword,
+                    autocorrect: false,
+                    enableSuggestions: false,
+                    enabled: !_busy,
+                    onChanged: (_) => setState(() {}),
+                    decoration: InputDecoration(
+                      labelText: 'Mật khẩu',
+                      helperText:
+                          'Chữ không dấu, số, ký hiệu ASCII; ít nhất '
+                          '$safeZipMinPasswordLength ký tự. Không được lưu lại.',
+                      prefixIcon: const Icon(Icons.key_rounded),
+                      suffixIcon: IconButton(
+                        tooltip: _showPassword ? 'Ẩn' : 'Hiện',
+                        onPressed: () =>
+                            setState(() => _showPassword = !_showPassword),
+                        icon: Icon(
+                          _showPassword
+                              ? Icons.visibility_off_outlined
+                              : Icons.visibility_outlined,
+                        ),
                       ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  key: const Key('safe-pack-confirm'),
-                  controller: _confirm,
-                  obscureText: !_showPassword,
-                  autocorrect: false,
-                  enableSuggestions: false,
-                  enabled: !_busy,
-                  onSubmitted: (_) => _pack(),
-                  decoration: const InputDecoration(
-                    labelText: 'Nhập lại mật khẩu',
-                    prefixIcon: Icon(Icons.key_rounded),
+                  const SizedBox(height: 10),
+                  TextField(
+                    key: const Key('safe-pack-confirm'),
+                    controller: _confirm,
+                    obscureText: !_showPassword,
+                    autocorrect: false,
+                    enableSuggestions: false,
+                    enabled: !_busy,
+                    onSubmitted: (_) => _pack(),
+                    decoration: const InputDecoration(
+                      labelText: 'Nhập lại mật khẩu',
+                      prefixIcon: Icon(Icons.key_rounded),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                PasswordStrengthBar(strength: ratePassword(_password.text)),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    OutlinedButton.icon(
-                      key: const Key('safe-pack-generate'),
-                      onPressed: _busy ? null : _generate,
-                      icon: const Icon(Icons.casino_outlined, size: 18),
-                      label: const Text('Tạo mật khẩu mạnh'),
-                    ),
-                    OutlinedButton.icon(
-                      onPressed: _password.text.isEmpty ? null : _copyPassword,
-                      icon: const Icon(Icons.copy_rounded, size: 18),
-                      label: const Text('Sao chép mật khẩu'),
-                    ),
+                  const SizedBox(height: 8),
+                  PasswordStrengthBar(strength: ratePassword(_password.text)),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      OutlinedButton.icon(
+                        key: const Key('safe-pack-generate'),
+                        onPressed: _busy ? null : _generate,
+                        icon: const Icon(Icons.casino_outlined, size: 18),
+                        label: const Text('Tạo mật khẩu mạnh'),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: _password.text.isEmpty
+                            ? null
+                            : _copyPassword,
+                        icon: const Icon(Icons.copy_rounded, size: 18),
+                        label: const Text('Sao chép mật khẩu'),
+                      ),
+                    ],
+                  ),
+                ] else ...[
+                  const SizedBox(height: 16),
+                  if (blocked != null) ...[
+                    NoticeBox(text: blocked, tone: NoticeTone.warning),
+                    const SizedBox(height: 14),
                   ],
-                ),
+                  SafeShareOptionsFields(
+                    draft: _shareDraft,
+                    enabled: !_busy,
+                    notesAvailable: chosen.any((item) => item.notes.isNotEmpty),
+                    notesLabel: 'Gửi kèm ghi chú của các mục',
+                  ),
+                  const SizedBox(height: 4),
+                  const NoticeBox(
+                    text:
+                        'Người nhận xem, sao chép từng mục trên trình duyệt, '
+                        'hoặc tải tất cả thành một file ZIP có cùng cấu trúc '
+                        'thư mục như trên. Đường dẫn trên máy bạn không được '
+                        'gửi đi.',
+                  ),
+                ],
                 if (_error.isNotEmpty) ...[
                   const SizedBox(height: 12),
                   NoticeBox(
@@ -604,38 +755,57 @@ class _SafePackDialogState extends State<SafePackDialog> {
             ),
           ),
         ),
-        Container(
-          padding: const EdgeInsets.fromLTRB(20, 10, 20, 14),
-          decoration: BoxDecoration(
-            border: Border(
-              top: BorderSide(color: theme.colorScheme.outlineVariant),
+        if (_output == SafePackOutput.link)
+          SafeShareFooter(
+            child: FilledButton.icon(
+              key: const Key('safe-pack-submit'),
+              onPressed: _busy || chosen.isEmpty || blocked != null
+                  ? null
+                  : _submit,
+              icon: _busy
+                  ? const SizedBox.square(
+                      dimension: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.add_link_rounded, size: 18),
+              label: Text(
+                _busy ? 'Đang mã hoá…' : 'Tạo link cho ${chosen.length} mục',
+              ),
             ),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'Gửi mật khẩu qua kênh khác với file ZIP.',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
+          )
+        else
+          Container(
+            padding: const EdgeInsets.fromLTRB(20, 10, 20, 14),
+            decoration: BoxDecoration(
+              border: Border(
+                top: BorderSide(color: theme.colorScheme.outlineVariant),
+              ),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Gửi mật khẩu qua kênh khác với file ZIP.',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              FilledButton.icon(
-                key: const Key('safe-pack-submit'),
-                onPressed: _busy || chosen.isEmpty ? null : _pack,
-                icon: _busy
-                    ? const SizedBox.square(
-                        dimension: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.folder_zip_outlined, size: 18),
-                label: Text('Đóng gói ${chosen.length} mục…'),
-              ),
-            ],
+                const SizedBox(width: 12),
+                FilledButton.icon(
+                  key: const Key('safe-pack-submit'),
+                  onPressed: _busy || chosen.isEmpty ? null : _pack,
+                  icon: _busy
+                      ? const SizedBox.square(
+                          dimension: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.folder_zip_outlined, size: 18),
+                  label: Text('Đóng gói ${chosen.length} mục…'),
+                ),
+              ],
+            ),
           ),
-        ),
       ],
     );
   }

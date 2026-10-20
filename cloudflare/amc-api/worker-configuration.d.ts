@@ -5,6 +5,7 @@ interface __BaseEnv_Env {
 	DB: D1Database;
 	LOGIN_LIMITER: RateLimit;
 	AI_LIMITER: RateLimit;
+	SHARE_LIMITER: RateLimit;
 	AI: Ai;
 	PASSWORD_PEPPER: string;
 }

@@ -82,11 +82,13 @@ class SafeProjectKit {
   /// project where it can be told from their source, so the recipient copies
   /// them straight into place; passwords, keys and notes that never were
   /// files go into one `secrets.txt`. A `README.txt` lists the contents and
-  /// holds no secret.
+  /// holds no secret. [includeSources] writes where each secret was found
+  /// on this machine into `secrets.txt`; a share link leaves that out.
   factory SafeProjectKit.build({
     required String project,
     required List<SafeItem> items,
     DateTime? createdAt,
+    bool includeSources = true,
   }) {
     final folder = zipSafeSegment(project.isEmpty ? 'keys' : project);
     final used = <String>{};
@@ -115,7 +117,7 @@ class SafeProjectKit {
       if (loose.isNotEmpty)
         SafeZipEntry(
           '$folder/$secretsFile',
-          _utf8(_secrets(project, loose, when)),
+          _utf8(_secrets(project, loose, when, includeSources)),
         ),
       ...files,
     ];
@@ -230,7 +232,12 @@ class SafeProjectKit {
     return buffer.toString();
   }
 
-  static String _secrets(String project, List<SafeItem> items, DateTime when) {
+  static String _secrets(
+    String project,
+    List<SafeItem> items,
+    DateTime when,
+    bool includeSources,
+  ) {
     final buffer = StringBuffer()
       ..writeln('Bí mật của dự án ${project.isEmpty ? '(không tên)' : project}')
       ..writeln('Đóng gói lúc ${_stamp(when)} · ${items.length} mục');
@@ -254,7 +261,7 @@ class SafeProjectKit {
           line('Trang web', item.url);
       }
       line('Ghi chú', item.notes);
-      if (item.source.isNotEmpty) line('Nguồn', item.source);
+      if (includeSources) line('Nguồn', item.source);
     }
     return buffer.toString();
   }

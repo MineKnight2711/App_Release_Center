@@ -15,6 +15,7 @@ import {
   takeQaLease,
   writeQaMeta,
 } from './qaVault';
+import { createShare, listShares, openShare, revokeShare, shareMeta, sharePage } from './safeShares';
 import {
   createInvite,
   createTeam,
@@ -109,6 +110,16 @@ const routes: Route[] = [
   route('POST', '/v1/teams/:teamId/qa-vault/audit', {
     session: (request, env, auth, p) => addQaAudit(request, env, auth, p.teamId),
   }),
+  route('POST', '/v1/shares', { session: (request, env, auth) => createShare(request, env, auth) }),
+  route('GET', '/v1/shares', { session: (request, env, auth) => listShares(request, env, auth) }),
+  route('DELETE', '/v1/shares/:shareId', {
+    session: (_, env, auth, p) => revokeShare(env, auth, p.shareId),
+  }),
+  route('GET', '/v1/shares/:shareId/meta', { public: (_, env, p) => shareMeta(env, p.shareId) }),
+  route('POST', '/v1/shares/:shareId/open', {
+    public: (request, env, p) => openShare(request, env, p.shareId),
+  }),
+  route('GET', '/s/:shareId', { public: async () => sharePage() }),
 ];
 
 function match(routeEntry: Route, segments: string[]): Params | null {

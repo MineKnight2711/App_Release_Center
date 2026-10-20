@@ -171,4 +171,8 @@ const _messagesByCode = {
   'ai-quota-exceeded': 'Workers AI đã hết lượt miễn phí hôm nay.',
   'ai-unavailable': 'Workers AI đang không tạo được nội dung.',
   'input-too-large': 'Nội dung gửi lên quá dài.',
+  'share-too-large': 'Mục này quá lớn để chia sẻ qua link (tối đa 1 MB).',
+  'share-limit':
+      'Tài khoản đã có 200 link đang mở. Thu hồi bớt link cũ rồi thử lại.',
+  'share-not-found': 'Link này không còn trong tài khoản.',
 };
