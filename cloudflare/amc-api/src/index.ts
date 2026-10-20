@@ -1,4 +1,5 @@
 import { generateReleaseNotes } from './ai';
+import { analyticsAccess, analyticsFeatures, cleanupAnalytics, ingestAnalytics } from './analytics';
 import { deleteApiToolCollection, loadApiTools, replaceApiTools } from './apiTools';
 import { type AuthContext, authenticate, login, logout, me, register } from './auth';
 import { ApiError, errorResponse, json } from './http';
@@ -46,6 +47,9 @@ function route(method: string, path: string, handler: { public?: PublicHandler; 
 }
 
 const routes: Route[] = [
+  route('GET', '/v1/analytics/access', { session: (_, env, auth) => analyticsAccess(env, auth) }),
+  route('POST', '/v1/analytics/events', { session: (request, env, auth) => ingestAnalytics(request, env, auth) }),
+  route('GET', '/v1/analytics/features', { session: (request, env, auth) => analyticsFeatures(request, env, auth) }),
   route('GET', '/v1/health', { public: async () => json({ ok: true }) }),
   route('POST', '/v1/auth/register', { public: (request, env) => register(request, env) }),
   route('POST', '/v1/auth/login', { public: (request, env) => login(request, env) }),
@@ -158,6 +162,9 @@ async function dispatch(request: Request, env: Env): Promise<Response> {
 }
 
 export default {
+  async scheduled(_event, env): Promise<void> {
+    await cleanupAnalytics(env);
+  },
   async fetch(request, env): Promise<Response> {
     try {
       return await dispatch(request, env);

@@ -475,6 +475,21 @@ List<_PaletteCommand> _buildPaletteCommands({
       ),
   ]);
 
+  if (Get.isRegistered<FeatureAnalyticsService>() &&
+      Get.find<FeatureAnalyticsService>().canView.value) {
+    commands.add(
+      _PaletteCommand(
+        id: 'app.analytics',
+        group: 'Công cụ',
+        icon: Icons.insights_outlined,
+        title: 'Thống kê sử dụng',
+        subtitle: 'Mức sử dụng tính năng theo người dùng và team',
+        keywords: const ['analytics', 'thong ke', 'su dung'],
+        run: showFeatureAnalytics,
+      ),
+    );
+  }
+
   commands.add(
     _PaletteCommand(
       id: 'app.settings',

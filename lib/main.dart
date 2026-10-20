@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:async';
+import 'package:app_management_center/app/modules/analytics/analytics_activity.dart';
 import 'package:app_management_center/app/modules/plan_studio/services/plan_studio_runtime.dart';
 import 'package:app_management_center/app/modules/plan_studio/views/reminder_popup_view.dart';
 import 'package:app_management_center/app/modules/plan_studio/views/plan_studio_view.dart';
@@ -103,7 +104,7 @@ class AppManagementCenterApp extends StatelessWidget {
       builder: (context, child) => PauseMotionWhenInactive(
         child: AppDisplayScale(
           settings: Get.find<AppSettingsService>(),
-          child: child ?? const SizedBox.shrink(),
+          child: AnalyticsActivity(child: child ?? const SizedBox.shrink()),
         ),
       ),
       home: Platform.isAndroid || Platform.isIOS

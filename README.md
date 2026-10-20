@@ -2,6 +2,14 @@
 
 Desktop release automation console with an Android remote-control surface.
 
+## Thống kê sử dụng — pilot
+
+Trong **Cài đặt**, bật **Chia sẻ thống kê sử dụng** trên bản desktop release để
+đo thao tác **Kiểm tra AAB**. Admin mở **Thống kê sử dụng** từ Cài đặt hoặc command
+palette; admin team chỉ xem team mình, quyền toàn AMC được cấp riêng ở backend.
+Các tính năng chưa đo được ghi rõ **Chưa gắn tracking**. Pilot cần migration và
+Worker mới trước khi có dữ liệu: xem [hướng dẫn triển khai và giới hạn](docs/feature-analytics-pilot.md).
+
 ## Cài đặt ứng dụng
 
 Mở nút bánh răng **Cài đặt** cạnh menu công cụ trên desktop hoặc trên thanh

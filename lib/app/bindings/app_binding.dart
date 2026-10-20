@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:app_management_center/app/modules/analytics/analytics_transport.dart';
+import 'package:app_management_center/app/modules/analytics/feature_analytics_service.dart';
 
 import 'package:app_management_center/app/config/backend_config.dart';
 import 'package:app_management_center/app/controllers/app_shell_controller.dart';
@@ -97,6 +99,20 @@ class AppBinding extends Bindings {
       permanent: true,
     );
     api?.onUnauthorized = () => unawaited(auth.handleSessionRejected());
+    if (backendConfig != null &&
+        (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {
+      Get.put<FeatureAnalyticsService>(
+        FeatureAnalyticsService(
+          settings: Get.find<AppSettingsService>(),
+          auth: auth,
+          transport: AnalyticsTransport(
+            baseUrl: backendConfig.apiBaseUrl,
+            readToken: tokenStore.readToken,
+          ),
+        ).start(),
+        permanent: true,
+      );
+    }
     Get.put<ScriptCatalogService>(ScriptCatalogService(), permanent: true);
     Get.put<ApiToolService>(ApiToolService(), permanent: true);
     Get.put<ApiMonitorService>(ApiMonitorService(), permanent: true);

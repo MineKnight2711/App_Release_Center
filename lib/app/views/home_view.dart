@@ -49,6 +49,8 @@ import 'package:app_management_center/app/services/remote_ios_release_service.da
 import 'package:app_management_center/app/services/theme_service.dart';
 import 'package:app_management_center/app/theme/cyber_theme.dart';
 import 'package:app_management_center/app/views/app_settings_dialog.dart';
+import 'package:app_management_center/app/modules/analytics/analytics_view.dart';
+import 'package:app_management_center/app/modules/analytics/feature_analytics_service.dart';
 import 'package:app_management_center/app/views/team_management_dialog.dart';
 import 'package:file_selector/file_selector.dart' as file_selector;
 import 'package:flutter/foundation.dart' show defaultTargetPlatform;
