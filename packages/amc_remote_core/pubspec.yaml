@@ -1,0 +1,6 @@
+name: amc_remote_core
+description: Platform-independent protocol and access rules for AMC remote desktop.
+version: 0.0.1
+publish_to: none
+environment:
+  sdk: ^3.11.4

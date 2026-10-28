@@ -11,6 +11,9 @@ export default defineConfig({
       miniflare: {
         bindings: {
           PASSWORD_PEPPER: 'test-pepper',
+          DESKTOP_ENABLED: 'true',
+          TURN_URLS: 'turn:turn.test:3478?transport=udp,turns:turn.test:443?transport=tcp',
+          TURN_SECRET: 'local-test-only-turn-secret',
           TEST_MIGRATIONS: await readD1Migrations(path.join(import.meta.dirname, 'migrations')),
         },
       },

@@ -1,0 +1,34 @@
+# Template only: replace realm, secret, IP mapping and certificate paths.
+# Use the same secret in the AMC API TURN_SECRET binding (never in the app).
+listening-port=3478
+tls-listening-port=443
+realm=turn.amc.example
+server-name=turn.amc.example
+fingerprint
+use-auth-secret
+static-auth-secret=REPLACE_WITH_A_RANDOM_SECRET_FROM_A_PASSWORD_MANAGER
+cert=/etc/coturn/tls/fullchain.pem
+pkey=/etc/coturn/tls/privkey.pem
+# Behind one-to-one NAT: uncomment and replace both IPs.
+# external-ip=203.0.113.10/10.0.0.10
+min-port=49160
+max-port=49200
+user-quota=4
+total-quota=100
+max-bps=2000000
+no-tlsv1
+no-tlsv1_1
+no-multicast-peers
+no-cli
+# Prevent relay access to internal/metadata services.
+denied-peer-ip=0.0.0.0-0.255.255.255
+denied-peer-ip=10.0.0.0-10.255.255.255
+denied-peer-ip=127.0.0.0-127.255.255.255
+denied-peer-ip=169.254.0.0-169.254.255.255
+denied-peer-ip=172.16.0.0-172.31.255.255
+denied-peer-ip=192.168.0.0-192.168.255.255
+denied-peer-ip=224.0.0.0-255.255.255.255
+denied-peer-ip=::1
+denied-peer-ip=fc00::-fdff:ffff:ffff:ffff:ffff:ffff:ffff:ffff
+denied-peer-ip=fe80::-febf:ffff:ffff:ffff:ffff:ffff:ffff:ffff
+log-file=stdout

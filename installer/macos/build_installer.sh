@@ -1,7 +1,7 @@
 #!/bin/bash
 # Builds the macOS DMG.
 #
-# Without signing settings the app keeps Flutter's ad-hoc signature. That runs
+# Without signing settings the staged app gets a fresh ad-hoc signature. It runs
 # on this Mac, but Gatekeeper blocks it on every other Mac ("Apple could not
 # verify..."), and each user has to allow it by hand. To ship a DMG that opens
 # normally, sign with a Developer ID and notarize:
@@ -56,10 +56,16 @@ if [[ -n "$sign_identity" ]]; then
   codesign --force --timestamp --options runtime \
     --entitlements "$project_root/macos/Runner/Release.entitlements" \
     --sign "$sign_identity" "$staged_app"
+else
+  # Incremental Flutter builds may update App.framework without refreshing
+  # the outer app's resource seal. Keep a valid ad-hoc signature in the DMG.
+  codesign --force --sign - \
+    --entitlements "$project_root/macos/Runner/Release.entitlements" "$staged_app"
 fi
 codesign --verify --deep --strict "$staged_app"
 
 ln -s /Applications "$stage_dir/Applications"
+cp "$project_root/installer/swiftdesk-quickstart.txt" "$stage_dir/SwiftDesk-huong-dan.txt"
 if [[ -n "$notary_profile" ]]; then
   cat > "$stage_dir/Huong-dan-cai-dat.txt" <<'EOF'
 CÀI ĐẶT APP MANAGEMENT CENTER

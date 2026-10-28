@@ -3,6 +3,8 @@ import { analyticsAccess, analyticsFeatures, cleanupAnalytics, ingestAnalytics }
 import { deleteApiToolCollection, loadApiTools, replaceApiTools } from './apiTools';
 import { type AuthContext, authenticate, login, logout, me, register } from './auth';
 import { ApiError, errorResponse, json } from './http';
+import { desktopDispatch } from './desktop';
+export { DesktopRoom } from './desktop';
 import {
   addQaAudit,
   deleteQaAccount,
@@ -141,6 +143,8 @@ function match(routeEntry: Route, segments: string[]): Params | null {
 }
 
 async function dispatch(request: Request, env: Env): Promise<Response> {
+  const desktop = await desktopDispatch(request, env);
+  if (desktop) return desktop;
   const segments = new URL(request.url).pathname
     .split('/')
     .filter(Boolean)

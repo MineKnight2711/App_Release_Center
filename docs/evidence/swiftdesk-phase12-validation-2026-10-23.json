@@ -1,0 +1,83 @@
+{
+  "checkedAt": "2026-10-23T09:31:53.267184Z",
+  "baselineHead": "2af1aa6d9cbc5d3a4b5eb27c2d30b5223fe50b61",
+  "focusedSwiftDesk": {
+    "passed": 37,
+    "failed": 0,
+    "files": [
+      "swift_desk_protocol_test.dart",
+      "swift_desk_lifecycle_test.dart",
+      "swift_desk_probe_view_test.dart",
+      "swift_desk_session_test.dart",
+      "swift_desk_lan_test.dart",
+      "swift_desk_runtime_test.dart",
+      "swift_desk_view_test.dart"
+    ]
+  },
+  "fullSuite": {
+    "passed": 971,
+    "skipped": 16,
+    "failed": 25,
+    "timingNote": "Full suite before two surface tests and one clipboard revoke test were added; all three then passed in final focused run."
+  },
+  "baselineComparison": {
+    "snapshot": "git archive HEAD, separate temporary folder",
+    "same25FailureNames": true,
+    "baselineFocusedPassed": 28,
+    "baselineFocusedSkipped": 1,
+    "failures": [
+      "machine_power_service_test.dart: power commands forces only when the caller asks",
+      "machine_power_service_test.dart: power commands maps the remaining actions to their Windows commands",
+      "machine_power_service_test.dart: power commands raises when the command fails",
+      "machine_power_service_test.dart: power commands restarts with /g so the session comes back on a PIN machine",
+      "machine_power_service_test.dart: power commands shuts down without forcing applications closed",
+      "machine_power_service_test.dart: power commands sleep explicitly suspends and keeps wake events enabled",
+      "machine_power_service_test.dart: power commands the screen-off script is a single argument",
+      "machine_power_service_test.dart: power commands treats a negative delay as immediate",
+      "machine_power_service_test.dart: power commands turning the screen off does not suspend the machine",
+      "machine_power_service_test.dart: sleep support reads the available states and ignores the unavailable block",
+      "qa_desk_integration_test.dart: a release in the same project is a warning, not a blocker",
+      "qa_desk_integration_test.dart: the page inside AMC a folder that is not a project says so",
+      "qa_desk_integration_test.dart: the page inside AMC the add menu offers AMC projects that are not sources yet",
+      "qa_desk_weak_network_proxy_test.dart: HTTPS completes TLS through proxy with certificate validation",
+      "remote_control_power_test.dart: applying a power command a negative delay becomes immediate",
+      "remote_control_power_test.dart: applying a power command an immediate action leaves nothing to cancel",
+      "remote_control_power_test.dart: applying a power command cancelling clears the pending command",
+      "remote_control_power_test.dart: applying a power command locking is never treated as cancellable",
+      "remote_control_power_test.dart: applying a power command remembers a delayed shutdown so the desktop can cancel it",
+      "remote_control_power_test.dart: applying a power command runs the action and reports what it did",
+      "windows_auto_start_service_test.dart: disabling an already absent shortcut is not an error",
+      "windows_auto_start_service_test.dart: escapes quotes in paths so the script stays one literal",
+      "windows_auto_start_service_test.dart: removing clears the shortcut without running anything",
+      "windows_auto_start_service_test.dart: reports disabled until the shortcut exists",
+      "windows_auto_start_service_test.dart: surfaces a failure from PowerShell"
+    ]
+  },
+  "analysis": {
+    "coreStandalone": "No issues found",
+    "rootIssues": 3,
+    "newSwiftDeskIssues": 0,
+    "existingIssues": [
+      "release_note_generation_service.dart:585 unawaited_return_in_try_block",
+      "telegram_release_notification_service.dart:136 unawaited_return_in_try_block",
+      "safe_scan_test.dart:15 prefer_adjacent_string_concatenation"
+    ]
+  },
+  "builds": {
+    "macosDebug": "passed",
+    "macosRelease": "passed",
+    "windows": "not run; Windows host unavailable"
+  },
+  "ui": {
+    "nativePreview": "viewed directly with isolated bundle identifier, no permissions requested, host remained off",
+    "widgetCoverage": "permission denial, approval scopes, global status, dark theme enlarged text, app focus release, pending pointer cancellation"
+  },
+  "limitations": [
+    "Two runtimes on one Mac; no cross-machine verification",
+    "Native OS input not injected; Release Accessibility preflight false",
+    "Windows C++ not compiled on Windows",
+    "Multi-monitor/DPI, IME, real clipboard, sleep/lock/network failure QA pending",
+    "No throughput/latency or 60-minute stability measurement",
+    "Internet identity/signaling/TURN, unattended, tray/autostart/import deferred"
+  ]
+}
