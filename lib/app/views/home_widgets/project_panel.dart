@@ -58,6 +58,16 @@ class _ProjectPanel extends GetView<HomeController> {
                   label: const Text('QA Desk · Kiểm thử'),
                 ),
               ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  key: const Key('project-tool-swift-desk'),
+                  onPressed: () => showSwiftDesk(context),
+                  icon: const Icon(Icons.connected_tv_outlined),
+                  label: const Text('SwiftDesk · Điều khiển máy tính'),
+                ),
+              ),
               const SizedBox(height: 12),
               Obx(() {
                 final project = controller.project.value;

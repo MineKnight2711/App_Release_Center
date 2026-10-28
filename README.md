@@ -13,6 +13,29 @@ cửa sổ chính, tự lưu trên từng thiết bị và có nút đặt lại
 Tùy chọn khởi động cùng Windows và khóa sinh trắc học trên điện thoại cũng nằm
 trong Cài đặt; các thiết lập release theo dự án vẫn ở bảng Tuỳ chọn.
 
+## SwiftDesk · Điều khiển máy tính
+
+Mở **Công cụ dự án → SwiftDesk · Điều khiển máy tính**, hoặc tìm SwiftDesk
+trong command palette. Hai máy cùng LAN ghép qua mã/QR có thời hạn; máy đích
+phải chấp nhận từng phiên và chọn quyền xem, chuột/phím, clipboard. Có thiết bị
+đã lưu, sửa IP/cổng, thu hồi quyền, chọn màn hình và chất lượng. Rời trang vẫn
+giữ host; thanh trạng thái toàn AMC cho phép nhận/từ chối và ngắt phiên.
+
+Phase 1/2 và mã Phase 3/4 đã có trong AMC: Internet qua API tài khoản AMC,
+signaling mã hóa, ticket/thu hồi/TURN credential; tray/menu bar chung với
+reminders, khôi phục host opt-in và import metadata SwiftDesk cũ. Giữ P2P IPv6:
+chọn Tự động (P2P IPv6/IPv4, TURN dự phòng), Chỉ P2P IPv6 hoặc Bắt buộc TURN;
+lựa chọn được lưu cho lần mở sau. IPv6 trực tiếp không cần TURN.
+Đã kiểm thử Worker cục bộ + WebRTC trên macOS. Backend production mặc định chưa bật desktop;
+chưa có TURN thật, chưa nghiệm thu hai máy Windows/macOS, input thật, autostart
+và nâng cấp bộ cài. Không hỗ trợ unattended hoặc màn hình đăng nhập.
+Chạy `--swiftdesk-lan` để mở riêng module; `--swiftdesk-spike` giữ trang thử
+engine. Cả hai bỏ qua relay lệnh/Telegram/reminders của AMC.
+Xem [hướng dẫn LAN và bằng chứng kiểm thử](docs/swiftdesk-lan.md),
+[Phase 3/4, đối chiếu upstream và cấu hình TURN](docs/swiftdesk-phase34.md),
+[thử engine](docs/swiftdesk-engine-spike.md) và
+[kế hoạch tích hợp core](docs/swiftdesk-core-integration-plan.md).
+
 ## Plan Studio
 
 **Reminders:** open any Plan, Task, or Note → **Nhắc hẹn**. Choose a date/time,
@@ -750,8 +773,8 @@ the existing Google Drive connection and sent to Telegram as a Drive link.
 installer/macos/build_installer.sh
 ```
 
-The DMG is written to `build/installer`. By default the app keeps Flutter's
-ad-hoc signature: it runs on the Mac that built it, but Gatekeeper blocks it on
+The DMG is written to `build/installer`. By default the installer refreshes the
+app's ad-hoc signature: it runs on the Mac that built it, but Gatekeeper blocks it on
 every other Mac ("Apple could not verify ...") until each user selects Open
 Anyway in System Settings > Privacy & Security. The DMG carries those steps in
 `Huong-dan-cai-dat.txt`.

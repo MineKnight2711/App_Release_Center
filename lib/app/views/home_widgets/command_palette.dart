@@ -187,6 +187,15 @@ List<_PaletteCommand> _buildPaletteCommands({
 
   final commands = <_PaletteCommand>[
     _PaletteCommand(
+      id: 'tool.swiftDesk',
+      group: 'Công cụ',
+      icon: Icons.connected_tv_outlined,
+      title: 'SwiftDesk · Điều khiển máy tính',
+      subtitle: 'Ghép nối và điều khiển máy tính trên LAN',
+      keywords: const ['remote', 'desktop', 'swiftdesk', 'dieu khien', 'man hinh'],
+      run: showSwiftDesk,
+    ),
+    _PaletteCommand(
       id: 'tool.planStudio',
       group: 'Công cụ',
       icon: Icons.view_kanban_outlined,

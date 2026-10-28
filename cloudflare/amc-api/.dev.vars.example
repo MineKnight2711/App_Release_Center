@@ -1,2 +1,4 @@
-# Copy to .dev.vars for `wrangler dev`. Production uses `wrangler secret put PASSWORD_PEPPER`.
-PASSWORD_PEPPER=change-me
+# Local development only. Use separate random secrets for a real deployment.
+PASSWORD_PEPPER=replace-with-random-local-auth-pepper
+# Shared with static-auth-secret in the private coturn config. Never ship in AMC.
+TURN_SECRET=replace-with-the-private-coturn-shared-secret

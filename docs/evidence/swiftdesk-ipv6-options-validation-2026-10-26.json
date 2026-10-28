@@ -1,0 +1,679 @@
+{
+  "checkedAt": "2026-10-26T04:33:26.137631+00:00",
+  "purpose": "Continue Phase 3/4 while preserving SwiftDesk P2P IPv6 with explicit user-selectable transport options",
+  "baselineHead": "2af1aa6d9cbc5d3a4b5eb27c2d30b5223fe50b61",
+  "workspaceChangesCommitted": false,
+  "connectionModes": {
+    "automatic": "Retains IPv6 and IPv4 ICE candidates; TURN remains optional fallback when configured",
+    "directIpv6": "No ICE servers; incoming and outgoing SDP retain only non-relay IPv6 unicast candidates; selected IPv6 pair required before engine connected event",
+    "relay": "ICE relay-only; rejects missing TURN configuration",
+    "negotiation": "Encrypted viewer intent; automatic host honors a strict peer; incompatible strict modes rejected before permission grant",
+    "persistence": "swift_desk.connectionMode; legacy forceRelay remains effective until a new explicit mode is saved",
+    "candidateFamilyDiagnostics": "Selected candidate pair only; TURN over IPv6 is still relay; raw addresses excluded from diagnostics",
+    "ipv6AdapterLimit": 32,
+    "pinnedPluginSupportVerified": "flutter_webrtc 1.6.2+hotfix.4 Darwin RTCConfiguration.maxIPv6Networks and Windows C++ max_ipv6_networks parsing inspected locally",
+    "lanScope": "LAN signaling endpoint remains private IPv4; WebRTC media may select IPv6 independently"
+  },
+  "focusedTests": {
+    "passed": 82,
+    "failed": 0,
+    "swiftDeskPassed": 59,
+    "planStudioReminderAndSettingsPassed": 23,
+    "addedTests": 11,
+    "newCoverage": [
+      "Automatic mode retains IPv6/IPv4 and optional TURN",
+      "IPv6-only SDP filtering in both directions, including mapped IPv4 and mDNS rejection",
+      "No silent fallback when IPv6 candidates absent",
+      "Strict-mode compatibility and invalid mode parsing",
+      "IPv6/IPv4/relay classification from selected candidates",
+      "Persistence and legacy forceRelay compatibility",
+      "IPv6 intent reaches host through encrypted signaling and still requires approval",
+      "Conflicting modes rejected before granting or remembering controller",
+      "UI mode selection, active-session lock, and save-failure consistency"
+    ]
+  },
+  "analysis": {
+    "coreStandalone": "No issues found",
+    "rootIssues": 3,
+    "newSwiftDeskIssues": 0,
+    "existingIssues": [
+      "release_note_generation_service.dart:585 unawaited_return_in_try_block",
+      "telegram_release_notification_service.dart:136 unawaited_return_in_try_block",
+      "safe_scan_test.dart:15 prefer_adjacent_string_concatenation"
+    ]
+  },
+  "previousPhase34Validation": {
+    "evidence": "swiftdesk-phase34-validation-2026-10-26.json",
+    "backend21AndTypecheck": "passed earlier on 2026-10-26; backend unchanged by IPv6 option work",
+    "fullSuite": "985 passed, 16 skipped, 25 pre-existing failures before IPv6 options; full suite not repeated after options; all 82 related tests passed after changes",
+    "nativeBackground": "close/restore/quit passed earlier on 2026-10-26; native background code unchanged"
+  },
+  "finalMediaSmoke": {
+    "automatic": {
+      "checkedAt": "2026-10-26T04:31:43.654027Z",
+      "platform": "macos",
+      "localWorkerOnly": true,
+      "productionStorageUsed": false,
+      "nativeOsInputInjected": false,
+      "connectionMode": "automatic",
+      "revokedCredentialRejected": true,
+      "cycles": [
+        {
+          "host": {
+            "state": "connected",
+            "role": "host",
+            "firstFrame": false,
+            "channelsReady": true,
+            "engineConnected": true,
+            "frames": 1,
+            "fps": 1.002004008016032,
+            "networkPath": "direct-ipv6",
+            "captureRecoveryAttempted": false,
+            "kbps": 664.3527054108216,
+            "receivedPackets": 2,
+            "appliedInputs": 0,
+            "nativeInputActive": false,
+            "draining": false,
+            "scopes": [
+              "view"
+            ],
+            "savedDevices": 0,
+            "trustedControllers": 1,
+            "history": 0,
+            "inputPermission": false,
+            "screenPermission": true,
+            "error": null
+          },
+          "viewer": {
+            "state": "connected",
+            "role": "viewer",
+            "firstFrame": true,
+            "channelsReady": true,
+            "engineConnected": true,
+            "frames": 1,
+            "fps": 1,
+            "networkPath": "direct-ipv6",
+            "captureRecoveryAttempted": false,
+            "kbps": 330.928,
+            "receivedPackets": 0,
+            "appliedInputs": 0,
+            "nativeInputActive": false,
+            "draining": false,
+            "scopes": [
+              "view"
+            ],
+            "savedDevices": 0,
+            "trustedControllers": 0,
+            "history": 0,
+            "inputPermission": false,
+            "screenPermission": true,
+            "error": null
+          },
+          "remembered": false,
+          "encryptedSignaling": true,
+          "viewOnlyInputRejected": true,
+          "hostListenerSurvived": true,
+          "gracefulDisconnect": true
+        },
+        {
+          "host": {
+            "state": "connected",
+            "role": "host",
+            "firstFrame": false,
+            "channelsReady": true,
+            "engineConnected": true,
+            "frames": 1,
+            "fps": 0,
+            "networkPath": "direct-ipv6",
+            "captureRecoveryAttempted": false,
+            "kbps": 327.5195195195195,
+            "receivedPackets": 2,
+            "appliedInputs": 0,
+            "nativeInputActive": false,
+            "draining": false,
+            "scopes": [
+              "view"
+            ],
+            "savedDevices": 0,
+            "trustedControllers": 1,
+            "history": 1,
+            "inputPermission": false,
+            "screenPermission": true,
+            "error": null
+          },
+          "viewer": {
+            "state": "connected",
+            "role": "viewer",
+            "firstFrame": true,
+            "channelsReady": true,
+            "engineConnected": true,
+            "frames": 1,
+            "fps": 1,
+            "networkPath": "direct-ipv6",
+            "captureRecoveryAttempted": false,
+            "kbps": 27.928,
+            "receivedPackets": 0,
+            "appliedInputs": 0,
+            "nativeInputActive": false,
+            "draining": false,
+            "scopes": [
+              "view"
+            ],
+            "savedDevices": 0,
+            "trustedControllers": 0,
+            "history": 1,
+            "inputPermission": false,
+            "screenPermission": true,
+            "error": null
+          },
+          "remembered": true,
+          "encryptedSignaling": true,
+          "viewOnlyInputRejected": true,
+          "hostListenerSurvived": true,
+          "gracefulDisconnect": true
+        },
+        {
+          "host": {
+            "state": "connected",
+            "role": "host",
+            "firstFrame": false,
+            "channelsReady": true,
+            "engineConnected": true,
+            "frames": 1,
+            "fps": 1,
+            "networkPath": "direct-ipv6",
+            "captureRecoveryAttempted": false,
+            "kbps": 579.728,
+            "receivedPackets": 2,
+            "appliedInputs": 0,
+            "nativeInputActive": false,
+            "draining": false,
+            "scopes": [
+              "view"
+            ],
+            "savedDevices": 0,
+            "trustedControllers": 1,
+            "history": 2,
+            "inputPermission": false,
+            "screenPermission": true,
+            "error": null
+          },
+          "viewer": {
+            "state": "connected",
+            "role": "viewer",
+            "firstFrame": true,
+            "channelsReady": true,
+            "engineConnected": true,
+            "frames": 1,
+            "fps": 0,
+            "networkPath": "direct-ipv6",
+            "captureRecoveryAttempted": false,
+            "kbps": 0,
+            "receivedPackets": 0,
+            "appliedInputs": 0,
+            "nativeInputActive": false,
+            "draining": false,
+            "scopes": [
+              "view"
+            ],
+            "savedDevices": 0,
+            "trustedControllers": 0,
+            "history": 2,
+            "inputPermission": false,
+            "screenPermission": true,
+            "error": null
+          },
+          "remembered": true,
+          "encryptedSignaling": true,
+          "viewOnlyInputRejected": true,
+          "hostListenerSurvived": true,
+          "gracefulDisconnect": true
+        }
+      ],
+      "outcome": "passed",
+      "limitation": "Two endpoints on one Mac and a local Cloudflare Worker. No Internet NAT/TURN or Windows hardware validation."
+    },
+    "direct": {
+      "checkedAt": "2026-10-26T04:31:54.150316Z",
+      "platform": "macos",
+      "localWorkerOnly": true,
+      "productionStorageUsed": false,
+      "nativeOsInputInjected": false,
+      "connectionMode": "directIpv6",
+      "revokedCredentialRejected": true,
+      "cycles": [
+        {
+          "host": {
+            "state": "connected",
+            "role": "host",
+            "firstFrame": false,
+            "channelsReady": true,
+            "engineConnected": true,
+            "frames": 1,
+            "fps": 1.001001001001001,
+            "networkPath": "direct-ipv6",
+            "captureRecoveryAttempted": false,
+            "kbps": 580.1801801801802,
+            "receivedPackets": 2,
+            "appliedInputs": 0,
+            "nativeInputActive": false,
+            "draining": false,
+            "scopes": [
+              "view"
+            ],
+            "savedDevices": 0,
+            "trustedControllers": 1,
+            "history": 0,
+            "inputPermission": false,
+            "screenPermission": true,
+            "error": null
+          },
+          "viewer": {
+            "state": "connected",
+            "role": "viewer",
+            "firstFrame": true,
+            "channelsReady": true,
+            "engineConnected": true,
+            "frames": 1,
+            "fps": 0,
+            "networkPath": "direct-ipv6",
+            "captureRecoveryAttempted": false,
+            "kbps": 0,
+            "receivedPackets": 0,
+            "appliedInputs": 0,
+            "nativeInputActive": false,
+            "draining": false,
+            "scopes": [
+              "view"
+            ],
+            "savedDevices": 0,
+            "trustedControllers": 0,
+            "history": 0,
+            "inputPermission": false,
+            "screenPermission": true,
+            "error": null
+          },
+          "remembered": false,
+          "encryptedSignaling": true,
+          "viewOnlyInputRejected": true,
+          "hostListenerSurvived": true,
+          "gracefulDisconnect": true
+        },
+        {
+          "host": {
+            "state": "connected",
+            "role": "host",
+            "firstFrame": false,
+            "channelsReady": true,
+            "engineConnected": true,
+            "frames": 1,
+            "fps": 1.001001001001001,
+            "networkPath": "direct-ipv6",
+            "captureRecoveryAttempted": false,
+            "kbps": 581.4534534534534,
+            "receivedPackets": 2,
+            "appliedInputs": 0,
+            "nativeInputActive": false,
+            "draining": false,
+            "scopes": [
+              "view"
+            ],
+            "savedDevices": 0,
+            "trustedControllers": 1,
+            "history": 1,
+            "inputPermission": false,
+            "screenPermission": true,
+            "error": null
+          },
+          "viewer": {
+            "state": "connected",
+            "role": "viewer",
+            "firstFrame": true,
+            "channelsReady": true,
+            "engineConnected": true,
+            "frames": 1,
+            "fps": 1,
+            "networkPath": "direct-ipv6",
+            "captureRecoveryAttempted": false,
+            "kbps": 460.816,
+            "receivedPackets": 0,
+            "appliedInputs": 0,
+            "nativeInputActive": false,
+            "draining": false,
+            "scopes": [
+              "view"
+            ],
+            "savedDevices": 0,
+            "trustedControllers": 0,
+            "history": 1,
+            "inputPermission": false,
+            "screenPermission": true,
+            "error": null
+          },
+          "remembered": true,
+          "encryptedSignaling": true,
+          "viewOnlyInputRejected": true,
+          "hostListenerSurvived": true,
+          "gracefulDisconnect": true
+        },
+        {
+          "host": {
+            "state": "connected",
+            "role": "host",
+            "firstFrame": false,
+            "channelsReady": true,
+            "engineConnected": true,
+            "frames": 1,
+            "fps": 0,
+            "networkPath": "direct-ipv6",
+            "captureRecoveryAttempted": false,
+            "kbps": 345.896,
+            "receivedPackets": 2,
+            "appliedInputs": 0,
+            "nativeInputActive": false,
+            "draining": false,
+            "scopes": [
+              "view"
+            ],
+            "savedDevices": 0,
+            "trustedControllers": 1,
+            "history": 2,
+            "inputPermission": false,
+            "screenPermission": true,
+            "error": null
+          },
+          "viewer": {
+            "state": "connected",
+            "role": "viewer",
+            "firstFrame": true,
+            "channelsReady": true,
+            "engineConnected": true,
+            "frames": 1,
+            "fps": 1,
+            "networkPath": "direct-ipv6",
+            "captureRecoveryAttempted": false,
+            "kbps": 84.04,
+            "receivedPackets": 0,
+            "appliedInputs": 0,
+            "nativeInputActive": false,
+            "draining": false,
+            "scopes": [
+              "view"
+            ],
+            "savedDevices": 0,
+            "trustedControllers": 0,
+            "history": 2,
+            "inputPermission": false,
+            "screenPermission": true,
+            "error": null
+          },
+          "remembered": true,
+          "encryptedSignaling": true,
+          "viewOnlyInputRejected": true,
+          "hostListenerSurvived": true,
+          "gracefulDisconnect": true
+        }
+      ],
+      "outcome": "passed",
+      "limitation": "Two endpoints on one Mac and a local Cloudflare Worker. No Internet NAT/TURN or Windows hardware validation."
+    },
+    "lan": {
+      "platform": "macos",
+      "osVersion": "Version 27.0.1 (Build 26A434)",
+      "checkedAt": "2026-10-26T04:32:06.877660Z",
+      "loopbackOnly": true,
+      "productionStorageUsed": false,
+      "revokedCredentialRejected": true,
+      "cycles": [
+        {
+          "host": {
+            "state": "connected",
+            "role": "host",
+            "firstFrame": false,
+            "channelsReady": true,
+            "engineConnected": true,
+            "frames": 1,
+            "fps": 0,
+            "networkPath": "direct-ipv6",
+            "captureRecoveryAttempted": false,
+            "kbps": 542.328,
+            "receivedPackets": 2,
+            "appliedInputs": 0,
+            "nativeInputActive": false,
+            "draining": false,
+            "scopes": [
+              "view"
+            ],
+            "savedDevices": 0,
+            "trustedControllers": 1,
+            "history": 0,
+            "inputPermission": false,
+            "screenPermission": true,
+            "error": null
+          },
+          "viewer": {
+            "state": "connected",
+            "role": "viewer",
+            "firstFrame": true,
+            "channelsReady": true,
+            "engineConnected": true,
+            "frames": 1,
+            "fps": 1,
+            "networkPath": "direct-ipv6",
+            "captureRecoveryAttempted": false,
+            "kbps": 243.064,
+            "receivedPackets": 0,
+            "appliedInputs": 0,
+            "nativeInputActive": false,
+            "draining": false,
+            "scopes": [
+              "view"
+            ],
+            "savedDevices": 1,
+            "trustedControllers": 0,
+            "history": 0,
+            "inputPermission": false,
+            "screenPermission": true,
+            "error": null
+          },
+          "pointerAndReliableReceived": true,
+          "viewOnlyInputRejected": true,
+          "displayQualitySwitch": false,
+          "rememberedConnection": false,
+          "hostListenerSurvived": true,
+          "nativeInputReleased": true
+        },
+        {
+          "host": {
+            "state": "connected",
+            "role": "host",
+            "firstFrame": false,
+            "channelsReady": true,
+            "engineConnected": true,
+            "frames": 1,
+            "fps": 1.001001001001001,
+            "networkPath": "direct-ipv6",
+            "captureRecoveryAttempted": false,
+            "kbps": 393.3693693693694,
+            "receivedPackets": 2,
+            "appliedInputs": 0,
+            "nativeInputActive": false,
+            "draining": false,
+            "scopes": [
+              "view"
+            ],
+            "savedDevices": 0,
+            "trustedControllers": 1,
+            "history": 1,
+            "inputPermission": false,
+            "screenPermission": true,
+            "error": null
+          },
+          "viewer": {
+            "state": "connected",
+            "role": "viewer",
+            "firstFrame": true,
+            "channelsReady": true,
+            "engineConnected": true,
+            "frames": 1,
+            "fps": 0,
+            "networkPath": "direct-ipv6",
+            "captureRecoveryAttempted": false,
+            "kbps": 0,
+            "receivedPackets": 0,
+            "appliedInputs": 0,
+            "nativeInputActive": false,
+            "draining": false,
+            "scopes": [
+              "view"
+            ],
+            "savedDevices": 1,
+            "trustedControllers": 0,
+            "history": 1,
+            "inputPermission": false,
+            "screenPermission": true,
+            "error": null
+          },
+          "pointerAndReliableReceived": true,
+          "viewOnlyInputRejected": true,
+          "displayQualitySwitch": false,
+          "rememberedConnection": true,
+          "hostListenerSurvived": true,
+          "nativeInputReleased": true
+        },
+        {
+          "host": {
+            "state": "connected",
+            "role": "host",
+            "firstFrame": false,
+            "channelsReady": true,
+            "engineConnected": true,
+            "frames": 1,
+            "fps": 0,
+            "networkPath": "direct-ipv6",
+            "captureRecoveryAttempted": false,
+            "kbps": 0,
+            "receivedPackets": 2,
+            "appliedInputs": 0,
+            "nativeInputActive": false,
+            "draining": false,
+            "scopes": [
+              "view"
+            ],
+            "savedDevices": 0,
+            "trustedControllers": 1,
+            "history": 2,
+            "inputPermission": false,
+            "screenPermission": true,
+            "error": null
+          },
+          "viewer": {
+            "state": "connected",
+            "role": "viewer",
+            "firstFrame": true,
+            "channelsReady": true,
+            "engineConnected": true,
+            "frames": 1,
+            "fps": 0,
+            "networkPath": "direct-ipv6",
+            "captureRecoveryAttempted": false,
+            "kbps": 0,
+            "receivedPackets": 0,
+            "appliedInputs": 0,
+            "nativeInputActive": false,
+            "draining": false,
+            "scopes": [
+              "view"
+            ],
+            "savedDevices": 1,
+            "trustedControllers": 0,
+            "history": 2,
+            "inputPermission": false,
+            "screenPermission": true,
+            "error": null
+          },
+          "pointerAndReliableReceived": true,
+          "viewOnlyInputRejected": true,
+          "displayQualitySwitch": true,
+          "rememberedConnection": true,
+          "hostListenerSurvived": true,
+          "nativeInputReleased": true
+        }
+      ],
+      "outcome": "passed",
+      "note": "Two runtimes with real pinned TLS, approval, WebRTC video and two data channels on one Mac. No OS input injected. Cross-machine Windows/macOS QA remains."
+    }
+  },
+  "build": {
+    "macosRelease": "passed",
+    "resealedBeforeSmoke": true,
+    "sameReleaseAsPackaged": true,
+    "windows": "not run; Windows host unavailable"
+  },
+  "installer": {
+    "checkedAt": "2026-10-26T04:32:36.658206+00:00",
+    "dmg": "build/installer/AppManagementCenter_v0.1.0_macOS-universal.dmg",
+    "bytes": 50965363,
+    "sha256": "3dfa20c6e4572fda23334c86c7bcbd4d66a5ae416ed49d670532b8a9fab9fe17",
+    "checksumFileMatches": true,
+    "imageVerification": "passed",
+    "mountedReadOnly": true,
+    "deepSignatureVerification": "passed",
+    "signing": "ad-hoc; not Developer ID or notarized",
+    "quickstartMatchesSource": true,
+    "ipv6InstructionsIncluded": true,
+    "releaseAndPackagedBinaries": {
+      "executable": {
+        "releaseSha256": "27771be2ffae64b9ae62cc78033d48c6b7595cea2b56ac4be35ecdf8f3c1a146",
+        "dmgSha256": "27771be2ffae64b9ae62cc78033d48c6b7595cea2b56ac4be35ecdf8f3c1a146"
+      },
+      "dartAot": {
+        "releaseSha256": "374c865e2c75abdacc1293c06b2ba74f845271a6b2a11ff65c71ffdeea734175",
+        "dmgSha256": "374c865e2c75abdacc1293c06b2ba74f845271a6b2a11ff65c71ffdeea734175"
+      }
+    },
+    "architectures": "x86_64 arm64",
+    "testMountDetached": true
+  },
+  "cleanup": {
+    "localWorkerStopped": true,
+    "testAppProcessesExited": true,
+    "dmgTestMountDetached": true,
+    "productionDeployPerformed": false,
+    "osPrivacyPermissionsChanged": false,
+    "autostartEnabled": false
+  },
+  "limitations": [
+    "All media endpoints on one Mac with local Worker; selected IPv6 path is real but does not establish public IPv6 reachability across ISPs",
+    "No real TURN server, cross-network relay, or Windows hardware validation",
+    "Native OS remote input not injected; view-only test packets rejected",
+    "Only initial decoded frame/channel/reconnect/revoke checks; no sustained throughput, 60-minute soak or two-machine latency claim",
+    "Developer ID/notarization and installed-app upgrade/login-item checks remain pending"
+  ],
+  "sourceSha256": {
+    "packages/amc_remote_core/lib/src/models.dart": "e3b63ed9c2f39ff7ad3cf9d7f342b9548cc0e158d428c9371228679cfc07eff4",
+    "packages/amc_remote_core/lib/src/ports.dart": "68a0a08fbd495256e781291f2abe1aeed86a07bb291625a85c39e83d1d35ebb2",
+    "lib/main.dart": "de0727fafeb409047578dbcd2591c0347932ebc2412cc8963ce7ded8a9501141",
+    "lib/app/modules/swift_desk/infrastructure/remote_network.dart": "f1d2d0d0a7225c4992ddfe51f9379eebdc51941232ca69257e36579d62c027b9",
+    "lib/app/modules/swift_desk/infrastructure/remote_settings.dart": "4ae6456628d9c17593fae15388da0d8b172150940b879692ff8ee61004115bbb",
+    "lib/app/modules/swift_desk/infrastructure/webrtc_desktop_engine.dart": "1c5430c88ccd2f27acb9475b484e34eb816210a1c2a475b74f2c66b35af8e8de",
+    "lib/app/modules/swift_desk/infrastructure/lan_host.dart": "cab3255dc63a604c2de88f3b48dfe31cd2432fa44a984ab404d0bc456e52533a",
+    "lib/app/modules/swift_desk/services/swift_desk_cloud.dart": "6cc04698fb71959877c148ad9026354551c143f2cdeb0e57a92bfa7d2faf2205",
+    "lib/app/modules/swift_desk/services/swift_desk_runtime.dart": "ee839a0215b2cb30cf10aeac5cbf12bae411a6df67c90aa5958a1a23ddc950b4",
+    "lib/app/modules/swift_desk/services/swift_desk_cloud_smoke.dart": "2980e7ac531b4f538924b5284299dc938f0f1c21396a1ce9e4497185b7f091d0",
+    "lib/app/modules/swift_desk/widgets/swift_desk_extras.dart": "aa5e141d4cb0da98feca7aa5e90f3f679d628d02192224d4b8420334d644c0ce",
+    "lib/app/modules/swift_desk/views/swift_desk_view.dart": "0fa209e63024cc3797de20c986a4ccad4a95509f88c59d94360b6b147bea1fc6",
+    "test/swift_desk_network_test.dart": "84d990871dc2835bfb3b194fb6b905b4775e19b8704f0431a381887637ffce88",
+    "test/swift_desk_runtime_test.dart": "6fad0132ee0758350ef2b716557a550cd2cd21a63bb111d0a12242279aa71356",
+    "test/swift_desk_view_test.dart": "086639cdaecc5fa3d7a3ee8b1206659139eee887d0a9b03883ab20996757b8c4",
+    "test/swift_desk_cloud_protocol_test.dart": "94c1315fb09ce14b4f74306ba085aa32ed9f7acc5bf80b0683e672c9cd104390"
+  },
+  "logSha256": {
+    "targeted-final.txt": "b8d9925b283a944e8e4f0eea64aaf8859cef45670e56bce21149f95a4084be01",
+    "analysis-delivery.txt": "53c4050f1e1f3ad5effd196377c3ecdea8f357d83ece3750ecf3d2039543f3c0",
+    "core-analysis.txt": "05edf3f1e7de60446665ba03bf9d9b580b43ee219309c9d95e3a658d48daebdd",
+    "delivery-build.txt": "26cd579e72d63a595aaa960b6bcf948d7e7b2b5db010deb74cde2fd05c6fb414",
+    "delivery-sign.txt": "35e7d7455c9ac348476d5800be547831a70f3279e28dcfa0ba175b224f6918d6",
+    "installer.txt": "a08e43b3d8673c29d549a4fec6415d25589be3651b704e2c7b1269a69fcb7ba6"
+  }
+}

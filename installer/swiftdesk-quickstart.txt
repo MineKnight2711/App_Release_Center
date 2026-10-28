@@ -1,0 +1,36 @@
+SWIFTDESK TRONG AMC
+
+Mở Công cụ dự án > SwiftDesk · Điều khiển máy tính.
+Host mặc định tắt. Mỗi phiên đều cần máy đích chấp nhận.
+
+macOS: cấp Screen Recording để chia sẻ màn hình; cấp Accessibility nếu muốn
+nhận chuột/phím. Bấm Kiểm tra lại quyền sau khi đổi cài đặt; mở lại AMC nếu
+macOS yêu cầu. Bản mới có thể cần cấp lại quyền theo chữ ký/đường dẫn.
+
+LAN: bật nhận LAN, tạo mã ghép nối và gửi qua kênh tin cậy. Mã dùng một lần,
+5 phút. Chỉ cấp chuột/phím hoặc clipboard khi cần.
+
+Internet: cần API AMC đã bật desktop và migration tương ứng.
+Đăng nhập AMC, bật host rồi Bật nhận Internet. ID AMC khác ID SwiftDesk cũ.
+Signaling mã hóa tới máy đích; không dùng broker công cộng để chuyển hình.
+Phiên Internet tối đa 15 phút; kết nối lại cần được chấp nhận tiếp.
+
+Đường kết nối Internet có ba lựa chọn, được lưu cho lần mở sau:
+- Tự động: WebRTC chọn P2P IPv6/IPv4 hoặc TURN dự phòng nếu đã cấu hình.
+- Chỉ P2P IPv6: hai máy cần IPv6 liên lạc được; không dùng TURN, không tự đổi
+  sang IPv4. Không cần máy chủ TURN cho đường IPv6 trực tiếp này.
+- Bắt buộc TURN: cần cấu hình máy chủ TURN riêng.
+Chọn trước khi mở phiên. Nếu hai máy chọn P2P IPv6 và TURN bắt buộc khác nhau,
+đổi một máy sang Tự động. Trạng thái P2P IPv6/IPv4/TURN lấy từ đường truyền thật.
+API AMC vẫn dùng để xác thực và ghép máy; hình/điều khiển qua P2P không qua API.
+
+F12 trả điều khiển về AMC. Ctrl phải trên Windows giữ chức năng Control khi
+điều khiển Mac; Ctrl trái có thể ánh xạ sang Command. Có ô gửi Unicode riêng.
+
+Giữ host khi đóng cửa sổ: bật tùy chọn trong SwiftDesk để dùng tray/menu bar.
+Thoát AMC sẽ nhả input và ngắt mọi phiên. Khôi phục host và mở AMC khi đăng
+nhập máy là các tùy chọn riêng, mặc định tắt. Trên Mac cần đặt AMC trong
+Applications trước khi bật mở cùng máy; có thể cần xác nhận Login Items.
+
+Nhập thiết bị cũ chỉ lấy metadata, mọi máy phải ghép lại bằng mã AMC.
+Không hỗ trợ unattended, UAC/secure desktop hoặc màn hình đăng nhập macOS.

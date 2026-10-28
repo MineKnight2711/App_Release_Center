@@ -1,0 +1,196 @@
+{
+  "checkedAt": "2026-10-26T04:17:51.052324+00:00",
+  "baselineHead": "2af1aa6d9cbc5d3a4b5eb27c2d30b5223fe50b61",
+  "workspaceChangesCommitted": false,
+  "upstream": {
+    "checkout": "32ae86a0bd50b326bf2fccad3f71131fd3c44f04",
+    "originMain": "53ba59412a2eb4e1c3c9a45546ef1b9029530d47",
+    "fetchedAgain": "2026-10-26",
+    "difference": "docs/SETUP.md only",
+    "originalCheckoutClean": true,
+    "originalNpmBuild": "passed during earlier review; not rerun in this validation"
+  },
+  "focusedTests": {
+    "passed": 71,
+    "failed": 0,
+    "swiftDeskPassed": 48,
+    "planStudioReminderAndSettingsPassed": 23,
+    "files": [
+      "swift_desk_background_import_test.dart",
+      "swift_desk_cloud_protocol_test.dart",
+      "swift_desk_lan_test.dart",
+      "swift_desk_lifecycle_test.dart",
+      "swift_desk_probe_view_test.dart",
+      "swift_desk_protocol_test.dart",
+      "swift_desk_runtime_test.dart",
+      "swift_desk_session_test.dart",
+      "swift_desk_view_test.dart",
+      "plan_studio_reminder_test.dart",
+      "app_settings_widget_test.dart",
+      "app_settings_service_test.dart"
+    ]
+  },
+  "backend": {
+    "passed": 21,
+    "failed": 0,
+    "testFiles": 2,
+    "typecheck": "passed",
+    "localD1Migrations": "passed; disposable local persistence only",
+    "productionDeployed": false,
+    "productionDesktopEnabled": false
+  },
+  "analysis": {
+    "coreStandalone": "No issues found",
+    "rootIssues": 3,
+    "newSwiftDeskIssues": 0,
+    "existingIssues": [
+      "release_note_generation_service.dart:585 unawaited_return_in_try_block",
+      "telegram_release_notification_service.dart:136 unawaited_return_in_try_block",
+      "safe_scan_test.dart:15 prefer_adjacent_string_concatenation"
+    ]
+  },
+  "fullSuite": {
+    "passed": 985,
+    "skipped": 16,
+    "failed": 25,
+    "completed": true,
+    "same25FailureNamesAsPriorBaseline": true,
+    "baselineEvidence": "swiftdesk-phase12-validation-2026-10-23.json",
+    "failures": [
+      "machine_power_service_test.dart: power commands forces only when the caller asks",
+      "machine_power_service_test.dart: power commands maps the remaining actions to their Windows commands",
+      "machine_power_service_test.dart: power commands raises when the command fails",
+      "machine_power_service_test.dart: power commands restarts with /g so the session comes back on a PIN machine",
+      "machine_power_service_test.dart: power commands shuts down without forcing applications closed",
+      "machine_power_service_test.dart: power commands sleep explicitly suspends and keeps wake events enabled",
+      "machine_power_service_test.dart: power commands the screen-off script is a single argument",
+      "machine_power_service_test.dart: power commands treats a negative delay as immediate",
+      "machine_power_service_test.dart: power commands turning the screen off does not suspend the machine",
+      "machine_power_service_test.dart: sleep support reads the available states and ignores the unavailable block",
+      "qa_desk_integration_test.dart: a release in the same project is a warning, not a blocker",
+      "qa_desk_integration_test.dart: the page inside AMC a folder that is not a project says so",
+      "qa_desk_integration_test.dart: the page inside AMC the add menu offers AMC projects that are not sources yet",
+      "qa_desk_weak_network_proxy_test.dart: HTTPS completes TLS through proxy with certificate validation",
+      "remote_control_power_test.dart: applying a power command a negative delay becomes immediate",
+      "remote_control_power_test.dart: applying a power command an immediate action leaves nothing to cancel",
+      "remote_control_power_test.dart: applying a power command cancelling clears the pending command",
+      "remote_control_power_test.dart: applying a power command locking is never treated as cancellable",
+      "remote_control_power_test.dart: applying a power command remembers a delayed shutdown so the desktop can cancel it",
+      "remote_control_power_test.dart: applying a power command runs the action and reports what it did",
+      "windows_auto_start_service_test.dart: disabling an already absent shortcut is not an error",
+      "windows_auto_start_service_test.dart: escapes quotes in paths so the script stays one literal",
+      "windows_auto_start_service_test.dart: removing clears the shortcut without running anything",
+      "windows_auto_start_service_test.dart: reports disabled until the shortcut exists",
+      "windows_auto_start_service_test.dart: surfaces a failure from PowerShell"
+    ],
+    "counting": "testDone events excluding hidden runner setup tests"
+  },
+  "build": {
+    "macosRelease": "passed",
+    "architectures": "x86_64 arm64",
+    "rootAppResealedBeforeSmoke": true,
+    "deepSignatureVerification": "passed",
+    "windows": "not run; Windows host unavailable"
+  },
+  "realMedia": {
+    "cloudEvidence": "swiftdesk-cloud-phase34-macos-2026-10-26.json",
+    "lanEvidence": "swiftdesk-lan-phase34-macos-2026-10-26.json",
+    "cloudCyclesPassed": 3,
+    "lanCyclesPassed": 3,
+    "sameReleaseAsInstaller": true,
+    "path": "direct loopback; no TURN server",
+    "minimumVideoGate": "real first frame/decoded frame with renderer attached plus both data channels",
+    "nativeOsInputInjected": false,
+    "screenRecordingPreflight": true,
+    "accessibilityPreflight": false,
+    "notABenchmark": true
+  },
+  "nativeBackground": {
+    "report": {
+      "outcome": "passed",
+      "shutdownCallbackRan": true,
+      "backgroundReasonRetained": true,
+      "checkedAt": "2026-10-26T04:16:09.111992Z",
+      "noNetworkListener": true
+    },
+    "closeObservation": {
+      "checkedAt": "2026-10-26T04:15:52.436164+00:00",
+      "processStillAliveAfterClose": true,
+      "shutdownReportExistsAfterClose": false,
+      "nativeStarted": {
+        "statusItem": true,
+        "enabled": true,
+        "windowClass": "MainFlutterWindow"
+      },
+      "processRecheckedAt": "2026-10-26T04:16:00.529007+00:00"
+    },
+    "windowRestoredAndBodyObserved": true,
+    "restoreMechanism": "diagnostic timer invoking the production native restore method; status menu item not manually clicked",
+    "quitVia": "Cmd+Q through CUA on isolated preview bundle",
+    "previewProcessExited": true,
+    "previewBundleId": "vn.amc.swiftdesk.phase34preview20261026",
+    "sameNativeCodeAsRelease": true,
+    "productionSettingsChanged": false,
+    "autostartEnabledDuringTest": false
+  },
+  "installer": {
+    "checkedAt": "2026-10-26T04:16:55.840547+00:00",
+    "dmg": "build/installer/AppManagementCenter_v0.1.0_macOS-universal.dmg",
+    "bytes": 50952076,
+    "sha256": "c488c8896202a438752feb6fac4bf9fdfda677bc821c7a637bdd756d38bfed30",
+    "checksumFileMatches": true,
+    "imageVerification": "passed",
+    "mountedReadOnly": true,
+    "deepSignatureVerification": "passed",
+    "signing": "ad-hoc; not Developer ID or notarized",
+    "quickstartMatchesSource": true,
+    "releaseAndPackagedBinaries": {
+      "executable": {
+        "releaseSha256": "0f25960149d252633581af2cbf937a8fa585eb427e31696f05f0ea9208cdfd0a",
+        "dmgSha256": "0f25960149d252633581af2cbf937a8fa585eb427e31696f05f0ea9208cdfd0a"
+      },
+      "dartAot": {
+        "releaseSha256": "dffee3bcd8effa2ae1fd5c47b5404eff29c1ae0f845dd5d1156e09392cea447b",
+        "dmgSha256": "dffee3bcd8effa2ae1fd5c47b5404eff29c1ae0f845dd5d1156e09392cea447b"
+      }
+    },
+    "architectures": "x86_64 arm64",
+    "testMountDetached": true
+  },
+  "fixesValidated": [
+    "Encrypted signaling stream supports both admission and runtime subscribers",
+    "Pending clipboard paste is invalidated when control is released, including release/re-take",
+    "Viewer texture mounts before first-frame gate; decoded-video stats confirm genuine frame when native callback is missed",
+    "One bounded capture reacquire is allowed during negotiation; timeout still fails without granting input",
+    "Native close policy keeps app alive while background reason is active; explicit quit drains owners",
+    "Installer refreshes the outer app signature after incremental Flutter builds"
+  ],
+  "earlierIntegrationObservations": [
+    "Prior development runs hit zero-frame timeouts and correctly failed admission; media recovery/renderer attachment and package seal fixes were made before this final passing run",
+    "Final six media cycles did not require capture retry; bounded retry behavior is separately covered by runtime unit tests"
+  ],
+  "cleanup": {
+    "localWorkerStopped": true,
+    "testAppsExited": true,
+    "dmgTestMountDetached": true
+  },
+  "remainingGates": [
+    "Real TURN relay and cross-network connectivity including UDP blocked/TLS 443",
+    "Windows compile, tray and installer; Win/Mac two-way hardware matrix",
+    "Native OS keyboard/mouse/clipboard with Accessibility, DPI and IME",
+    "Sleep/lock/network recovery and 60-minute soak/20 reconnects",
+    "Developer ID/notarization, login-item and installed-app upgrade validation",
+    "Backend audit metadata ring, long-session TURN refresh/resume and production rollout"
+  ],
+  "logSha256": {
+    "targeted.txt": "721643a318dd2533412023906157095f06ea5f3d964efc4ea99539ff23fae3ec",
+    "analysis.txt": "a24996436394373332a5507f5f216ba3403d1f338f3d50736275a46999e7ae34",
+    "backend-tests.txt": "d0aaa1f824a840be5cd3c4a2e4f55549f28aa962025868999cae9f802f8742f8",
+    "typecheck.txt": "8fa1cf5506304e8abac55868e7f1a136c9b1dde57a3981a382da4c21ea129a6f",
+    "build.txt": "6bfece2881e36e690727329f3117dcacc0c207de99aac4720209c1ebeb1b40d7",
+    "sign.txt": "35e7d7455c9ac348476d5800be547831a70f3279e28dcfa0ba175b224f6918d6",
+    "full-tests.jsonl": "9fd000287f1d6c2d930fb307bd2c5c9812342a4ef901c319d54147aeb1f83d7e",
+    "core-analysis.txt": "05edf3f1e7de60446665ba03bf9d9b580b43ee219309c9d95e3a658d48daebdd",
+    "installer.txt": "ff002225d411ff857bb5b32cbca6f89271d966089d27b80ebca58eab7705f4b9"
+  }
+}

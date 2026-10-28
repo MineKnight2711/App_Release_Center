@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../services/windows_auto_start_service.dart';
+import '../../../services/app_background_service.dart';
 import '../repositories/local_plan_repository.dart';
 import 'reminder_scheduler.dart';
 
@@ -52,7 +53,16 @@ class PlanStudioRuntime extends ChangeNotifier {
     quietEnd = _preferences!.getInt('plan.quietEnd') ?? 8;
     channel.setMethodCallHandler(_receive);
     try {
-      await channel.invokeMethod<void>('background', background);
+      AppBackgroundService.shared.register(
+        'reminders',
+        open: () => navigate?.call(null),
+        shutdown: () async {
+          scheduler?.dispose();
+          scheduler = null;
+          await repository.close();
+        },
+      );
+      await AppBackgroundService.shared.reason('reminders', background);
     } catch (e) {
       background = false;
       error = '$e';
@@ -103,7 +113,7 @@ class PlanStudioRuntime extends ChangeNotifier {
       throw ArgumentError('Giờ bắt đầu và kết thúc phải khác nhau.');
     }
     if (runInTray != null) {
-      await channel.invokeMethod<void>('background', runInTray);
+      await AppBackgroundService.shared.reason('reminders', runInTray);
       background = runInTray;
       await _preferences!.setBool('plan.background', background);
     }
@@ -176,6 +186,11 @@ class PlanStudioRuntime extends ChangeNotifier {
 
   @override
   void dispose() {
+    unawaited(
+      AppBackgroundService.shared
+          .reason('reminders', false)
+          .catchError((Object _) {}),
+    );
     scheduler?.removeListener(notifyListeners);
     scheduler?.dispose();
     channel.setMethodCallHandler(null);

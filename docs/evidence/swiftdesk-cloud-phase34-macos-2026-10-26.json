@@ -1,0 +1,183 @@
+{
+  "checkedAt": "2026-10-26T04:14:47.753002Z",
+  "platform": "macos",
+  "localWorkerOnly": true,
+  "productionStorageUsed": false,
+  "nativeOsInputInjected": false,
+  "revokedCredentialRejected": true,
+  "cycles": [
+    {
+      "host": {
+        "state": "connected",
+        "role": "host",
+        "firstFrame": false,
+        "channelsReady": true,
+        "engineConnected": true,
+        "frames": 1,
+        "fps": 1.0040160642570282,
+        "networkPath": "direct",
+        "captureRecoveryAttempted": false,
+        "kbps": 419.78313253012044,
+        "receivedPackets": 2,
+        "appliedInputs": 0,
+        "nativeInputActive": false,
+        "draining": false,
+        "scopes": [
+          "view"
+        ],
+        "savedDevices": 0,
+        "trustedControllers": 1,
+        "history": 0,
+        "inputPermission": false,
+        "screenPermission": true,
+        "error": null
+      },
+      "viewer": {
+        "state": "connected",
+        "role": "viewer",
+        "firstFrame": true,
+        "channelsReady": true,
+        "engineConnected": true,
+        "frames": 1,
+        "fps": 0,
+        "networkPath": "direct",
+        "captureRecoveryAttempted": false,
+        "kbps": 0,
+        "receivedPackets": 0,
+        "appliedInputs": 0,
+        "nativeInputActive": false,
+        "draining": false,
+        "scopes": [
+          "view"
+        ],
+        "savedDevices": 0,
+        "trustedControllers": 0,
+        "history": 0,
+        "inputPermission": false,
+        "screenPermission": true,
+        "error": null
+      },
+      "remembered": false,
+      "encryptedSignaling": true,
+      "viewOnlyInputRejected": true,
+      "hostListenerSurvived": true,
+      "gracefulDisconnect": true
+    },
+    {
+      "host": {
+        "state": "connected",
+        "role": "host",
+        "firstFrame": false,
+        "channelsReady": true,
+        "engineConnected": true,
+        "frames": 1,
+        "fps": 0,
+        "networkPath": "direct",
+        "captureRecoveryAttempted": false,
+        "kbps": 0,
+        "receivedPackets": 2,
+        "appliedInputs": 0,
+        "nativeInputActive": false,
+        "draining": false,
+        "scopes": [
+          "view"
+        ],
+        "savedDevices": 0,
+        "trustedControllers": 1,
+        "history": 1,
+        "inputPermission": false,
+        "screenPermission": true,
+        "error": null
+      },
+      "viewer": {
+        "state": "connected",
+        "role": "viewer",
+        "firstFrame": true,
+        "channelsReady": true,
+        "engineConnected": true,
+        "frames": 1,
+        "fps": 0,
+        "networkPath": "direct",
+        "captureRecoveryAttempted": false,
+        "kbps": 0,
+        "receivedPackets": 0,
+        "appliedInputs": 0,
+        "nativeInputActive": false,
+        "draining": false,
+        "scopes": [
+          "view"
+        ],
+        "savedDevices": 0,
+        "trustedControllers": 0,
+        "history": 1,
+        "inputPermission": false,
+        "screenPermission": true,
+        "error": null
+      },
+      "remembered": true,
+      "encryptedSignaling": true,
+      "viewOnlyInputRejected": true,
+      "hostListenerSurvived": true,
+      "gracefulDisconnect": true
+    },
+    {
+      "host": {
+        "state": "connected",
+        "role": "host",
+        "firstFrame": false,
+        "channelsReady": true,
+        "engineConnected": true,
+        "frames": 1,
+        "fps": 0,
+        "networkPath": "direct",
+        "captureRecoveryAttempted": false,
+        "kbps": 0,
+        "receivedPackets": 2,
+        "appliedInputs": 0,
+        "nativeInputActive": false,
+        "draining": false,
+        "scopes": [
+          "view"
+        ],
+        "savedDevices": 0,
+        "trustedControllers": 1,
+        "history": 2,
+        "inputPermission": false,
+        "screenPermission": true,
+        "error": null
+      },
+      "viewer": {
+        "state": "connected",
+        "role": "viewer",
+        "firstFrame": true,
+        "channelsReady": true,
+        "engineConnected": true,
+        "frames": 1,
+        "fps": 0,
+        "networkPath": "direct",
+        "captureRecoveryAttempted": false,
+        "kbps": 0,
+        "receivedPackets": 0,
+        "appliedInputs": 0,
+        "nativeInputActive": false,
+        "draining": false,
+        "scopes": [
+          "view"
+        ],
+        "savedDevices": 0,
+        "trustedControllers": 0,
+        "history": 2,
+        "inputPermission": false,
+        "screenPermission": true,
+        "error": null
+      },
+      "remembered": true,
+      "encryptedSignaling": true,
+      "viewOnlyInputRejected": true,
+      "hostListenerSurvived": true,
+      "gracefulDisconnect": true
+    }
+  ],
+  "outcome": "passed",
+  "limitation": "Two endpoints on one Mac and a local Cloudflare Worker. No Internet NAT/TURN or Windows hardware validation."
+}

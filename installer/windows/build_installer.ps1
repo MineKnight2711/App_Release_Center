@@ -112,6 +112,10 @@ Get-ChildItem -LiteralPath $releaseDirectory -Force | ForEach-Object {
   Copy-Item -LiteralPath $_.FullName -Destination $payloadDirectory -Recurse -Force
 }
 Copy-Item `
+  -LiteralPath (Join-Path $projectRoot 'installer\swiftdesk-quickstart.txt') `
+  -Destination (Join-Path $payloadDirectory 'SwiftDesk-huong-dan.txt') `
+  -Force
+Copy-Item `
   -LiteralPath (Join-Path $PSScriptRoot 'uninstall.ps1') `
   -Destination (Join-Path $payloadDirectory 'uninstall.ps1') `
   -Force

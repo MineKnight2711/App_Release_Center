@@ -32,11 +32,15 @@ class FlutterWindow : public Win32Window {
   std::unique_ptr<flutter::FlutterViewController> flutter_controller_;
   std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>> reminders_;
   std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>> windows_;
+  std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>> background_channel_;
   std::unique_ptr<FlutterWindow> popup_;
   FlutterWindow* main_ = nullptr;
   flutter::EncodableValue snapshot_;
   bool popup_ready_ = false;
   bool background_ = false;
+  bool remote_background_ = false;
+  bool quitting_ = false;
+  bool quit_requested_ = false;
   bool tray_added_ = false;
   bool session_locked_ = false;
   bool topmost_ = true;

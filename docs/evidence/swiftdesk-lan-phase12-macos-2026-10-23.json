@@ -1,0 +1,182 @@
+{
+  "platform": "macos",
+  "osVersion": "Version 27.0.1 (Build 26A434)",
+  "checkedAt": "2026-10-23T09:31:53.267184Z",
+  "loopbackOnly": true,
+  "productionStorageUsed": false,
+  "revokedCredentialRejected": true,
+  "cycles": [
+    {
+      "host": {
+        "state": "connected",
+        "role": "host",
+        "firstFrame": false,
+        "channelsReady": true,
+        "engineConnected": true,
+        "frames": 1,
+        "fps": 0,
+        "kbps": 0,
+        "receivedPackets": 2,
+        "appliedInputs": 0,
+        "nativeInputActive": false,
+        "draining": false,
+        "scopes": [
+          "view"
+        ],
+        "savedDevices": 0,
+        "trustedControllers": 1,
+        "history": 0,
+        "inputPermission": false,
+        "screenPermission": true,
+        "error": null
+      },
+      "viewer": {
+        "state": "connected",
+        "role": "viewer",
+        "firstFrame": true,
+        "channelsReady": true,
+        "engineConnected": true,
+        "frames": 1,
+        "fps": 0,
+        "kbps": 0,
+        "receivedPackets": 0,
+        "appliedInputs": 0,
+        "nativeInputActive": false,
+        "draining": false,
+        "scopes": [
+          "view"
+        ],
+        "savedDevices": 1,
+        "trustedControllers": 0,
+        "history": 0,
+        "inputPermission": false,
+        "screenPermission": true,
+        "error": null
+      },
+      "pointerAndReliableReceived": true,
+      "viewOnlyInputRejected": true,
+      "displayQualitySwitch": false,
+      "rememberedConnection": false,
+      "hostListenerSurvived": true,
+      "nativeInputReleased": true
+    },
+    {
+      "host": {
+        "state": "connected",
+        "role": "host",
+        "firstFrame": false,
+        "channelsReady": true,
+        "engineConnected": true,
+        "frames": 1,
+        "fps": 0,
+        "kbps": 375.56,
+        "receivedPackets": 2,
+        "appliedInputs": 0,
+        "nativeInputActive": false,
+        "draining": false,
+        "scopes": [
+          "view"
+        ],
+        "savedDevices": 0,
+        "trustedControllers": 1,
+        "history": 1,
+        "inputPermission": false,
+        "screenPermission": true,
+        "error": null
+      },
+      "viewer": {
+        "state": "connected",
+        "role": "viewer",
+        "firstFrame": true,
+        "channelsReady": true,
+        "engineConnected": true,
+        "frames": 1,
+        "fps": 0.9990009990009991,
+        "kbps": 155.1728271728272,
+        "receivedPackets": 0,
+        "appliedInputs": 0,
+        "nativeInputActive": false,
+        "draining": false,
+        "scopes": [
+          "view"
+        ],
+        "savedDevices": 1,
+        "trustedControllers": 0,
+        "history": 1,
+        "inputPermission": false,
+        "screenPermission": true,
+        "error": null
+      },
+      "pointerAndReliableReceived": true,
+      "viewOnlyInputRejected": true,
+      "displayQualitySwitch": false,
+      "rememberedConnection": true,
+      "hostListenerSurvived": true,
+      "nativeInputReleased": true
+    },
+    {
+      "host": {
+        "state": "connected",
+        "role": "host",
+        "firstFrame": false,
+        "channelsReady": true,
+        "engineConnected": true,
+        "frames": 1,
+        "fps": 1.002004008016032,
+        "kbps": 369.17835671342687,
+        "receivedPackets": 2,
+        "appliedInputs": 0,
+        "nativeInputActive": false,
+        "draining": false,
+        "scopes": [
+          "view"
+        ],
+        "savedDevices": 0,
+        "trustedControllers": 1,
+        "history": 2,
+        "inputPermission": false,
+        "screenPermission": true,
+        "error": null
+      },
+      "viewer": {
+        "state": "connected",
+        "role": "viewer",
+        "firstFrame": true,
+        "channelsReady": true,
+        "engineConnected": true,
+        "frames": 1,
+        "fps": 0,
+        "kbps": 0,
+        "receivedPackets": 0,
+        "appliedInputs": 0,
+        "nativeInputActive": false,
+        "draining": false,
+        "scopes": [
+          "view"
+        ],
+        "savedDevices": 1,
+        "trustedControllers": 0,
+        "history": 2,
+        "inputPermission": false,
+        "screenPermission": true,
+        "error": null
+      },
+      "pointerAndReliableReceived": true,
+      "viewOnlyInputRejected": true,
+      "displayQualitySwitch": true,
+      "rememberedConnection": true,
+      "hostListenerSurvived": true,
+      "nativeInputReleased": true
+    }
+  ],
+  "outcome": "passed",
+  "note": "Two runtimes with real pinned TLS, approval, WebRTC video and two data channels on one Mac. No OS input injected. Cross-machine Windows/macOS QA remains.",
+  "build": {
+    "configuration": "Release",
+    "architecture": "arm64",
+    "flutterWebRTC": "1.6.2+hotfix.4",
+    "binarySha256": "d25c9c868cf3ef48b17268ffd7eeac5b0384f558f4890bce94ca31f051fa3e78",
+    "baselineHead": "2af1aa6d9cbc5d3a4b5eb27c2d30b5223fe50b61",
+    "uncommittedIntegration": true
+  }
+}

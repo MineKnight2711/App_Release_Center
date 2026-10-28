@@ -3,11 +3,13 @@
 #
 
 list(APPEND FLUTTER_PLUGIN_LIST
+  amc_remote_platform
   audioplayers_windows
   desktop_drop
   desktop_webview_window
   file_selector_windows
   flutter_secure_storage_windows
+  flutter_webrtc
   local_auth_windows
   url_launcher_windows
   webview_windows

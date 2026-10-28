@@ -1,0 +1,17 @@
+name: amc_remote_platform
+description: Native permissions and input adapter for AMC remote desktop.
+version: 0.0.1
+publish_to: none
+environment:
+  sdk: ^3.11.4
+  flutter: '>=3.38.0'
+dependencies:
+  flutter:
+    sdk: flutter
+flutter:
+  plugin:
+    platforms:
+      macos:
+        pluginClass: AmcRemotePlatformPlugin
+      windows:
+        pluginClass: AmcRemotePlatformPluginCApi

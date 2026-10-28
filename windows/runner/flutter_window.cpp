@@ -37,7 +37,7 @@ bool FlutterWindow::SetTray(bool enabled) {
   data.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP;
   data.uCallbackMessage = kTray;
   data.hIcon = LoadIcon(GetModuleHandle(nullptr), MAKEINTRESOURCE(IDI_APP_ICON));
-  wcscpy_s(data.szTip, L"AMC - Plan Studio reminders");
+  wcscpy_s(data.szTip, L"App Management Center");
   if (enabled && !tray_added_) tray_added_ = Shell_NotifyIcon(NIM_ADD, &data) != FALSE;
   if (!enabled && tray_added_) { Shell_NotifyIcon(NIM_DELETE, &data); tray_added_ = false; }
   return !enabled || tray_added_;
@@ -127,6 +127,26 @@ bool FlutterWindow::OnCreate() {
     result->NotImplemented();
   });
   if (!main_) {
+    background_channel_ = std::make_unique<flutter::MethodChannel<Value>>(
+      flutter_controller_->engine()->messenger(), "amc/background", &flutter::StandardMethodCodec::GetInstance());
+    background_channel_->SetMethodCallHandler([this](const auto& call, auto result) {
+      const auto method = call.method_name();
+      if (method == "configure") {
+        const auto* args = call.arguments() ? std::get_if<flutter::EncodableMap>(call.arguments()) : nullptr;
+        if (!args) { result->Error("arguments", "Expected configuration"); return; }
+        const auto enabled = args->find(Value("enabled"));
+        const auto remote = args->find(Value("remote"));
+        const bool requested = enabled != args->end() && std::get<bool>(enabled->second);
+        if (!SetTray(requested)) { result->Error("tray", "Cannot create AMC tray"); return; }
+        background_ = requested;
+        remote_background_ = remote != args->end() && std::get<bool>(remote->second);
+        if (!requested && !IsWindowVisible(GetHandle())) RestoreMain();
+        result->Success(); return;
+      }
+      if (method == "restore") { RestoreMain(); result->Success(); return; }
+      if (method == "quitNow") { quitting_ = true; background_ = false; result->Success(); PostMessage(GetHandle(), WM_CLOSE, 0, 0); return; }
+      result->NotImplemented();
+    });
     windows_ = std::make_unique<flutter::MethodChannel<Value>>(
         flutter_controller_->engine()->messenger(), "amc/windows",
         &flutter::StandardMethodCodec::GetInstance());
@@ -177,6 +197,7 @@ bool FlutterWindow::OnCreate() {
 void FlutterWindow::OnDestroy() {
   if (!main_) { SetTray(false); WTSUnRegisterSessionNotification(GetHandle()); }
   popup_.reset();
+  if (background_channel_) { background_channel_->SetMethodCallHandler(nullptr); background_channel_.reset(); }
   if (windows_) { windows_->SetMethodCallHandler(nullptr); windows_.reset(); }
   if (reminders_) { reminders_->SetMethodCallHandler(nullptr); reminders_.reset(); }
   flutter_controller_.reset();
@@ -190,6 +211,17 @@ LRESULT FlutterWindow::MessageHandler(HWND hwnd, UINT message, WPARAM wparam, LP
       return 0;
     }
     if (background_ && tray_added_) { ShowWindow(hwnd, SW_HIDE); return 0; }
+    if (!quitting_ && background_channel_) {
+      if (!quit_requested_) {
+        quit_requested_ = true;
+        auto finish = [this, hwnd]() { quitting_ = true; PostMessage(hwnd, WM_CLOSE, 0, 0); };
+        background_channel_->InvokeMethod("quit", nullptr,
+          std::make_unique<flutter::MethodResultFunctions<Value>>(
+            [finish](const Value*) { finish(); },
+            [finish](const std::string&, const std::string&, const Value*) { finish(); }, finish));
+      }
+      return 0;
+    }
   }
   if (!main_ && message == kRestore) { RestoreMain(); return 0; }
   if (!main_ && message == kTaskbarCreated && background_) { tray_added_ = false; if (!SetTray(true)) RestoreMain(); return 0; }
@@ -198,6 +230,7 @@ LRESULT FlutterWindow::MessageHandler(HWND hwnd, UINT message, WPARAM wparam, LP
     if (lparam == WM_RBUTTONUP) {
       HMENU menu = CreatePopupMenu();
       AppendMenu(menu, MF_STRING, 1, L"Mo App Management Center");
+      if (remote_background_) AppendMenu(menu, MF_STRING, 5, L"SwiftDesk - Dieu khien may tinh");
       AppendMenu(menu, MF_STRING, 2, L"Hom nay");
       AppendMenu(menu, MF_STRING, 3, L"Tam ngung / Tiep tuc nhac");
       AppendMenu(menu, MF_SEPARATOR, 0, nullptr);
@@ -208,6 +241,7 @@ LRESULT FlutterWindow::MessageHandler(HWND hwnd, UINT message, WPARAM wparam, LP
       if (selected == 1) RestoreMain();
       if (selected == 2) { RestoreMain(); reminders_->InvokeMethod("today", nullptr); }
       if (selected == 3) reminders_->InvokeMethod("pause", nullptr);
+      if (selected == 5) { RestoreMain(); background_channel_->InvokeMethod("open", std::make_unique<Value>("remoteHost")); }
       if (selected == 4) { background_ = false; PostMessage(hwnd, WM_CLOSE, 0, 0); }
     }
     return 0;
