@@ -1,12 +1,39 @@
 import 'package:flutter/foundation.dart';
+import '../../analytics/feature_analytics_service.dart';
 import '../models/work_item.dart';
 import '../repositories/plan_repository.dart';
 import '../repositories/local_plan_repository.dart';
 import '../models/plan_reminder.dart';
 
 class PlanBoardController extends ChangeNotifier {
-  PlanBoardController(this.repository);
+  PlanBoardController(this.repository, {this.analytics});
+  final FeatureAnalyticsService? analytics;
   final PlanRepository repository;
+  Future<WorkItem> create(
+    WorkItem item, {
+    AnalyticsSource source = AnalyticsSource.module,
+  }) => commit(() {
+    Future<WorkItem> write() => repository.save(item);
+    return analytics?.track(
+          AnalyticsFeature.planCreate,
+          write,
+          source: source,
+        ) ??
+        write();
+  });
+  Future<List<WorkItem>> createMany(List<WorkItem> drafts) {
+    if (drafts.isEmpty) return Future.value([]);
+    return commit(() {
+      Future<List<WorkItem>> write() => repository.createMany(drafts);
+      return analytics?.track(
+            AnalyticsFeature.planBulkCreate,
+            write,
+            source: AnalyticsSource.bulk,
+          ) ??
+          write();
+    });
+  }
+
   List<StudioProject> projects = [];
   List<WorkItem> items = [];
   List<PlanReminder> reminders = [];

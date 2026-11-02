@@ -13,6 +13,7 @@ import 'safe_item_detail.dart';
 import 'safe_item_editor.dart';
 import 'safe_pack_dialog.dart';
 import 'safe_scan_dialog.dart';
+import 'safe_share_dialog.dart';
 
 /// The inside of the open safe: drawers down the left, deposit boxes in the
 /// middle and the opened box on the right.
@@ -82,18 +83,28 @@ class _SafeInteriorState extends State<SafeInterior> {
     );
   }
 
-  /// Packs the project being browsed, or lets the person pick one.
-  Future<void> _pack() async {
+  /// Packs the project being browsed, or lets the person pick one, into a
+  /// zip or a share link.
+  Future<void> _pack({SafePackOutput output = SafePackOutput.zip}) async {
     final filter = _safe.filter;
     final result = await showSafePackDialog(
       context,
       _safe,
       project: filter is SafeFilterProject ? filter.project : null,
+      output: output,
     );
     if (result != null && mounted) {
       _say('Đã lưu ${result.path}.');
     }
   }
+
+  Future<void> _showShares() => showSafeSharesDialog(
+    context,
+    _safe,
+    onShareKit: _safe.items.isEmpty
+        ? null
+        : () => _pack(output: SafePackOutput.link),
+  );
 
   Future<void> _pickImport() async {
     final file = await file_selector.openFile();
@@ -215,6 +226,7 @@ class _SafeInteriorState extends State<SafeInterior> {
             onImport: _pickImport,
             onScan: _scanFolders,
             onPack: _safe.items.isEmpty ? null : _pack,
+            onShares: _showShares,
             iconsOnly: width < 1080,
           ),
           if (_safe.error.isNotEmpty) ...[
@@ -304,6 +316,7 @@ class _Toolbar extends StatelessWidget {
     required this.onImport,
     required this.onScan,
     required this.onPack,
+    required this.onShares,
     required this.iconsOnly,
   });
 
@@ -317,6 +330,7 @@ class _Toolbar extends StatelessWidget {
 
   /// Null while there is nothing to pack.
   final VoidCallback? onPack;
+  final VoidCallback onShares;
 
   /// The side actions as bare icons, for a window too narrow for labels.
   final bool iconsOnly;
@@ -367,9 +381,17 @@ class _Toolbar extends StatelessWidget {
           (
             const Key('safe-pack'),
             Icons.folder_zip_outlined,
-            'Đóng gói ZIP…',
-            'Đóng gói ZIP có mật khẩu bộ keys của một dự án',
+            'Đóng gói…',
+            'Đóng gói bộ keys của một dự án: file ZIP có mật khẩu hoặc link '
+                'chia sẻ',
             onPack,
+          ),
+          (
+            const Key('safe-shares'),
+            Icons.link_rounded,
+            'Link chia sẻ…',
+            'Các link đã chia sẻ: ai đã mở, thu hồi',
+            onShares,
           ),
           if (!compact)
             (

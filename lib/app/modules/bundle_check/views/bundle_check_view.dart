@@ -1,4 +1,5 @@
 import 'dart:io';
+import '../../analytics/feature_analytics_service.dart';
 
 import 'package:app_management_center/app/modules/shared/module_widgets.dart';
 import 'package:app_management_center/app/theme/cyber_theme.dart';
@@ -36,12 +37,18 @@ class BundleCheckView extends StatefulWidget {
 
 class _BundleCheckViewState extends State<BundleCheckView> {
   late final BundleCheckController _controller =
-      widget.controller ?? BundleCheckController();
+      widget.controller ??
+      BundleCheckController(
+        analytics: Get.isRegistered<FeatureAnalyticsService>()
+            ? Get.find<FeatureAnalyticsService>()
+            : null,
+      );
   late final bool _ownsController = widget.controller == null;
 
   @override
   void initState() {
     super.initState();
+    _controller.analytics?.opened();
     _controller.init();
   }
 
@@ -236,14 +243,17 @@ class _DropZone extends StatefulWidget {
 class _DropZoneState extends State<_DropZone> {
   bool _hovering = false;
 
-  Future<void> _accept(String path) async {
+  Future<void> _accept(
+    String path, {
+    AnalyticsSource source = AnalyticsSource.filePicker,
+  }) async {
     if (p.extension(path).toLowerCase() != '.aab') {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Bản này chỉ nhận file .aab.')),
       );
       return;
     }
-    await widget.controller.checkFile(path);
+    await widget.controller.checkFile(path, source: source);
   }
 
   Future<void> _pick() async {
@@ -273,7 +283,7 @@ class _DropZoneState extends State<_DropZone> {
       onDragDone: (details) {
         setState(() => _hovering = false);
         final path = details.files.firstOrNull?.path;
-        if (path != null) _accept(path);
+        if (path != null) _accept(path, source: AnalyticsSource.drop);
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 140),

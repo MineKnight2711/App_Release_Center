@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class AppSettingsService extends GetxService {
   static const fontScaleKey = 'app_font_scale';
   static const interfaceScaleKey = 'app_interface_scale';
+  static const analyticsEnabledKey = 'app_analytics_enabled';
   static const minFontScale = 0.8;
   static const maxFontScale = 1.6;
   static const minInterfaceScale = 0.8;
@@ -12,12 +13,14 @@ class AppSettingsService extends GetxService {
 
   final fontScale = 1.0.obs;
   final interfaceScale = 1.0.obs;
+  final analyticsEnabled = false.obs;
   final saveError = ''.obs;
   late final SharedPreferences _preferences;
   Future<void> _pendingSave = Future<void>.value();
 
   Future<AppSettingsService> init() async {
     _preferences = await SharedPreferences.getInstance();
+    analyticsEnabled.value = _preferences.getBool(analyticsEnabledKey) ?? false;
     fontScale.value = _bounded(
       _preferences.get(fontScaleKey),
       minFontScale,
@@ -33,6 +36,23 @@ class AppSettingsService extends GetxService {
 
   Future<void> setFontScale(double value) =>
       _set(fontScale, fontScaleKey, value, minFontScale, maxFontScale);
+
+  Future<void> setAnalyticsEnabled(bool value) {
+    analyticsEnabled.value = value;
+    _pendingSave = _pendingSave.then((_) async {
+      try {
+        if (!await _preferences.setBool(analyticsEnabledKey, value)) {
+          throw StateError('Cannot save analytics preference');
+        }
+        saveError.value = '';
+      } catch (_) {
+        // Fail closed: never start sharing after a failed preference write.
+        analyticsEnabled.value = false;
+        saveError.value = 'Chưa lưu được tùy chọn thống kê. Hãy thử lại.';
+      }
+    });
+    return _pendingSave;
+  }
 
   Future<void> setInterfaceScale(double value) => _set(
     interfaceScale,

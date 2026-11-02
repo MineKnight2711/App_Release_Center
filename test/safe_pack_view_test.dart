@@ -271,7 +271,7 @@ void main() {
 
     await tester.tap(find.byKey(const Key('safe-pack')));
     await pumpFor(tester, const Duration(milliseconds: 400));
-    expect(find.text('Đóng gói ZIP bộ keys'), findsOneWidget);
+    expect(find.text('Đóng gói bộ keys'), findsOneWidget);
     expect(find.text('Đóng gói 1 mục…'), findsOneWidget);
     expect(find.text('→ web-admin/.env'), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -279,7 +279,7 @@ void main() {
     // Locking the safe closes the dialog with it.
     await safe.lock();
     await pumpFor(tester, const Duration(seconds: 1));
-    expect(find.text('Đóng gói ZIP bộ keys'), findsNothing);
+    expect(find.text('Đóng gói bộ keys'), findsNothing);
     safe.dispose();
   });
 }

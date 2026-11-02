@@ -1,4 +1,5 @@
 import 'dart:io';
+import '../../analytics/feature_analytics_service.dart';
 
 import 'package:flutter/foundation.dart';
 
@@ -21,7 +22,7 @@ enum BundletoolState { unknown, missing, downloading, ready }
 /// A [ChangeNotifier] like the other modules: everything here belongs to the
 /// open page and goes when it closes.
 class BundleCheckController extends ChangeNotifier {
-  BundleCheckController({BundleCheckService? service})
+  BundleCheckController({BundleCheckService? service, this.analytics})
     : service =
           service ??
           BundleCheckService(
@@ -30,6 +31,7 @@ class BundleCheckController extends ChangeNotifier {
           );
 
   final BundleCheckService service;
+  final FeatureAnalyticsService? analytics;
 
   BundleCheckStage stage = BundleCheckStage.idle;
   String progress = '';
@@ -177,8 +179,10 @@ class BundleCheckController extends ChangeNotifier {
     String path, {
     BundleProjectCandidate? project,
     bool detachProject = false,
+    AnalyticsSource source = AnalyticsSource.filePicker,
   }) async {
     if (busy) return;
+    final operation = analytics?.begin(source);
     _lastDetached = detachProject;
     stage = BundleCheckStage.checking;
     error = null;
@@ -201,13 +205,25 @@ class BundleCheckController extends ChangeNotifier {
       run = result;
       report = result.report;
       stage = BundleCheckStage.done;
+      analytics?.complete(
+        operation,
+        issuesFound: result.report.results.any(
+          (c) => c.status == CheckStatus.fail || c.status == CheckStatus.warn,
+        ),
+      );
       await _loadHistory();
     } on BundleInspectionException catch (e) {
+      analytics?.fail(operation, AnalyticsFailure.inspection);
       _fail(e.message);
     } on BundleToolException catch (e) {
+      analytics?.fail(operation, AnalyticsFailure.tool);
       _fail(e.message);
     } on FileSystemException catch (e) {
+      analytics?.fail(operation, AnalyticsFailure.file);
       _fail('Không đọc được file: ${e.message}');
+    } catch (_) {
+      analytics?.fail(operation, AnalyticsFailure.unexpected);
+      rethrow;
     }
     _notify();
   }
@@ -231,6 +247,7 @@ class BundleCheckController extends ChangeNotifier {
       current.sourcePath,
       project: project ?? (detachProject ? null : run?.project),
       detachProject: detachProject || keepDetached,
+      source: AnalyticsSource.recheck,
     );
   }
 

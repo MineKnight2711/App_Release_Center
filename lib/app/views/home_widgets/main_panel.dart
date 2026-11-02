@@ -46,6 +46,8 @@ class _MainPanelState extends State<_MainPanel> {
               height: _splitterThickness,
               child: _PanelSplitter(
                 axis: Axis.vertical,
+                onDoubleTap: () =>
+                    setState(() => _flowRatio = _defaultFlowRatio),
                 onDelta: (delta) => _onVerticalResize(
                   delta: delta,
                   splitHeight: splitHeight,
@@ -54,7 +56,15 @@ class _MainPanelState extends State<_MainPanel> {
                 ),
               ),
             ),
-            SizedBox(height: logHeight, child: const _LogPanel()),
+            SizedBox(
+              height: logHeight,
+              child: _LogPanel(
+                isExpanded: boundedRatio < 0.52,
+                onToggleExpand: () => setState(() {
+                  _flowRatio = boundedRatio < 0.52 ? _defaultFlowRatio : 0.42;
+                }),
+              ),
+            ),
           ],
         );
       },

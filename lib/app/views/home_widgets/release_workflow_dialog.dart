@@ -366,6 +366,9 @@ class _ReleaseWorkflowDialogState extends State<_ReleaseWorkflowDialog> {
   int? _selectedStep;
   _ReleaseLogView _logView = _ReleaseLogView.step;
   String? _localError;
+  bool _manualVersion = false;
+  final _versionName = TextEditingController();
+  final _versionCode = TextEditingController();
 
   HomeController get controller => Get.find<HomeController>();
   ReleaseWorkflowService get workflow => controller.releaseWorkflow;
@@ -373,6 +376,7 @@ class _ReleaseWorkflowDialogState extends State<_ReleaseWorkflowDialog> {
   @override
   void initState() {
     super.initState();
+    _fillVersion(controller.project.value?.pubspecVersion);
     final existing = workflow.currentRun.value;
     if (existing != null) {
       _track = existing.track;
@@ -387,6 +391,21 @@ class _ReleaseWorkflowDialogState extends State<_ReleaseWorkflowDialog> {
         }
       }
     }
+  }
+
+  @override
+  void dispose() {
+    _versionName.dispose();
+    _versionCode.dispose();
+    super.dispose();
+  }
+
+  /// Puts a `name+code` version into the manual fields.
+  void _fillVersion(String? version) {
+    final parts = (version ?? '').trim().split('+');
+    if (parts.length != 2) return;
+    _versionName.text = parts.first;
+    _versionCode.text = parts.last;
   }
 
   @override
@@ -477,10 +496,6 @@ class _ReleaseWorkflowDialogState extends State<_ReleaseWorkflowDialog> {
                     value: project?.pubspecVersion ?? '-',
                   ),
                   const _WorkflowInfoRow(
-                    label: 'Cách tăng version',
-                    value: 'max(local, store) + 1 / auto patch bump',
-                  ),
-                  const _WorkflowInfoRow(
                     label: 'Cách xử lý Git',
                     value: 'Commit và push branch hiện tại - không tạo PR',
                   ),
@@ -529,6 +544,17 @@ class _ReleaseWorkflowDialogState extends State<_ReleaseWorkflowDialog> {
                   ),
                 ),
               ],
+              const SizedBox(height: 12),
+              _VersionSelector(
+                manual: _manualVersion,
+                name: _versionName,
+                code: _versionCode,
+                enabled: !isPreparing,
+                onModeChanged: (manual) => setState(() {
+                  _manualVersion = manual;
+                  _localError = null;
+                }),
+              ),
               const _ShutdownAfterDeployOption(),
               if (_localError != null) ...[
                 const SizedBox(height: 14),
@@ -884,6 +910,18 @@ class _ReleaseWorkflowDialogState extends State<_ReleaseWorkflowDialog> {
           icon: const Icon(Icons.folder_open_outlined),
           label: const Text('Mở artifact'),
         ),
+      if (!showPreparation && prepared)
+        OutlinedButton.icon(
+          key: const Key('edit-release-version'),
+          onPressed: () => setState(() {
+            _newRelease = true;
+            _manualVersion = true;
+            _fillVersion(run.proposedVersion);
+            _localError = null;
+          }),
+          icon: const Icon(Icons.edit_outlined),
+          label: const Text('Đổi version'),
+        ),
       if (workflow.isRunning)
         OutlinedButton.icon(
           key: const Key('stop-release-workflow'),
@@ -913,6 +951,8 @@ class _ReleaseWorkflowDialogState extends State<_ReleaseWorkflowDialog> {
           onPressed: () => setState(() {
             _newRelease = true;
             _productionConfirmed = false;
+            _manualVersion = false;
+            _fillVersion(controller.project.value?.pubspecVersion);
             _localError = null;
           }),
           icon: const Icon(Icons.add_rounded),
@@ -947,9 +987,21 @@ class _ReleaseWorkflowDialogState extends State<_ReleaseWorkflowDialog> {
   }
 
   Future<void> _prepare() async {
+    final name = _versionName.text.trim();
+    final code = int.tryParse(_versionCode.text.trim());
+    if (_manualVersion && (name.isEmpty || code == null || code <= 0)) {
+      setState(
+        () => _localError = 'Nhập version name và version code (số dương).',
+      );
+      return;
+    }
     setState(() => _localError = null);
     try {
-      await controller.prepareAutomatedRelease(_track);
+      await controller.prepareAutomatedRelease(
+        _track,
+        versionName: _manualVersion ? name : null,
+        versionCode: _manualVersion ? code : null,
+      );
       if (!mounted) return;
       setState(() {
         _newRelease = false;
@@ -1875,6 +1927,116 @@ class _TrackSelector extends StatelessWidget {
   }
 }
 
+/// Lets AMC pick the release version, or takes the one the user types.
+class _VersionSelector extends StatelessWidget {
+  const _VersionSelector({
+    required this.manual,
+    required this.name,
+    required this.code,
+    required this.enabled,
+    required this.onModeChanged,
+  });
+
+  final bool manual;
+  final TextEditingController name;
+  final TextEditingController code;
+  final bool enabled;
+  final ValueChanged<bool> onModeChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return _HudCardShell(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.sell_outlined,
+                size: 17,
+                color: AppCyberTheme.electricBlue,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Version release',
+                style: AppCyberTheme.dataTextStyle(
+                  size: 11,
+                  color: AppCyberTheme.textMuted,
+                  weight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              SegmentedButton<bool>(
+                key: const Key('release-version-mode'),
+                showSelectedIcon: false,
+                segments: const [
+                  ButtonSegment(
+                    value: false,
+                    icon: Icon(Icons.auto_mode_outlined, size: 16),
+                    label: Text('TỰ ĐỘNG'),
+                  ),
+                  ButtonSegment(
+                    value: true,
+                    icon: Icon(Icons.edit_outlined, size: 16),
+                    label: Text('TỰ NHẬP'),
+                  ),
+                ],
+                selected: {manual},
+                onSelectionChanged: enabled
+                    ? (selection) => onModeChanged(selection.first)
+                    : null,
+              ),
+              if (manual) ...[
+                SizedBox(
+                  width: 180,
+                  child: TextField(
+                    key: const Key('release-version-name'),
+                    controller: name,
+                    enabled: enabled,
+                    decoration: const InputDecoration(
+                      labelText: 'Version name',
+                      prefixIcon: Icon(Icons.sell_outlined),
+                    ),
+                  ),
+                ),
+                SizedBox(
+                  width: 170,
+                  child: TextField(
+                    key: const Key('release-version-code'),
+                    controller: code,
+                    enabled: enabled,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    decoration: const InputDecoration(
+                      labelText: 'Version code',
+                      prefixIcon: Icon(Icons.pin_outlined),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            manual
+                ? 'Dùng đúng version này. Version code phải lớn hơn bản đang có trên CH Play.'
+                : 'Version code trong pubspec chưa dùng (vd. vừa release iOS hay sửa tay) thì giữ nguyên. Đã dùng rồi thì code = store + 1 và tăng patch.',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _WorkflowCallout extends StatelessWidget {
   const _WorkflowCallout({
     required this.icon,
@@ -2181,9 +2343,9 @@ String _stepDescription(ReleaseWorkflowStepKind kind) {
     ReleaseWorkflowStepKind.preflight =>
       'Kiểm tra Git, thông tin đăng nhập, trạng thái version và khả năng của Fastlane.',
     ReleaseWorkflowStepKind.versionCode =>
-      'Đặt version code kế tiếp dựa trên trạng thái ở máy và trên store.',
+      'Ghi version code đã chọn ở preflight vào dự án.',
     ReleaseWorkflowStepKind.versionName =>
-      'Tăng nhóm số cuối của version name.',
+      'Ghi version name đã chọn ở preflight vào dự án.',
     ReleaseWorkflowStepKind.releaseNotes =>
       'Tạo note bằng Gemini, không được thì lấy từ Git, rồi ghi changelog cho Play.',
     ReleaseWorkflowStepKind.commit =>

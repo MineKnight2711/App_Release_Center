@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../analytics/feature_analytics_service.dart';
 import 'dart:io';
 import 'dart:ui' show AppExitResponse;
 
@@ -53,6 +54,7 @@ class QaDeskRuntime {
 
   /// What QA Desk knows about the rest of AMC; set by AMC at startup.
   static QaDeskHost host = const StandaloneQaDeskHost();
+  static FeatureAnalyticsService? analytics;
 
   static Future<QaDeskRuntime> open() =>
       _opening ??= _openFor(QaDeskStorage.forApp(), _appAutomation);
@@ -123,6 +125,7 @@ class QaDeskRuntime {
       // Read through [host] on every call, so a host set after this runtime
       // opened still counts.
       controller.busyProjectPaths = () => host.busyProjectPaths;
+      controller.analytics = analytics;
       if (parts != null) {
         runner = AutomationRunner(
           vault: parts.vault,

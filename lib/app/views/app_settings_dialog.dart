@@ -1,4 +1,6 @@
 import 'dart:async';
+import '../modules/analytics/feature_analytics_service.dart';
+import '../modules/analytics/analytics_view.dart';
 
 import 'package:app_management_center/app/services/app_lock_service.dart';
 import 'package:app_management_center/app/services/app_settings_service.dart';
@@ -66,6 +68,51 @@ class AppSettingsDialog extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    if (Get.isRegistered<FeatureAnalyticsService>()) ...[
+                      const _SettingsHeading('Thống kê sử dụng'),
+                      Obx(
+                        () => SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text('Chia sẻ thống kê sử dụng'),
+                          subtitle: const Text(
+                            'Gửi số lượt dùng và kết quả thao tác để cải tiến AMC. Không gửi nội dung file, token hay dữ liệu dự án. Tắt sẽ xóa hàng đợi chưa gửi trên máy này.',
+                          ),
+                          value: settings.analyticsEnabled.value,
+                          onChanged: settings.setAnalyticsEnabled,
+                        ),
+                      ),
+                      if (!Get.find<FeatureAnalyticsService>().production)
+                        const Text(
+                          'Bản debug/test không gửi thống kê production.',
+                        ),
+                      Obx(() {
+                        final analytics = Get.find<FeatureAnalyticsService>();
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (analytics.canView.value)
+                              OutlinedButton.icon(
+                                onPressed: () => showFeatureAnalytics(context),
+                                icon: const Icon(Icons.insights_outlined),
+                                label: const Text('Mở thống kê sử dụng'),
+                              ),
+                            TextButton(
+                              onPressed: analytics.refreshAccess,
+                              child: const Text('Kiểm tra quyền dashboard'),
+                            ),
+                            if (analytics.status.value.isNotEmpty)
+                              Text(analytics.status.value),
+                            if (analytics.dropped.value +
+                                    analytics.rejected.value >
+                                0)
+                              Text(
+                                'Sự kiện bỏ qua trên máy: ${analytics.dropped.value}; server từ chối: ${analytics.rejected.value}',
+                              ),
+                          ],
+                        );
+                      }),
+                      const SizedBox(height: 24),
+                    ],
                     const _SettingsHeading('Giao diện'),
                     const Text('Theme'),
                     const SizedBox(height: 8),

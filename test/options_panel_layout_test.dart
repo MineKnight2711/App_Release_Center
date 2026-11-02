@@ -2501,6 +2501,25 @@ void main() {
     expect(find.text('Track CH Play'), findsOneWidget);
     expect(find.byKey(const Key('review-release-workflow')), findsOneWidget);
 
+    expect(find.byKey(const Key('release-version-mode')), findsOneWidget);
+    expect(find.byKey(const Key('release-version-name')), findsNothing);
+    await tester.tap(find.text('TỰ NHẬP'));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const Key('release-version-name')))
+          .controller!
+          .text,
+      '1.0.0',
+    );
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const Key('release-version-code')))
+          .controller!
+          .text,
+      '1',
+    );
+
     await tester.tap(find.byKey(const Key('hide-release-workflow')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('release-workflow-dialog')), findsNothing);

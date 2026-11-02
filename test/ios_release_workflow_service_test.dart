@@ -10,12 +10,14 @@ import 'package:app_management_center/app/services/ios_release_workflow_service.
 import 'package:app_management_center/app/services/release_runner_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
+import 'analytics_test_recorder.dart';
 
 void main() {
   late Directory temp, projectDirectory;
   late AppStoreProject project;
   late _Runner runner;
   late IosReleaseWorkflowService service;
+  late AnalyticsRecorder analytics;
   const credentials = AppStoreCredentials(
     p8PrivateKey: 'PRIVATE TEST FIXTURE',
     keyId: 'KEY',
@@ -47,7 +49,9 @@ void main() {
       bundleId: 'com.example.demo',
     );
     runner = _Runner(projectDirectory);
+    analytics = AnalyticsRecorder();
     service = IosReleaseWorkflowService(
+      analytics: analytics,
       runner: runner,
       credentials: (_) async => credentials,
       root: Directory(p.join(temp.path, 'history')),
@@ -186,6 +190,19 @@ void main() {
       expect(runner.inputs.last['locale'], 'vi-VN');
       expect(runner.inputs.last['use_app_store_locale'], isFalse);
       expect(runner.buildCalls, 1);
+      expect(analytics.events.map((e) => e['name']), [
+        'started',
+        'completed',
+        'started',
+        'completed',
+      ]);
+      expect(analytics.events.map((e) => e['feature']), [
+        AnalyticsFeature.iosBuild.id,
+        AnalyticsFeature.iosBuild.id,
+        AnalyticsFeature.iosUpload.id,
+        AnalyticsFeature.iosUpload.id,
+      ]);
+      expect(analytics.events.last['result'], AnalyticsResult.submitted.wire);
       final reloaded = IosReleaseWorkflowService(
         runner: runner,
         credentials: (_) async => credentials,
@@ -507,6 +524,11 @@ void main() {
       await expectLater(service.upload(run), throwsStateError);
       expect(run.status, IosReleaseStatus.verificationRequired);
       expect(run.uploadAttempted, isTrue);
+      expect(analytics.events.last, {
+        'name': 'completed',
+        'feature': AnalyticsFeature.iosUpload.id,
+        'result': AnalyticsResult.verificationRequired.wire,
+      });
       runner.failUpload = false;
       await service.upload(run);
       expect(runner.appleActions.where((a) => a == 'upload').length, 1);

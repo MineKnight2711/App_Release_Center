@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import '../modules/analytics/feature_analytics_service.dart';
 
 import 'package:app_management_center/app/data/release_center_connect.dart';
 import 'package:app_management_center/app/models/app_store_credentials.dart';
@@ -139,6 +140,9 @@ class HomeController extends GetxController {
       IosReleaseWorkflowService(
         runner: runner,
         credentials: readAppStoreCredentials,
+        analytics: Get.isRegistered<FeatureAnalyticsService>()
+            ? Get.find<FeatureAnalyticsService>()
+            : null,
       );
 
   final RemoteIosReleaseService? _remoteIosReleaseOverride;
@@ -1154,7 +1158,11 @@ class HomeController extends GetxController {
     await _refreshProjectSnapshot(currentProject.path);
   }
 
-  Future<ReleaseWorkflowRun> prepareAutomatedRelease(String track) async {
+  Future<ReleaseWorkflowRun> prepareAutomatedRelease(
+    String track, {
+    String? versionName,
+    int? versionCode,
+  }) async {
     final currentProject = project.value;
     if (currentProject == null) {
       throw const ReleaseWorkflowException(
@@ -1182,13 +1190,18 @@ class HomeController extends GetxController {
         uploadListingImages: uploadPlayListingImages.value,
         validateListingImages: validatePlayImages.value,
         postReleaseStepCount: 1 + (shouldDeliver ? 1 : 0),
+        versionName: versionName,
+        versionCode: versionCode,
       ),
     );
   }
 
-  Future<ReleaseWorkflowRun> startAutomatedRelease() async {
+  Future<ReleaseWorkflowRun> startAutomatedRelease({
+    bool trackUsage = true,
+  }) async {
     final result = await releaseWorkflow.start(
       postProcessor: _runAutomatedReleasePostProcessing,
+      trackUsage: trackUsage,
     );
     final currentProject = project.value;
     if (currentProject != null) {
@@ -1200,8 +1213,12 @@ class HomeController extends GetxController {
     return result;
   }
 
-  Future<ReleaseWorkflowRun> retryAutomatedRelease() async {
-    final result = await releaseWorkflow.retryFailedStep();
+  Future<ReleaseWorkflowRun> retryAutomatedRelease({
+    bool trackUsage = true,
+  }) async {
+    final result = await releaseWorkflow.retryFailedStep(
+      trackUsage: trackUsage,
+    );
     final currentProject = project.value;
     if (currentProject != null) {
       await _refreshProjectSnapshot(currentProject.path);

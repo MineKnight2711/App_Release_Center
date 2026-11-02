@@ -350,7 +350,7 @@ class _Panel extends StatelessWidget {
     // stops one panel's repaint from re-recording the other two.
     return RepaintBoundary(
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
         child: DecoratedBox(
           decoration: AppCyberTheme.panelDecoration(),
           child: Stack(
@@ -359,7 +359,7 @@ class _Panel extends StatelessWidget {
                 Positioned.fill(
                   child: IgnorePointer(
                     child: ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(10),
                       child: CustomPaint(
                         painter: _ScanlinePainter(
                           color: palette.accent.withValues(
@@ -397,7 +397,7 @@ class _HudCardShell extends StatelessWidget {
     required this.child,
     this.active = false,
     bool? pulse,
-    this.padding = const EdgeInsets.all(10),
+    this.padding = const EdgeInsets.all(11),
   }) : pulse = pulse ?? active;
 
   final Widget child;
@@ -427,7 +427,7 @@ class _HudCardShell extends StatelessWidget {
               Positioned.fill(
                 child: IgnorePointer(
                   child: ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(9),
                     child: CustomPaint(
                       painter: _ScanlinePainter(
                         color: palette.accent.withValues(
@@ -467,10 +467,15 @@ class _PanelTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = AppCyberTheme.palette;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 17),
+        Icon(
+          icon,
+          size: 17,
+          color: palette.hasGlow ? palette.accent : palette.accent,
+        ),
         const SizedBox(width: 8),
         // Titles are translated, so their width is not fixed; let a long one
         // ellipsize rather than overflow its panel.
@@ -480,10 +485,11 @@ class _PanelTitle extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
-              letterSpacing: 0.8,
-              color: AppCyberTheme.palette.hasGlow
-                  ? AppCyberTheme.palette.accent.withValues(alpha: 0.95)
-                  : AppCyberTheme.palette.textPrimary,
+              letterSpacing: 0.75,
+              fontWeight: FontWeight.w800,
+              color: palette.hasGlow
+                  ? palette.accent.withValues(alpha: 0.95)
+                  : palette.textPrimary,
             ),
           ),
         ),
@@ -505,7 +511,7 @@ class _StatusPill extends StatelessWidget {
         ? (running
               ? palette.accentAlt.withValues(alpha: 0.72)
               : palette.accent.withValues(alpha: 0.45))
-        : (running ? palette.success : palette.line);
+        : (running ? palette.successBorder : palette.line);
     final backgroundColor = palette.hasGlow
         ? (running
               ? palette.accentAlt.withValues(alpha: 0.14)
@@ -520,7 +526,7 @@ class _StatusPill extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: backgroundColor,
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(999),
         border: Border.all(color: borderColor),
         boxShadow: palette.hasGlow
             ? [
@@ -537,7 +543,7 @@ class _StatusPill extends StatelessWidget {
             : const [],
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -555,17 +561,17 @@ class _StatusPill extends StatelessWidget {
                 ),
               )
             else
-              Icon(Icons.circle, size: 10, color: signalColor),
-            const SizedBox(width: 8),
+              Icon(Icons.circle, size: 9, color: signalColor),
+            const SizedBox(width: 7),
             Flexible(
               child: Text(
                 label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: AppCyberTheme.dataTextStyle(
-                  size: 11.5,
+                style: AppCyberTheme.uiTextStyle(
+                  size: 11.8,
                   color: AppCyberTheme.textPrimary,
-                  weight: FontWeight.w600,
+                  weight: FontWeight.w700,
                 ),
               ),
             ),
@@ -597,8 +603,8 @@ class _MetaChip extends StatelessWidget {
         : (palette.hasGlow
               ? palette.panelStrong.withValues(alpha: 0.86)
               : (palette.isDark
-                    ? palette.panelStrong
-                    : const Color(0xFFFAFBFC)));
+                    ? palette.surfaceHighest.withValues(alpha: 0.65)
+                    : const Color(0xFFF3F5F8)));
     final borderColor = highlighted
         ? (palette.hasGlow
               ? palette.accent.withValues(alpha: 0.9)
@@ -616,7 +622,7 @@ class _MetaChip extends StatelessWidget {
     return Container(
       padding: EdgeInsets.symmetric(
         horizontal: highlighted ? 10 : 8,
-        vertical: highlighted ? 6 : 5,
+        vertical: highlighted ? 5.5 : 4.5,
       ),
       decoration: BoxDecoration(
         color: backgroundColor,
@@ -635,17 +641,17 @@ class _MetaChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: iconColor),
-          const SizedBox(width: 6),
+          Icon(icon, size: 13.5, color: iconColor),
+          const SizedBox(width: 5.5),
           Flexible(
             child: Text(
               label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: AppCyberTheme.dataTextStyle(
-                size: 10.8,
+              style: AppCyberTheme.uiTextStyle(
+                size: 11.2,
                 color: textColor,
-                weight: highlighted ? FontWeight.w800 : FontWeight.w600,
+                weight: highlighted ? FontWeight.w700 : FontWeight.w600,
               ),
             ),
           ),
@@ -670,6 +676,7 @@ class _LogLines extends StatelessWidget {
     this.padding = EdgeInsets.zero,
     this.emptyLabel = 'Chưa có output.',
     this.emptyStyle,
+    this.filterQuery = '',
   });
 
   final List<String> lines;
@@ -677,13 +684,26 @@ class _LogLines extends StatelessWidget {
   final EdgeInsets padding;
   final String emptyLabel;
   final TextStyle? emptyStyle;
+  final String filterQuery;
 
   @override
   Widget build(BuildContext context) {
-    if (lines.isEmpty) {
+    final trimmedFilter = filterQuery.trim().toLowerCase();
+    final visibleLines = trimmedFilter.isEmpty
+        ? lines
+        : lines
+              .where((line) => line.toLowerCase().contains(trimmedFilter))
+              .toList(growable: false);
+
+    if (visibleLines.isEmpty) {
       return Padding(
         padding: padding,
-        child: Text(emptyLabel, style: emptyStyle ?? style),
+        child: Text(
+          trimmedFilter.isEmpty
+              ? emptyLabel
+              : 'Không có dòng log nào khớp "$filterQuery".',
+          style: emptyStyle ?? style,
+        ),
       );
     }
     return SelectionArea(
@@ -693,52 +713,108 @@ class _LogLines extends StatelessWidget {
           reverse: true,
           shrinkWrap: true,
           padding: padding,
-          itemCount: lines.length,
-          itemBuilder: (context, index) =>
-              Text(lines[lines.length - 1 - index], style: style),
+          itemCount: visibleLines.length,
+          itemBuilder: (context, index) {
+            final line = visibleLines[visibleLines.length - 1 - index];
+            final lineStyle = _semanticLogStyle(line, style);
+            return Text(line, style: lineStyle);
+          },
         ),
       ),
     );
   }
+
+  TextStyle _semanticLogStyle(String line, TextStyle base) {
+    final lower = line.toLowerCase();
+    final palette = AppCyberTheme.palette;
+    if (lower.contains('[error]') ||
+        lower.startsWith('error:') ||
+        lower.contains('exception:') ||
+        lower.contains('failed') ||
+        lower.contains('lỗi:')) {
+      return base.copyWith(color: palette.danger, fontWeight: FontWeight.w600);
+    }
+    if (lower.contains('[warn]') ||
+        lower.startsWith('warning:') ||
+        lower.contains('cảnh báo:')) {
+      return base.copyWith(color: palette.warning);
+    }
+    if (lower.contains('✓') ||
+        lower.contains('[ok]') ||
+        lower.contains('thành công') ||
+        lower.contains('hoàn tất') ||
+        lower.contains('succeeded')) {
+      return base.copyWith(color: palette.success);
+    }
+    if (line.startsWith(r'$ ') ||
+        line.startsWith('> ') ||
+        lower.startsWith('[cmd]')) {
+      return base.copyWith(color: palette.info, fontWeight: FontWeight.w600);
+    }
+    return base;
+  }
 }
 
-class _PanelSplitter extends StatelessWidget {
-  const _PanelSplitter({super.key, required this.axis, required this.onDelta});
+class _PanelSplitter extends StatefulWidget {
+  const _PanelSplitter({
+    super.key,
+    required this.axis,
+    required this.onDelta,
+    this.onDoubleTap,
+  });
 
   final Axis axis;
   final ValueChanged<double> onDelta;
+  final VoidCallback? onDoubleTap;
+
+  @override
+  State<_PanelSplitter> createState() => _PanelSplitterState();
+}
+
+class _PanelSplitterState extends State<_PanelSplitter> {
+  bool _hovered = false;
 
   @override
   Widget build(BuildContext context) {
-    final isHorizontal = axis == Axis.horizontal;
+    final isHorizontal = widget.axis == Axis.horizontal;
     final cursor = isHorizontal
         ? SystemMouseCursors.resizeColumn
         : SystemMouseCursors.resizeRow;
+    final palette = AppCyberTheme.palette;
+    final barLength = _hovered ? 64.0 : 44.0;
+    final barThickness = _hovered ? 3.0 : 2.0;
 
     return MouseRegion(
       cursor: cursor,
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
       child: GestureDetector(
         behavior: HitTestBehavior.translucent,
+        onDoubleTap: widget.onDoubleTap,
         onHorizontalDragUpdate: isHorizontal
-            ? (details) => onDelta(details.delta.dx)
+            ? (details) => widget.onDelta(details.delta.dx)
             : null,
         onVerticalDragUpdate: !isHorizontal
-            ? (details) => onDelta(details.delta.dy)
+            ? (details) => widget.onDelta(details.delta.dy)
             : null,
         child: SizedBox(
           width: isHorizontal ? 12 : double.infinity,
           height: isHorizontal ? double.infinity : 12,
           child: Center(
-            child: Container(
-              width: isHorizontal ? 2 : 44,
-              height: isHorizontal ? 44 : 2,
-              decoration: AppCyberTheme.palette.hasGlow
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 140),
+              curve: Curves.easeOut,
+              width: isHorizontal ? barThickness : barLength,
+              height: isHorizontal ? barLength : barThickness,
+              decoration: palette.hasGlow
                   ? BoxDecoration(
                       gradient: LinearGradient(
                         colors: [
-                          AppCyberTheme.palette.accent.withValues(alpha: 0.05),
-                          AppCyberTheme.palette.accent.withValues(alpha: 0.82),
-                          AppCyberTheme.palette.accent.withValues(alpha: 0.05),
+                          palette.accent.withValues(alpha: 0.05),
+                          palette.accent.withValues(
+                            alpha: _hovered ? 1.0 : 0.82,
+                          ),
+                          palette.accent.withValues(alpha: 0.05),
                         ],
                         begin: isHorizontal
                             ? Alignment.topCenter
@@ -750,16 +826,16 @@ class _PanelSplitter extends StatelessWidget {
                       borderRadius: BorderRadius.circular(999),
                       boxShadow: [
                         BoxShadow(
-                          color: AppCyberTheme.palette.accent.withValues(
-                            alpha: 0.28,
+                          color: palette.accent.withValues(
+                            alpha: _hovered ? 0.45 : 0.28,
                           ),
-                          blurRadius: 12,
+                          blurRadius: _hovered ? 14 : 12,
                           spreadRadius: -2,
                         ),
                       ],
                     )
                   : BoxDecoration(
-                      color: AppCyberTheme.palette.line,
+                      color: _hovered ? palette.accent : palette.lineStrong,
                       borderRadius: BorderRadius.circular(999),
                     ),
             ),

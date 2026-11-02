@@ -1,5 +1,7 @@
 import 'dart:io';
 import 'dart:async';
+import 'package:get/get.dart';
+import '../../analytics/feature_analytics_service.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -97,8 +99,13 @@ class _TicketEditorState extends State<TicketEditor>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    editor = PlanEditorController(widget.repository, widget.item)
-      ..addListener(_changed);
+    editor = PlanEditorController(
+      widget.repository,
+      widget.item,
+      analytics: Get.isRegistered<FeatureAnalyticsService>()
+          ? Get.find<FeatureAnalyticsService>()
+          : null,
+    )..addListener(_changed);
     title = TextEditingController(text: editor.item.title);
     body = TextEditingController(text: editor.item.body);
     source = TextEditingController(
@@ -287,11 +294,7 @@ class _TicketEditorState extends State<TicketEditor>
           _TaskListDialog(planDue: plan.dueAt == null ? null : dueFull(plan)),
     );
     if (result == null || result.titles.isEmpty) return;
-    final tasks = await widget.repository.createTasks(
-      plan.id,
-      plan.revision,
-      result.titles,
-    );
+    final tasks = await editor.createTasks(result.titles);
     if (result.inheritDue && plan.dueAt != null) {
       for (final task in tasks) {
         setDue(task, plan.dueAt!.toLocal(), allDay: plan.dueAllDay);

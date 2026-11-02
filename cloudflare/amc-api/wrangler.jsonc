@@ -4,6 +4,7 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-09-01",
   "observability": { "enabled": true },
+  "triggers": { "crons": ["17 * * * *"] },
   "vars": { "DESKTOP_ENABLED": "false", "TURN_URLS": "", "STUN_URLS": "" },
   "durable_objects": { "bindings": [{ "name": "DESKTOP_ROOMS", "class_name": "DesktopRoom" }] },
   "migrations": [{ "tag": "desktop-v1", "new_sqlite_classes": ["DesktopRoom"] }],
@@ -20,7 +21,12 @@
   // Workers AI: the release note fallback when the app's Gemini quota runs out.
   "ai": { "binding": "AI", "remote": true },
   "ratelimits": [
-    { "name": "DESKTOP_LIMITER", "namespace_id": "4103", "simple": { "limit": 60, "period": 60 } },
+    { "name": "DESKTOP_LIMITER", "namespace_id": "4105", "simple": { "limit": 60, "period": 60 } },
+    {
+      "name": "ANALYTICS_LIMITER",
+      "namespace_id": "4104",
+      "simple": { "limit": 30, "period": 60 }
+    },
     {
       "name": "LOGIN_LIMITER",
       "namespace_id": "4101",
@@ -30,6 +36,12 @@
       "name": "AI_LIMITER",
       "namespace_id": "4102",
       "simple": { "limit": 6, "period": 60 }
+    },
+    {
+      // Opening a safe share link, per link and address.
+      "name": "SHARE_LIMITER",
+      "namespace_id": "4103",
+      "simple": { "limit": 10, "period": 60 }
     }
   ]
   // Secret (not committed): PASSWORD_PEPPER — set with `npx wrangler secret put PASSWORD_PEPPER`,

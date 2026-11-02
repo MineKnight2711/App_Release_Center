@@ -2,6 +2,15 @@
 
 Desktop release automation console with an Android remote-control surface.
 
+## Thống kê sử dụng
+
+Trong **Cài đặt**, bật **Chia sẻ thống kê sử dụng** trên bản desktop release để
+đo **AAB, Release Android, build/upload iOS trên Mac, Plan Studio, QA Desk và API Tools**.
+Admin mở **Thống kê sử dụng** từ Cài đặt hoặc command
+palette; admin team chỉ xem team mình, quyền toàn AMC được cấp riêng ở backend.
+Các tính năng chưa đo được ghi rõ **Chưa gắn tracking**. Cần cập nhật Worker trước client
+mới: xem [phạm vi phase 2 và hướng dẫn phát hành](docs/feature-analytics-phase2.md).
+
 ## Cài đặt ứng dụng
 
 Mở nút bánh răng **Cài đặt** cạnh menu công cụ trên desktop hoặc trên thanh
@@ -683,6 +692,42 @@ npx wrangler deploy
 ```
 
 Rotating `PASSWORD_PEPPER` invalidates every stored password.
+
+## Két sắt · Chia sẻ qua link
+
+Mở một mục trong két → nút **Chia sẻ qua link** (biểu tượng mắt xích) để gửi
+một key, một file `.env`, JSON key, mật khẩu hay một tệp (keystore, `.p8`…)
+cho đồng nghiệp bằng một đường link. Người nhận chỉ cần trình duyệt; link mở
+trang `https://amc-api.huynhphuocdat2.workers.dev/s/<id>#<khoá>` do Worker
+`amc-api` phục vụ. Cần đăng nhập tài khoản AMC để tạo link.
+
+**Cả bộ keys của một dự án trong một link:** thanh công cụ của két →
+**Đóng gói…** → chọn **Link chia sẻ** → chọn dự án, tích các mục → **Tạo link**
+(hoặc **Link chia sẻ…** → **Chia sẻ bộ keys của một dự án…**). Không cần nén
+tay hay cất lại vào két. Người nhận mở từng mục trên trình duyệt, hoặc bấm
+**Tải ZIP** để có file ZIP cùng cấu trúc như khi đóng gói (file nằm đúng
+đường dẫn trong project, mật khẩu và key lẻ ở `secrets.txt`).
+
+- **Hạn dùng** 1 giờ – 30 ngày; **số lượt xem** 1 (tự huỷ), 3, 10 hoặc không
+  giới hạn. Mỗi lần bấm "Xem nội dung" trên trang tính một lượt; mở trang
+  hay xem trước link trong chat thì không.
+- **Mật khẩu** (bật sẵn, AMC tạo sẵn 16 ký tự): gửi link và mật khẩu qua hai
+  kênh khác nhau. Nhập sai 10 lần thì link tự huỷ.
+- **Mã hoá đầu-cuối**: app mã hoá mục bằng AES-256-GCM với khoá sinh từ phần
+  sau dấu `#` của link (trình duyệt không bao giờ gửi phần này lên server) và
+  mật khẩu (PBKDF2-SHA256, 600 000 vòng). Server chỉ giữ bản mã, xoá bản mã
+  khi link hết hạn, hết lượt hoặc bị khoá. AMC không lưu link: đóng hộp thoại
+  là không xem lại được, chỉ thu hồi được.
+- **Link chia sẻ…** trên thanh công cụ của két liệt kê mọi link của tài khoản
+  (đã xem mấy lượt, mở lần cuối lúc nào, sai mật khẩu mấy lần) và **thu hồi**
+  link ngay lập tức.
+- Ghi chú của mục chỉ được gửi khi chọn "Gửi kèm ghi chú"; đường dẫn nguồn
+  trên máy không bao giờ được gửi. Mỗi link (kể cả cả bộ keys) tối đa 1 MB;
+  lớn hơn thì chọn **File ZIP** trong **Đóng gói…**.
+
+Định dạng mã hoá nằm ở `lib/app/modules/safe/services/safe_share_crypto.dart`
+và `cloudflare/amc-api/src/sharePage.html`; một vector thử chung ghim hai bên
+(`test/safe_share_test.dart`, `cloudflare/amc-api/test/api.test.ts`).
 
 ## Telegram Release Notes
 

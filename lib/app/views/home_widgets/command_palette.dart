@@ -484,6 +484,21 @@ List<_PaletteCommand> _buildPaletteCommands({
       ),
   ]);
 
+  if (Get.isRegistered<FeatureAnalyticsService>() &&
+      Get.find<FeatureAnalyticsService>().canView.value) {
+    commands.add(
+      _PaletteCommand(
+        id: 'app.analytics',
+        group: 'Công cụ',
+        icon: Icons.insights_outlined,
+        title: 'Thống kê sử dụng',
+        subtitle: 'Mức sử dụng tính năng theo người dùng và team',
+        keywords: const ['analytics', 'thong ke', 'su dung'],
+        run: showFeatureAnalytics,
+      ),
+    );
+  }
+
   commands.add(
     _PaletteCommand(
       id: 'app.settings',
@@ -1035,8 +1050,9 @@ class _CommandPaletteBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final shell = Get.find<AppShellController>();
+    final palette = AppCyberTheme.palette;
     final border = Border.all(
-      color: AppCyberTheme.lineBlue.withValues(alpha: 0.5),
+      color: palette.lineStrong.withValues(alpha: 0.72),
     );
 
     return Tooltip(
@@ -1058,7 +1074,7 @@ class _CommandPaletteBar extends StatelessWidget {
               borderRadius: BorderRadius.circular(8),
               border: border,
               color: AppCyberTheme.panelBackgroundStrong.withValues(
-                alpha: AppCyberTheme.palette.panelAlphaMuted,
+                alpha: palette.panelAlphaMuted,
               ),
             ),
             child: compact
@@ -1072,7 +1088,7 @@ class _CommandPaletteBar extends StatelessWidget {
                       Icon(
                         Icons.search_outlined,
                         size: 17,
-                        color: AppCyberTheme.textMuted,
+                        color: palette.accent,
                       ),
                       const SizedBox(width: 8),
                       Expanded(
@@ -1080,19 +1096,35 @@ class _CommandPaletteBar extends StatelessWidget {
                           'Tìm lệnh, dự án, lane\u2026',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: AppCyberTheme.dataTextStyle(
-                            size: 11.5,
+                          style: AppCyberTheme.uiTextStyle(
+                            size: 12,
                             color: AppCyberTheme.textMuted,
+                            weight: FontWeight.w500,
                           ),
                         ),
                       ),
                       const SizedBox(width: 8),
-                      Text(
-                        'Ctrl+K',
-                        style: AppCyberTheme.dataTextStyle(
-                          size: 10.5,
-                          color: AppCyberTheme.textMuted.withValues(alpha: 0.9),
-                          weight: FontWeight.w700,
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: palette.surfaceHighest.withValues(alpha: 0.75),
+                          borderRadius: BorderRadius.circular(5),
+                          border: Border.all(
+                            color: palette.lineStrong.withValues(alpha: 0.8),
+                          ),
+                        ),
+                        child: Text(
+                          'Ctrl+K',
+                          style: AppCyberTheme.dataTextStyle(
+                            size: 10.2,
+                            color: AppCyberTheme.textPrimary.withValues(
+                              alpha: 0.88,
+                            ),
+                            weight: FontWeight.w700,
+                          ),
                         ),
                       ),
                     ],

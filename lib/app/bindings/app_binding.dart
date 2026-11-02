@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:app_management_center/app/modules/analytics/analytics_transport.dart';
+import 'package:app_management_center/app/modules/analytics/feature_analytics_service.dart';
 
 import 'package:app_management_center/app/config/backend_config.dart';
 import 'package:app_management_center/app/controllers/app_shell_controller.dart';
@@ -97,8 +99,29 @@ class AppBinding extends Bindings {
       permanent: true,
     );
     api?.onUnauthorized = () => unawaited(auth.handleSessionRejected());
+    if (backendConfig != null &&
+        (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {
+      Get.put<FeatureAnalyticsService>(
+        FeatureAnalyticsService(
+          settings: Get.find<AppSettingsService>(),
+          auth: auth,
+          transport: AnalyticsTransport(
+            baseUrl: backendConfig.apiBaseUrl,
+            readToken: tokenStore.readToken,
+          ),
+        ).start(),
+        permanent: true,
+      );
+    }
     Get.put<ScriptCatalogService>(ScriptCatalogService(), permanent: true);
-    Get.put<ApiToolService>(ApiToolService(), permanent: true);
+    Get.put<ApiToolService>(
+      ApiToolService(
+        analytics: Get.isRegistered<FeatureAnalyticsService>()
+            ? Get.find<FeatureAnalyticsService>()
+            : null,
+      ),
+      permanent: true,
+    );
     Get.put<ApiMonitorService>(ApiMonitorService(), permanent: true);
     await Get.putAsync<ApiToolRepositoryService>(
       () => ApiToolRepositoryService(
@@ -274,6 +297,9 @@ class AppBinding extends Bindings {
     );
     Get.put<ReleaseWorkflowService>(
       ReleaseWorkflowService(
+        analytics: Get.isRegistered<FeatureAnalyticsService>()
+            ? Get.find<FeatureAnalyticsService>()
+            : null,
         runner: Get.find<ReleaseRunnerService>(),
         catalog: Get.find<ScriptCatalogService>(),
         chPlayInspector: Get.find<ChPlayProjectInspectorService>(),
@@ -372,6 +398,9 @@ class AppBinding extends Bindings {
         machineShutdown: Get.find<MachinePowerService>(),
       ),
     );
+    QaDeskRuntime.analytics = Get.isRegistered<FeatureAnalyticsService>()
+        ? Get.find<FeatureAnalyticsService>()
+        : null;
     QaDeskRuntime.host = AmcQaDeskHost(
       runner: Get.find<ReleaseRunnerService>(),
       home: () => Get.find<HomeController>(),

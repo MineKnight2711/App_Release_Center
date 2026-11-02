@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:async';
+import 'package:app_management_center/app/modules/analytics/analytics_activity.dart';
 import 'dart:convert';
 import 'package:amc_remote_core/amc_remote_core.dart';
 import 'package:app_management_center/app/modules/plan_studio/services/plan_studio_runtime.dart';
@@ -231,22 +232,24 @@ class AppManagementCenterApp extends StatelessWidget {
       builder: (context, child) => PauseMotionWhenInactive(
         child: AppDisplayScale(
           settings: Get.find<AppSettingsService>(),
-          child: Column(
-            children: [
-              Expanded(child: child ?? const SizedBox.shrink()),
-              SwiftDeskGlobalStatus(
-                onOpen: () {
-                  final runtime = SwiftDeskRuntime.current.value;
-                  if (runtime != null) {
-                    Get.key.currentState?.push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => SwiftDeskView(runtime: runtime),
-                      ),
-                    );
-                  }
-                },
-              ),
-            ],
+          child: AnalyticsActivity(
+            child: Column(
+              children: [
+                Expanded(child: child ?? const SizedBox.shrink()),
+                SwiftDeskGlobalStatus(
+                  onOpen: () {
+                    final runtime = SwiftDeskRuntime.current.value;
+                    if (runtime != null) {
+                      Get.key.currentState?.push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => SwiftDeskView(runtime: runtime),
+                        ),
+                      );
+                    }
+                  },
+                ),
+              ],
+            ),
           ),
         ),
       ),

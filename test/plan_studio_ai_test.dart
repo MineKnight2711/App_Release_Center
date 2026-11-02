@@ -6,6 +6,7 @@ import 'package:app_management_center/app/modules/plan_studio/controllers/plan_e
 import 'package:app_management_center/app/modules/plan_studio/models/work_item.dart';
 import 'package:app_management_center/app/modules/plan_studio/repositories/local_plan_repository.dart';
 import 'package:app_management_center/app/modules/plan_studio/services/ollama_plan_service.dart';
+import 'analytics_test_recorder.dart';
 
 class DelayedAi extends Ollama {
   final result = Completer<String>();
@@ -148,7 +149,13 @@ void main() {
 
     test('canceled late response cannot replace an edited plan', () async {
       final ai = DelayedAi();
-      final editor = PlanEditorController(repository, item, ai: ai);
+      final analytics = AnalyticsRecorder();
+      final editor = PlanEditorController(
+        repository,
+        item,
+        ai: ai,
+        analytics: analytics,
+      );
       addTearDown(editor.dispose);
       final request = editor.generate();
       await ai.called.future;
@@ -159,13 +166,45 @@ void main() {
       expect(await editor.flush(), isTrue);
       expect((await repository.items()).single.body, 'Bản đã sửa');
       expect(editor.item.versions, isEmpty);
+      expect(analytics.events.map((e) => e['name']), ['started', 'cancelled']);
+      expect(
+        analytics.events.every(
+          (e) => e['feature'] == AnalyticsFeature.planAiGenerate.id,
+        ),
+        isTrue,
+      );
+    });
+
+    test('canceled AI transport failure only records cancellation', () async {
+      final ai = DelayedAi();
+      final analytics = AnalyticsRecorder();
+      final editor = PlanEditorController(
+        repository,
+        item,
+        ai: ai,
+        analytics: analytics,
+      );
+      addTearDown(editor.dispose);
+      final request = editor.generate();
+      await ai.called.future;
+      editor.cancel();
+      ai.result.completeError(StateError('canceled connection'));
+      await request;
+      expect(analytics.events.map((e) => e['name']), ['started', 'cancelled']);
+      expect(editor.error, isNull);
     });
 
     test(
       'regeneration preserves original version and does not mark plan done',
       () async {
         final ai = DelayedAi();
-        final editor = PlanEditorController(repository, item, ai: ai);
+        final analytics = AnalyticsRecorder();
+        final editor = PlanEditorController(
+          repository,
+          item,
+          ai: ai,
+          analytics: analytics,
+        );
         addTearDown(editor.dispose);
         final request = editor.generate();
         await ai.called.future;
@@ -175,6 +214,11 @@ void main() {
         expect(saved.versions.map((v) => v['body']), ['Bản gốc', 'Plan mới']);
         expect(saved.status, WorkStatus.backlog);
         expect(saved.draft['step'], 2);
+        expect(analytics.events.map((e) => e['name']), [
+          'started',
+          'completed',
+        ]);
+        expect(analytics.events.last['result'], AnalyticsResult.generated.wire);
       },
     );
 
