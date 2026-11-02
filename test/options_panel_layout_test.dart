@@ -12,6 +12,7 @@ import 'package:app_management_center/app/models/cicd_dependency.dart';
 import 'package:app_management_center/app/models/ios_release.dart';
 import 'package:app_management_center/app/models/release_fastlane_lane.dart';
 import 'package:app_management_center/app/models/release_project.dart';
+import 'package:app_management_center/app/models/release_script.dart';
 import 'package:app_management_center/app/models/release_workflow.dart';
 import 'package:app_management_center/app/models/resource_catalog.dart';
 import 'package:app_management_center/app/services/android_cicd_clone_service.dart';
@@ -56,6 +57,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
+import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -3010,6 +3012,80 @@ void main() {
     expect(_hasStdinField(tester, harness.controller), isFalse);
   });
 
+  for (final platform in [TargetPlatform.macOS, TargetPlatform.windows]) {
+    testWidgets('command dock sends menu input without stopping on $platform', (
+      tester,
+    ) async {
+      await _pumpHome(tester, harness);
+
+      final runner = harness.controller.runner;
+      final auto = Directory(p.join(harness.projectDirectory.path, 'auto'))
+        ..createSync();
+      final script = File(p.join(auto.path, 'input.sh'))
+        ..writeAsStringSync(r'''
+set -euo pipefail
+read -r -p "Update version? [Y/n] " answer
+read -r -p "Choose (1/2/3): " choice
+echo "SELECTED_CODE:$choice"
+read -r -p "Next input: " next
+echo "NEXT_INPUT:$next"
+''');
+
+      late Future<int> running;
+      await tester.runAsync(() async {
+        running = runner.run(
+          project: harness.controller.project.value!,
+          script: ReleaseScript(
+            path: script.path,
+            kind: ReleaseScriptKind.shell,
+          ),
+        );
+      });
+      addTearDown(() async {
+        if (runner.isRunning.value) await runner.stop();
+        await running.timeout(const Duration(seconds: 5));
+      });
+
+      await _waitForCommandDock(tester, () => runner.yesNoPrompt.value != null);
+      await tester.tap(find.widgetWithText(FilledButton, 'Có'));
+      await _waitForCommandDock(
+        tester,
+        () => runner.logLines.any((line) => line.contains('Choose (1/2/3):')),
+      );
+
+      final input = find.widgetWithText(TextField, 'Gửi cho script');
+      await tester.enterText(input, '1');
+      await tester.tap(find.byKey(const Key('command-input-send')));
+      await _waitForCommandDock(
+        tester,
+        () => runner.logLines.any((line) => line.contains('Next input:')),
+      );
+      expect(runner.logLines.join('\n'), contains('SELECTED_CODE:1'));
+      expect(runner.isRunning.value, isTrue);
+      expect(harness.controller.stdinController.text, isEmpty);
+      expect(
+        _stdinField(tester, harness.controller).focusNode!.hasFocus,
+        isTrue,
+      );
+
+      await tester.enterText(input, 'done');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pump();
+      expect(
+        _stdinField(tester, harness.controller).focusNode!.hasFocus,
+        isTrue,
+      );
+      final code = await tester.runAsync(() => running);
+      await tester.pump();
+      expect(code, 0);
+      expect(runner.logLines.join('\n'), contains('NEXT_INPUT:done'));
+      expect(
+        runner.logLines.join('\n'),
+        isNot(contains('Đang dừng tiến trình')),
+      );
+    }, variant: TargetPlatformVariant({platform}));
+  }
+
   testWidgets('generates JKS from CH Play credentials dialog', (tester) async {
     await _pumpHome(tester, harness);
     harness.controller.chPlayProjects.assignAll([
@@ -3066,6 +3142,20 @@ void main() {
       'manual-dialog-pass',
     );
   });
+}
+
+Future<void> _waitForCommandDock(
+  WidgetTester tester,
+  bool Function() ready,
+) async {
+  for (var attempt = 0; attempt < 100; attempt++) {
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 10)),
+    );
+    await tester.pump();
+    if (ready()) return;
+  }
+  fail('Timed out waiting for the script input prompt.');
 }
 
 Future<void> _pumpHome(

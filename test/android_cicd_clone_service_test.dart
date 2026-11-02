@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:app_management_center/app/services/android_cicd_clone_service.dart';
@@ -46,6 +47,84 @@ void main() {
         contains('/key.properties'),
       );
     });
+
+    test(
+      'version templates read Fastlane markers and surface lane failures',
+      () async {
+        final project = _createProject(tempDir, _groovyGradle());
+        final preview = await service.preview(project.path);
+        final auto = Directory(p.join(project.path, 'auto'))..createSync();
+        final bin = Directory(p.join(tempDir.path, 'mock bin'))..createSync();
+        final mock = File(p.join(bin.path, 'fastlane'))
+          ..writeAsStringSync(r'''#!/bin/bash
+for argument in "$@"; do
+  [[ "$argument" != --capture_output ]] || exit 42
+done
+if [[ "${FAIL_LANE:-}" == "$2" ]]; then
+  echo 'simulated Fastlane failure' >&2
+  exit 7
+fi
+case "$2" in
+  fetch_version_code_from_play_store) echo STORE_CODE_ONLY:200;;
+  get_local_version_code) echo LOCAL_CODE_ONLY:200;;
+  get_version_name) echo VERSION_NAME_ONLY:3.5.24;;
+  bump_version_code|update_version_name) echo "MOCK_UPDATE:$*";;
+esac
+''');
+        expect((await Process.run('chmod', ['+x', mock.path])).exitCode, 0);
+
+        for (final name in ['control_ver_code.sh', 'control_ver_name.sh']) {
+          final script = File(p.join(auto.path, name))
+            ..writeAsStringSync(_draft(preview, 'auto/$name').content);
+          Future<ProcessResult> run({String failLane = ''}) async {
+            final process = await Process.start(
+              'bash',
+              [script.path],
+              workingDirectory: auto.path,
+              environment: {
+                'PATH': '${bin.path}:${Platform.environment['PATH']}',
+                'USE_BUNDLER_FASTLANE': '0',
+                'FAIL_LANE': failLane,
+              },
+            );
+            final stdout = process.stdout.transform(utf8.decoder).join();
+            final stderr = process.stderr.transform(utf8.decoder).join();
+            process.stdin.write('y\n1\n');
+            await process.stdin.close();
+            return ProcessResult(
+              process.pid,
+              await process.exitCode,
+              await stdout,
+              await stderr,
+            );
+          }
+
+          final result = await run();
+          expect(
+            result.exitCode,
+            0,
+            reason: '${result.stdout}${result.stderr}',
+          );
+          expect(
+            result.stdout,
+            contains(
+              name == 'control_ver_code.sh'
+                  ? 'MOCK_UPDATE:android bump_version_code'
+                  : 'MOCK_UPDATE:android update_version_name version_name:3.5.25',
+            ),
+          );
+          final failure = await run(
+            failLane: name == 'control_ver_code.sh'
+                ? 'get_local_version_code'
+                : 'get_version_name',
+          );
+          expect(failure.exitCode, 1);
+          expect(failure.stderr, contains('simulated Fastlane failure'));
+          expect(failure.stdout, isNot(contains('MOCK_UPDATE')));
+        }
+      },
+      skip: Platform.isWindows,
+    );
 
     test('patches Kotlin Gradle signing with explicit File import', () async {
       final project = _createProject(

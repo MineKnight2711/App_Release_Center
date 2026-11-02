@@ -1287,8 +1287,28 @@ class _CustomScriptArguments extends GetView<HomeController> {
   }
 }
 
-class _CommandInputDock extends GetView<HomeController> {
+class _CommandInputDock extends StatefulWidget {
   const _CommandInputDock();
+
+  @override
+  State<_CommandInputDock> createState() => _CommandInputDockState();
+}
+
+class _CommandInputDockState extends State<_CommandInputDock> {
+  final _inputFocusNode = FocusNode();
+
+  HomeController get controller => Get.find<HomeController>();
+
+  @override
+  void dispose() {
+    _inputFocusNode.dispose();
+    super.dispose();
+  }
+
+  void _sendInput() {
+    controller.sendInput();
+    _inputFocusNode.requestFocus();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1313,8 +1333,10 @@ class _CommandInputDock extends GetView<HomeController> {
                   Expanded(
                     child: TextField(
                       controller: controller.stdinController,
+                      focusNode: _inputFocusNode,
                       enabled: isRunning,
-                      onSubmitted: (_) => controller.sendInput(),
+                      onEditingComplete: () {},
+                      onSubmitted: (_) => _sendInput(),
                       style: AppCyberTheme.dataTextStyle(
                         size: 11.5,
                         color: AppCyberTheme.textPrimary,
@@ -1325,10 +1347,11 @@ class _CommandInputDock extends GetView<HomeController> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  IconButton.filled(
-                    tooltip: 'Gửi',
-                    onPressed: isRunning ? controller.sendInput : null,
+                  FilledButton.icon(
+                    key: const Key('command-input-send'),
+                    onPressed: isRunning ? _sendInput : null,
                     icon: const Icon(Icons.send),
+                    label: const Text('Gửi'),
                   ),
                 ],
               ),
@@ -1345,6 +1368,7 @@ class _CommandInputDock extends GetView<HomeController> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: FilledButton.tonalIcon(
+                    key: const Key('command-input-stop'),
                     onPressed: isRunning ? controller.stopRun : null,
                     icon: const Icon(Icons.stop_circle_outlined),
                     label: const Text('Dừng'),
