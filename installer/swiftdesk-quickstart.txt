@@ -1,28 +1,33 @@
 SWIFTDESK TRONG AMC
 
-Mở Công cụ dự án > SwiftDesk · Điều khiển máy tính.
+Mở Công cụ dự án > SwiftDesk · Điều khiển máy tính (hoặc tìm bằng Cmd+K/Ctrl+K).
+Chưa đăng nhập AMC: chọn Mở SwiftDesk · Không cần đăng nhập ngay màn hình đầu.
 Host mặc định tắt. Mỗi phiên đều cần máy đích chấp nhận.
 
 macOS: cấp Screen Recording để chia sẻ màn hình; cấp Accessibility nếu muốn
 nhận chuột/phím. Bấm Kiểm tra lại quyền sau khi đổi cài đặt; mở lại AMC nếu
 macOS yêu cầu. Bản mới có thể cần cấp lại quyền theo chữ ký/đường dẫn.
 
-LAN: bật nhận LAN, tạo mã ghép nối và gửi qua kênh tin cậy. Mã dùng một lần,
-5 phút. Chỉ cấp chuột/phím hoặc clipboard khi cần.
+GHÉP BẰNG MÃ MÁY (KHÔNG CẦN TÀI KHOẢN HAY MÁY CHỦ RIÊNG)
+1. Cài bản AMC mới trên cả hai máy và mở SwiftDesk.
+2. Máy được điều khiển: bấm Cho phép kết nối bằng mã.
+3. Đầu trang hiện Mã máy này 9 số và mật khẩu ghép tạm thời. Bấm Sao chép mã
+   kết nối rồi gửi riêng cho máy điều khiển.
+4. Máy điều khiển: dán vào Mã máy đối tác hoặc mã kết nối, bấm Kết nối bằng mã.
+   Hoặc nhập 9 số và mật khẩu ghép ở hai ô riêng.
+5. Máy đích chấp nhận yêu cầu, chọn chuột/phím hoặc clipboard khi cần.
+Mật khẩu ghép dùng một lần, tối đa 5 phút. Máy đã nhớ kết nối lại bằng mã máy,
+không cần nhập lại mật khẩu nhưng vẫn cần máy đích chấp nhận.
+Mã AMC dùng giữa hai bản AMC; không nhập ID/mật khẩu của app SwiftDesk cũ.
 
-Internet: cần API AMC đã bật desktop và migration tương ứng.
-Đăng nhập AMC, bật host rồi Bật nhận Internet. ID AMC khác ID SwiftDesk cũ.
-Signaling mã hóa tới máy đích; không dùng broker công cộng để chuyển hình.
+Ghép mã dùng dịch vụ công cộng có sẵn để hai máy tìm nhau. Signaling được mã
+hóa; hình/điều khiển qua P2P IPv6/IPv4. Chọn Tự động hoặc Chỉ P2P IPv6 trước
+khi kết nối. Nếu mạng không cho P2P, cần cấu hình TURN riêng trong phần nâng cao.
 Phiên Internet tối đa 15 phút; kết nối lại cần được chấp nhận tiếp.
 
-Đường kết nối Internet có ba lựa chọn, được lưu cho lần mở sau:
-- Tự động: WebRTC chọn P2P IPv6/IPv4 hoặc TURN dự phòng nếu đã cấu hình.
-- Chỉ P2P IPv6: hai máy cần IPv6 liên lạc được; không dùng TURN, không tự đổi
-  sang IPv4. Không cần máy chủ TURN cho đường IPv6 trực tiếp này.
-- Bắt buộc TURN: cần cấu hình máy chủ TURN riêng.
-Chọn trước khi mở phiên. Nếu hai máy chọn P2P IPv6 và TURN bắt buộc khác nhau,
-đổi một máy sang Tự động. Trạng thái P2P IPv6/IPv4/TURN lấy từ đường truyền thật.
-API AMC vẫn dùng để xác thực và ghép máy; hình/điều khiển qua P2P không qua API.
+LAN: có thể dùng mã/QR trong phần Kết nối LAN phía dưới, không cần Internet.
+Máy chủ AMC riêng: chỉ dùng khi có API đã bật desktop và TURN riêng, ở Cài đặt
+nâng cao. Đây là tùy chọn; không cần bật để dùng mã máy 9 số ở đầu trang.
 
 F12 trả điều khiển về AMC. Ctrl phải trên Windows giữ chức năng Control khi
 điều khiển Mac; Ctrl trái có thể ánh xạ sang Command. Có ô gửi Unicode riêng.

@@ -18,6 +18,18 @@ import '../infrastructure/webrtc_desktop_engine.dart';
 
 /// App-owned attended LAN runtime. Views subscribe to this owner; leaving the
 /// device page cannot dispose its listener/capture or silently approve a peer.
+class SwiftDeskInternetService {
+  const SwiftDeskInternetService({
+    this.authorize,
+    this.remember,
+    this.revoke,
+    required this.shutdown,
+  });
+  final Future<void> Function(AuthorizedLanPeer)? authorize;
+  final Future<void> Function(String peerId)? remember, revoke;
+  final Future<void> Function() shutdown;
+}
+
 class SwiftDeskRuntime extends ChangeNotifier {
   SwiftDeskRuntime({
     required this.engine,
@@ -94,6 +106,7 @@ class SwiftDeskRuntime extends ChangeNotifier {
   Future<void> Function()? onCloudRemembered;
   Future<void> Function(String id)? onControllerRevoked;
   Future<void> Function()? stopInternet;
+  final internetServices = <String, SwiftDeskInternetService>{};
   String? _cloudPeerId;
   bool _cloudSession = false;
   final AmcRemotePlatform _native;
@@ -190,6 +203,14 @@ class SwiftDeskRuntime extends ChangeNotifier {
     devices = await repository.devices();
     controllers = await repository.controllers();
     history = await repository.history();
+    _notify();
+  }
+
+  Future<void> setConnectionMode(RemoteConnectionMode mode) async {
+    if (active || busy || draining) {
+      throw StateError('Ngắt phiên hiện tại trước khi đổi đường kết nối.');
+    }
+    await settings.setConnectionMode(mode);
     _notify();
   }
 
@@ -465,6 +486,9 @@ class SwiftDeskRuntime extends ChangeNotifier {
         (engine as RemoteNetworkEngine).configureNetwork([]);
       }
       await onPeerAuthorized?.call(peer);
+      for (final service in internetServices.values.toList()) {
+        await service.authorize?.call(peer);
+      }
       _check(generation);
       final offer = await engine.createOffer(displayId!, quality);
       _check(generation);
@@ -653,6 +677,11 @@ class SwiftDeskRuntime extends ChangeNotifier {
         await reloadDevices();
       }
       if (_remember && _cloudSession) await onCloudRemembered?.call();
+      if (_remember && _cloudSession) {
+        for (final service in internetServices.values.toList()) {
+          await service.remember?.call(session!.peerId);
+        }
+      }
       status = 'Đã chấp nhận, đang chờ màn hình';
       _watch();
     } else if (signal.kind == 'offer') {
@@ -1172,6 +1201,9 @@ class SwiftDeskRuntime extends ChangeNotifier {
     if (hosting && session!.peerId == id) await disconnect();
     await reloadDevices();
     await onControllerRevoked?.call(id);
+    for (final service in internetServices.values.toList()) {
+      await service.revoke?.call(id);
+    }
   });
   Future<void> _fail(String message) async {
     error = message;
@@ -1265,7 +1297,15 @@ class SwiftDeskRuntime extends ChangeNotifier {
   };
   Future<void> _shutdown() async {
     _closed = true;
-    await stopInternet?.call();
+    try {
+      await stopInternet?.call();
+    } catch (_) {}
+    for (final service in internetServices.values.toList()) {
+      try {
+        await service.shutdown().timeout(const Duration(seconds: 10));
+      } catch (_) {}
+    }
+    internetServices.clear();
     _lifecycle?.dispose();
     await disconnect();
     await _host?.stop();

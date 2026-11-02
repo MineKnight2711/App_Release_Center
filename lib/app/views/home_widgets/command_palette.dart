@@ -191,8 +191,14 @@ List<_PaletteCommand> _buildPaletteCommands({
       group: 'Công cụ',
       icon: Icons.connected_tv_outlined,
       title: 'SwiftDesk · Điều khiển máy tính',
-      subtitle: 'Ghép nối và điều khiển máy tính trên LAN',
-      keywords: const ['remote', 'desktop', 'swiftdesk', 'dieu khien', 'man hinh'],
+      subtitle: 'Ghép bằng mã máy · P2P IPv6/IPv4 · Không cần tài khoản',
+      keywords: const [
+        'remote',
+        'desktop',
+        'swiftdesk',
+        'dieu khien',
+        'man hinh',
+      ],
       run: showSwiftDesk,
     ),
     _PaletteCommand(

@@ -273,6 +273,7 @@ final class RemoteSignal {
   }
   static const maxBytes = 262144;
   static const kinds = {
+    'bootstrap',
     'hello',
     'request',
     'pending',

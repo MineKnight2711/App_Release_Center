@@ -234,6 +234,15 @@ class WebRtcDesktopEngine implements RemoteDesktopEngine, RemoteNetworkEngine {
     while (await peer.getIceGatheringState() !=
         RTCIceGatheringState.RTCIceGatheringStateComplete) {
       _check(gen);
+      // An unreachable STUN server can leave native gathering pending long
+      // after host IPv6/IPv4 candidates are ready. Exchange the gathered SDP
+      // after a bounded grace period; waiting for every server would prevent
+      // a perfectly usable direct path from ever reaching the other peer.
+      if (timer.elapsed >= const Duration(seconds: 5)) {
+        final partial = await peer.getLocalDescription();
+        _check(gen);
+        if (partial?.sdp?.contains('a=candidate:') == true) break;
+      }
       if (timer.elapsed > const Duration(seconds: 12)) {
         throw StateError('Hết thời gian thương lượng đường truyền.');
       }

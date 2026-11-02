@@ -1,5 +1,7 @@
 # Kế hoạch đưa SwiftDesk thành core module của AMC
 
+> Cập nhật luồng dùng ngày 02/11/2026: [ghép bằng mã máy](swiftdesk-pairing.md) là mặc định, dùng dịch vụ công cộng có sẵn, không cần account hay tự triển khai API. Mô tả account/API bên dưới nay là tùy chọn nâng cao, không phải điều kiện của P2P IPv6 hoặc mã máy 9 số.
+
 Ngày cập nhật: 26/10/2026. Đã triển khai core/LAN Phase 1/2 và tiếp tục mã Internet/chạy nền Phase 3/4 trong AMC. Có kiểm thử Worker cục bộ + WebRTC trên macOS, còn gate hai máy, Windows, TURN thật, input và bộ cài trên máy nhận. Chưa deploy Internet production hoặc cài service hệ thống.
 
 ## Tiến độ Phase 3 và 4

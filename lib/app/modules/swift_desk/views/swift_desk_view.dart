@@ -4,12 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../services/swift_desk_runtime.dart';
+import '../services/swift_desk_public.dart';
 import '../infrastructure/webrtc_desktop_engine.dart';
 import '../infrastructure/lan_host.dart';
 import '../infrastructure/remote_network.dart';
 import '../widgets/remote_surface.dart';
 import '../widgets/saved_remote_devices.dart';
 import '../widgets/swift_desk_extras.dart';
+import '../widgets/swift_desk_pairing.dart';
 import 'swift_desk_probe_view.dart';
 
 Future<void> showSwiftDesk(BuildContext context) async {
@@ -62,8 +64,9 @@ class SwiftDeskLanApp extends StatelessWidget {
 }
 
 class SwiftDeskView extends StatefulWidget {
-  const SwiftDeskView({super.key, required this.runtime});
+  const SwiftDeskView({super.key, required this.runtime, this.publicService});
   final SwiftDeskRuntime runtime;
+  final SwiftDeskPublic? publicService;
   @override
   State<SwiftDeskView> createState() => _SwiftDeskViewState();
 }
@@ -81,6 +84,8 @@ class _SwiftDeskViewState extends State<SwiftDeskView> {
       _mapCtrl = true,
       _leaving = false;
   String? _requestId;
+  late final SwiftDeskPublic _public =
+      widget.publicService ?? SwiftDeskPublic.open(runtime);
   @override
   void dispose() {
     unawaited(runtime.releaseViewerInput());
@@ -293,6 +298,9 @@ class _SwiftDeskViewState extends State<SwiftDeskView> {
                                 ),
                               ),
                             ),
+                          SwiftDeskPairing(runtime: runtime, service: _public),
+                          const SizedBox(height: 16),
+                          const Text('Kết nối LAN · Tùy chọn'),
                           _hostCard(),
                           Card(
                             child: Padding(
@@ -397,9 +405,14 @@ class _SwiftDeskViewState extends State<SwiftDeskView> {
                               ],
                             ),
                           const SizedBox(height: 20),
-                          SwiftDeskExtras(runtime: runtime),
+                          ExpansionTile(
+                            title: const Text(
+                              'Cài đặt nâng cao · Máy chủ AMC và chạy nền',
+                            ),
+                            children: [SwiftDeskExtras(runtime: runtime)],
+                          ),
                           const Text(
-                            'LAN dùng TLS và ghim chứng chỉ. Internet dùng tài khoản AMC và signaling mã hóa tới máy đích. Mỗi phiên cần chấp nhận; chưa hỗ trợ unattended, UAC hay màn hình đăng nhập. Thoát AMC sẽ ngắt mọi phiên.',
+                            'Ghép mã không cần tài khoản hoặc máy chủ riêng. Signaling mã hóa tới máy đích, media/input qua WebRTC. LAN và máy chủ AMC riêng là tùy chọn. Mỗi phiên cần chấp nhận; chưa hỗ trợ unattended, UAC hay màn hình đăng nhập. Thoát AMC sẽ ngắt mọi phiên.',
                           ),
                         ],
                       ),

@@ -25,6 +25,8 @@ import 'package:app_management_center/app/modules/swift_desk/services/swift_desk
 import 'package:app_management_center/app/modules/swift_desk/widgets/swift_desk_status.dart';
 import 'package:app_management_center/app/modules/swift_desk/services/swift_desk_lan_smoke.dart';
 import 'package:app_management_center/app/modules/swift_desk/services/swift_desk_cloud.dart';
+import 'package:app_management_center/app/modules/swift_desk/services/swift_desk_public.dart';
+import 'package:app_management_center/app/modules/swift_desk/services/swift_desk_public_smoke.dart';
 import 'package:app_management_center/app/modules/swift_desk/services/swift_desk_cloud_smoke.dart';
 import 'package:app_management_center/app/services/app_background_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -76,6 +78,25 @@ Future<void> main(List<String> args) async {
               'AMC · Kiểm tra chạy nền\nĐóng cửa sổ để thử menu bar, rồi Thoát AMC.',
             ),
           ),
+        ),
+      ),
+    );
+    return;
+  }
+  final publicSmoke = args
+      .where((a) => a.startsWith('--swiftdesk-public-smoke-report='))
+      .firstOrNull;
+  if (publicSmoke != null) {
+    final mode = args
+        .where((a) => a.startsWith('--swiftdesk-public-smoke-mode='))
+        .firstOrNull;
+    runApp(
+      SwiftDeskPublicSmokeApp(
+        reportPath: publicSmoke.substring(
+          '--swiftdesk-public-smoke-report='.length,
+        ),
+        mode: parseRemoteConnectionMode(
+          mode?.substring('--swiftdesk-public-smoke-mode='.length),
         ),
       ),
     );
@@ -177,6 +198,9 @@ Future<void> _restoreSwiftDesk() async {
   if (preferences.getBool('swift_desk.restoreHost') != true) return;
   try {
     final runtime = await SwiftDeskRuntime.open();
+    if (runtime.hostEnabled && runtime.settings.flag('restorePublic')) {
+      await SwiftDeskPublic.open(runtime).start();
+    }
     if (runtime.hostEnabled && runtime.settings.flag('restoreInternet')) {
       await (await SwiftDeskCloud.open(runtime)).start();
     }

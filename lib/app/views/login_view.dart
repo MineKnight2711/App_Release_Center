@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:app_management_center/app/services/auth_service.dart';
 import 'package:app_management_center/app/theme/cyber_theme.dart';
+import 'package:app_management_center/app/modules/swift_desk/views/swift_desk_view.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -64,7 +66,7 @@ class _LoginViewState extends State<LoginView> {
               constraints: const BoxConstraints(maxWidth: 460),
               child: Padding(
                 padding: const EdgeInsets.all(18),
-                child: _buildPanel(context),
+                child: SingleChildScrollView(child: _buildPanel(context)),
               ),
             ),
           ),
@@ -264,6 +266,21 @@ class _LoginViewState extends State<LoginView> {
                   _mode == _AuthPanelMode.signIn ? 'Login' : 'Register',
                 ),
               ),
+            ),
+          ],
+          if (!kIsWeb &&
+              {
+                TargetPlatform.macOS,
+                TargetPlatform.windows,
+                TargetPlatform.linux,
+              }.contains(defaultTargetPlatform)) ...[
+            const SizedBox(height: 16),
+            const Divider(),
+            OutlinedButton.icon(
+              key: const Key('auth-open-swift-desk'),
+              onPressed: () => unawaited(showSwiftDesk(context)),
+              icon: const Icon(Icons.connected_tv_outlined),
+              label: const Text('Mở SwiftDesk · Không cần đăng nhập'),
             ),
           ],
         ],

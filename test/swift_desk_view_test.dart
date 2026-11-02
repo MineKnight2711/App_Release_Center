@@ -10,6 +10,7 @@ import 'package:app_management_center/app/modules/swift_desk/widgets/swift_desk_
 import 'package:app_management_center/app/modules/swift_desk/widgets/remote_surface.dart';
 import 'package:app_management_center/app/modules/swift_desk/widgets/swift_desk_extras.dart';
 import 'package:app_management_center/app/modules/swift_desk/infrastructure/remote_settings.dart';
+import 'package:app_management_center/app/views/login_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/gestures.dart';
@@ -111,6 +112,45 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+  testWidgets(
+    'pairing ID and partner entry are visible on opening the module, before advanced account settings',
+    (tester) async {
+      await show(tester);
+      expect(
+        find.byKey(const Key('swift-desk-my-id')).hitTestable(),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('swift-desk-partner-id')).hitTestable(),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('swift-desk-public-connect')).hitTestable(),
+        findsOneWidget,
+      );
+      expect(find.text('Không cần cho ghép mã ở đầu trang.'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+  testWidgets(
+    'desktop login exposes SwiftDesk even when AMC backend is unconfigured',
+    (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(home: LoginView(backendConfigured: false)),
+      );
+      expect(find.byKey(const Key('auth-open-swift-desk')), findsOneWidget);
+      expect(
+        tester
+            .widget<OutlinedButton>(
+              find.byKey(const Key('auth-open-swift-desk')),
+            )
+            .onPressed,
+        isNotNull,
+      );
+      expect(tester.takeException(), isNull);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+  );
 
   testWidgets(
     'failed save keeps the visible mode consistent with the mode that a connection will use',
@@ -162,6 +202,7 @@ void main() {
       );
       expect(native.begins, 0);
       expect(tester.takeException(), isNull);
+      await tester.ensureVisible(find.byKey(const Key('swift-desk-connect')));
       await tester.tap(find.byKey(const Key('swift-desk-connect')));
       await tester.pump();
       expect(find.textContaining('Mã ghép nối sai'), findsOneWidget);

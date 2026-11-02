@@ -32,6 +32,22 @@ class CloudSignalingTransport implements SignalingTransport {
   Future<void> get done => _done.future;
   Future<void> get ready => _ready.future;
 
+  /// A public-broker session authenticates an ephemeral X25519 exchange with
+  /// the out-of-band pairing password (or an existing remembered credential).
+  /// It then shares this same bounded, sequenced AES-GCM signaling protocol.
+  static Future<CloudSignalingTransport> authenticated({
+    required String sessionId,
+    required bool host,
+    required List<int> secret,
+    required void Function(String) emit,
+    required Future<void> Function() closed,
+  }) async {
+    final transport = CloudSignalingTransport._(sessionId, host, emit, closed);
+    await transport._keys(secret);
+    transport._ready.complete();
+    return transport;
+  }
+
   static Future<CloudSignalingTransport> viewer({
     required String sessionId,
     required String certificate,

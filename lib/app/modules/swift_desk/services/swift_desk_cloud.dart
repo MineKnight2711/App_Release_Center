@@ -457,6 +457,10 @@ class SwiftDeskCloud extends ChangeNotifier {
         transport.receive(payload);
       }
       runtime.onCloudRemembered = () async {
+        if (!_viewerPeers.contains(transport) ||
+            runtime.session?.peerId != peer.id) {
+          return;
+        }
         final all = runtime.settings.metadata('cloudDevices');
         if (!all.any((p) => p['id'] == peer.id)) all.add(peer.toJson());
         await runtime.settings.setText('cloudDevices', jsonEncode(all));

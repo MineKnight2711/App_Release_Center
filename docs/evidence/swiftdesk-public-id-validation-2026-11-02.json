@@ -1,0 +1,170 @@
+{
+  "checkedAt": "2026-11-02T09:41:04.383740+00:00",
+  "baselineHead": "8ba9308a7aa56b7f037a84295929afe28b0c084b",
+  "purpose": "Restore a discoverable machine-ID pairing flow that works without AMC account or self-hosted API, retaining P2P IPv6",
+  "workspaceChangesCommitted": false,
+  "implementation": {
+    "defaultPairing": "Public broker rendezvous using nine-digit stable ID and one-use 96-bit random pairing password; compact copy/paste code also supported",
+    "accountRequired": false,
+    "selfHostedServerRequired": false,
+    "ownAmcApiDeployed": false,
+    "publicBrokerProviders": [
+      "EMQX via MQTT TLS with WSS fallback",
+      "HiveMQ via WSS"
+    ],
+    "dependency": "mqtt_client 10.14.0",
+    "crypto": "HMAC-authenticated hello before slot allocation; ephemeral X25519; signed RSA-SHA256 host transcript and remembered certificate pin; HKDF-SHA256; directional AES-256-GCM signaling; bounded authenticated ordered envelopes",
+    "passwordLifetime": "5 minutes maximum, consumed before attended approval",
+    "media": "WebRTC P2P IPv6/IPv4; no MQTT desktop frame/input/clipboard relay",
+    "optionalBackend": "AMC account/API/TURN retained under advanced settings",
+    "interop": "AMC to AMC; original Electron SwiftDesk wire protocol/IDs are not reused",
+    "permissionPolicy": "Every real session requires host approval; input only after genuine frame and both channels"
+  },
+  "focusedTests": {
+    "passed": 100,
+    "failed": 0,
+    "swiftDeskTests": 73,
+    "authTests": 4,
+    "planStudioReminderAndSettingsTests": 23,
+    "newPublicServiceTests": 12,
+    "newWidgetTests": 2,
+    "fullRootSuiteRerun": false,
+    "coverage": [
+      "ID/copy-code and viewer without capture permission",
+      "No plaintext pairing password, trust token, names or SDP at broker",
+      "Duplicate/replay/tamper resistance across broker clusters",
+      "Wrong, expired or consumed password cannot reach host approval",
+      "Host certificate substitution/signature forgery rejection",
+      "Remembered reconnect still needs host approval; revoke blocks reuse",
+      "No silent downgrade of forced TURN",
+      "Stopping/quit drains public subscriptions even when optional backend shutdown fails",
+      "An unauthenticated public ID probe cannot allocate slots or exhaust authenticated challenge quota",
+      "Pairing controls visible in initial viewport and reachable from login without backend configuration"
+    ]
+  },
+  "analysis": {
+    "rootIssues": 3,
+    "newIssues": 0,
+    "coreStandalone": "No issues found",
+    "existingIssues": [
+      "release_note_generation_service.dart:585 unawaited_return_in_try_block",
+      "telegram_release_notification_service.dart:136 unawaited_return_in_try_block",
+      "safe_scan_test.dart:15 prefer_adjacent_string_concatenation"
+    ]
+  },
+  "publicBrokerProbe": {
+    "outcome": "passed",
+    "realPublishSubscribeRoundTrip": true,
+    "privateDataUsed": false,
+    "tool": "tool/swiftdesk_public_broker_smoke.dart"
+  },
+  "realMedia": {
+    "evidence": "swiftdesk-public-id-macos-2026-11-02.json",
+    "automaticCyclesPassed": 3,
+    "ipv6OnlyCyclesPassed": 3,
+    "selectedPathBothEnds": "direct-ipv6",
+    "publicBrokerActual": true,
+    "amcAccountOrWorkerUsed": false,
+    "viewOnlyPacketsRejected": true,
+    "nativeOsInputInjected": false,
+    "sameReleaseAsInstaller": true,
+    "notAPerformanceBenchmark": true
+  },
+  "ui": {
+    "nativeMacPreviewObserved": true,
+    "bundleId": "vn.amc.swiftdesk.publicpreview20261102",
+    "myIdVisibleAtTop": true,
+    "partnerIdAndPasswordFieldsVisibleAtTop": true,
+    "pairingAndCopyButtonsVisibleAtTop": true,
+    "advancedServerOptionsCollapsed": true,
+    "hostRemainedOffDuringUiPreview": true,
+    "permissionsChanged": false,
+    "previewQuit": true
+  },
+  "build": {
+    "macosRelease": "passed",
+    "deepSignatureVerification": "passed",
+    "windows": "not compiled; no Windows host available"
+  },
+  "installer": {
+    "checkedAt": "2026-11-02T09:39:37.465380+00:00",
+    "dmg": "build/installer/AppManagementCenter_v0.1.0_macOS-universal.dmg",
+    "bytes": 51485027,
+    "sha256": "115a17b6581831e3c2e556d8b5ac86f35f08ee3762359ab9622b1c8bf1082766",
+    "checksumFileMatches": true,
+    "imageVerification": "passed",
+    "mountedReadOnly": true,
+    "deepSignatureVerification": "passed",
+    "signing": "ad-hoc; not Developer ID or notarized",
+    "quickstartMatchesSource": true,
+    "publicIdInstructionsIncluded": true,
+    "releaseAndPackagedBinaries": {
+      "executable": {
+        "releaseSha256": "b64e651fd764ecb141a5a9da38532067ff10fc7536725a929d6c551966ed5a58",
+        "dmgSha256": "b64e651fd764ecb141a5a9da38532067ff10fc7536725a929d6c551966ed5a58"
+      },
+      "dartAot": {
+        "releaseSha256": "3b18d7932828c23bef202b3797401ae0df0de41470a5de8dc766f189d8418613",
+        "dmgSha256": "3b18d7932828c23bef202b3797401ae0df0de41470a5de8dc766f189d8418613"
+      }
+    },
+    "architectures": "x86_64 arm64",
+    "testMountDetached": true
+  },
+  "integrationFixes": [
+    "Runtime registry keeps public rendezvous cleanup/authorization separate from the optional AMC backend",
+    "Old backend remember callback checks that it still owns the active connection",
+    "A bounded partial ICE description can be exchanged after 5 seconds when real candidates exist even if STUN is unreachable; no-candidate timeout remains 12 seconds",
+    "Close callback avoids awaiting its own transport close future",
+    "Pairing is available from login without bypassing login for AMC project/team features",
+    "Network mode updates notify both default and advanced controls"
+  ],
+  "earlierObservedFailure": "First automatic native run stopped at ICE gathering timeout while waiting on unreachable STUN; corrected by bounded candidate exchange before the final passing six media cycles",
+  "limitations": [
+    "Both endpoints run on one Mac, although signaling uses real public brokers; no two-ISP/cross-network proof",
+    "Windows compile/hardware/tray/installer and Win/Mac two-way input not validated",
+    "No OS input injected; DPI/IME/clipboard hardware checks pending",
+    "No real TURN service, performance benchmark, 60-minute soak, sleep/lock recovery, signed upgrade or login-item validation",
+    "Public broker availability is external; networks that block P2P may require the optional private TURN path",
+    "DMG is ad-hoc signed, not Developer ID/notarized"
+  ],
+  "cleanup": {
+    "nativeSmokeProcessesExited": true,
+    "previewExited": true,
+    "dmgTestMountDetached": true,
+    "osPrivacyPermissionsOrAutostartChanged": false,
+    "productionDeploymentPerformed": false
+  },
+  "sourceSha256": {
+    "lib/app/modules/swift_desk/infrastructure/cloud_signaling.dart": "3910812123c93dbfe731d4143ea86011ce58c460c6c7f17d7ab2d3eca8efdd0b",
+    "lib/app/modules/swift_desk/infrastructure/lan_identity.dart": "70a9c28e662e1ff637136f9d9b33d5184b6b1379b24c6c2bbc81be5ffe94c543",
+    "lib/app/modules/swift_desk/infrastructure/public_broker.dart": "aaad55f4d37bec21c136c72708bcf787ca7544c09b4a089007260e8115c853a7",
+    "lib/app/modules/swift_desk/infrastructure/webrtc_desktop_engine.dart": "86e366a57575695ba8272ea8953e5213ac3bb3d0c6649c056e7b8811c915a014",
+    "lib/app/modules/swift_desk/services/swift_desk_cloud.dart": "29d446eb7fbaef459a54df142d091c39ffca6197d790f77e35b9540a790fe1be",
+    "lib/app/modules/swift_desk/services/swift_desk_public.dart": "cd5fc2d4bda036e15cd973c1bd54182f63281e778785a7819da28a6018155280",
+    "lib/app/modules/swift_desk/services/swift_desk_public_smoke.dart": "d403f9eecbb978a2606bd37123b0f81e1dbda72a1d4ab259c14844003b9d4210",
+    "lib/app/modules/swift_desk/services/swift_desk_runtime.dart": "4d851f85f932cd58e332fb8209e984795e80960cd0670605ec81496cfb39423c",
+    "lib/app/modules/swift_desk/views/swift_desk_view.dart": "13aae42595b6d63996b1a38a9d4410a7c924b089e1d06ce08162d4f69f9805c1",
+    "lib/app/modules/swift_desk/widgets/swift_desk_extras.dart": "fb41634c6382bdaaedf97f6c12429384291193bf726c0e0da25f9812dbeb5ab3",
+    "lib/app/modules/swift_desk/widgets/swift_desk_pairing.dart": "5a2c97686319b1e706ea5f19790d5216cc9ff59e15817731d68aec57b564eaab",
+    "lib/app/views/home_widgets/command_palette.dart": "d75ceba1021182daa784aa26f3a24234c95f790930883fd69dc4cfa0c6ec07a2",
+    "lib/app/views/login_view.dart": "31b3cff8cedb7c7235053e64fd24484d88e18d50da9fa31545a42c042650434e",
+    "lib/main.dart": "64ba6397f80613cfd12acc71f27f87b2b7c83031302b2dc8017edd3c2f9b23a1",
+    "packages/amc_remote_core/lib/src/models.dart": "c781ef27ba20a25220808812ad9c2b2900c351bf19d565654037c445f521cb76",
+    "packages/amc_remote_platform/pubspec.lock": "f34ddb599a3cf27d8e5adc325da551701e10d9af91130c7f61caeaad87357186",
+    "pubspec.lock": "5bd6549cf1f71902ee7f4feebae4d4c7c853666d626404993819b3e57c7c26c4",
+    "pubspec.yaml": "02ab0d07d131f9def03ad42026f4cc1b1ef8b3fbe8c72f3780c50af221232949",
+    "test/swift_desk_public_test.dart": "f54b6c5ae3d7df6fd17bd4dae066aa8b042ae43e08197060b46ff1c8f453afe0",
+    "test/swift_desk_view_test.dart": "f114bc57cb0e578179ce209d13452d4dbf059a904bf08221407c2929cf014cb8",
+    "tool/swiftdesk_public_broker_smoke.dart": "17e039fc4a4ac20da1d39ba88950018e7b1a8cc3a5a0ff6b70f244fc09e9255a"
+  },
+  "logSha256": {
+    "tests-final.txt": "8bee4ea89d3a41676abc4c3ddb4ada626001774cdc1b1e1be27277ef5767ee80",
+    "analyze-final.txt": "a8892a0e9c094ffee11bbf363d5cc0e6b082ba5db8fe1db95304f0d4f0e706c5",
+    "core-analysis.txt": "05edf3f1e7de60446665ba03bf9d9b580b43ee219309c9d95e3a658d48daebdd",
+    "final-build.txt": "d217080055f9caf5387f1fadeb478bdcf30d666d1d321f8547506a88f740e04d",
+    "final-sign.txt": "35e7d7455c9ac348476d5800be547831a70f3279e28dcfa0ba175b224f6918d6",
+    "real-broker.txt": "e031a37b9839e49088c0482d5be3b55c64814e85ec507ad79bc17cc0a8df1880",
+    "installer.txt": "9224d0fe192088cc54df9473326e8d74bd6bdfb574a1f8310495dae11289fbf7"
+  }
+}

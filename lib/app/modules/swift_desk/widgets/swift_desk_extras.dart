@@ -182,13 +182,13 @@ class _SwiftDeskExtrasState extends State<SwiftDeskExtras> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Internet · Tài khoản AMC',
+                'Máy chủ AMC riêng · Tùy chọn',
                 style: Theme.of(context).textTheme.titleLarge,
               ),
               const SizedBox(height: 8),
               Text(
                 cloud?.status ??
-                    'Chưa bật. Cần API AMC hỗ trợ desktop. Có thể dùng P2P IPv6/IPv4; TURN là đường dự phòng khi đã cấu hình.',
+                    'Không cần cho ghép mã ở đầu trang. Dùng phần này khi có API AMC riêng và TURN dự phòng đã cấu hình.',
               ),
               if (cloud?.cloudId != null)
                 SelectableText('ID AMC: ${cloud!.cloudId}'),
@@ -225,9 +225,7 @@ class _SwiftDeskExtrasState extends State<SwiftDeskExtras> {
                         ? null
                         : (mode) {
                             if (mode != null) {
-                              _work(
-                                () => runtime.settings.setConnectionMode(mode),
-                              );
+                              _work(() => runtime.setConnectionMode(mode));
                             }
                           },
                   ),
@@ -343,7 +341,13 @@ class _SwiftDeskExtrasState extends State<SwiftDeskExtras> {
                 'restoreHost',
               ),
               _toggle(
-                'Khôi phục nhận Internet',
+                'Khôi phục nhận bằng mã',
+                'Không cần tài khoản AMC. Máy đối tác vẫn cần mật khẩu ghép hoặc đã được ghi nhớ.',
+                'restorePublic',
+                enabled: runtime.settings.flag('restoreHost'),
+              ),
+              _toggle(
+                'Khôi phục máy chủ AMC riêng',
                 'Chỉ hoạt động khi đã bật khôi phục host và đăng nhập AMC.',
                 'restoreInternet',
                 enabled: runtime.settings.flag('restoreHost'),

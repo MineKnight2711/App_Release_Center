@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:isolate';
 import 'dart:math';
+import 'dart:typed_data';
 import 'package:amc_remote_core/amc_remote_core.dart';
 import 'package:basic_utils/basic_utils.dart';
 import 'package:crypto/crypto.dart';
@@ -38,6 +39,34 @@ class LanIdentity {
         ),
       )
       .toString();
+  String signTranscript(String transcript) => base64.encode(
+    CryptoUtils.rsaSign(
+      CryptoUtils.rsaPrivateKeyFromPem(privateKey),
+      Uint8List.fromList(utf8.encode(transcript)),
+    ),
+  );
+  static bool verifyTranscript(
+    String certificate,
+    String transcript,
+    String signature,
+  ) {
+    if (signature.length > 1024) return false;
+    final hex = X509Utils.x509CertificateFromPem(
+      certificate,
+    ).tbsCertificate!.subjectPublicKeyInfo.bytes!;
+    final key = CryptoUtils.rsaPublicKeyFromDERBytes(
+      Uint8List.fromList([
+        for (var i = 0; i < hex.length; i += 2)
+          int.parse(hex.substring(i, i + 2), radix: 16),
+      ]),
+    );
+    return CryptoUtils.rsaVerify(
+      key,
+      Uint8List.fromList(utf8.encode(transcript)),
+      base64.decode(signature),
+    );
+  }
+
   SecurityContext get context => SecurityContext(withTrustedRoots: false)
     ..minimumTlsProtocolVersion = TlsProtocolVersion.tls1_2
     ..useCertificateChainBytes(utf8.encode(certificate))

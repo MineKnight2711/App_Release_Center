@@ -1,5 +1,7 @@
 # SwiftDesk — cập nhật upstream, Phase 3 và 4
 
+> Từ 02/11/2026, luồng chính đã đổi sang [ghép mã qua broker có sẵn](swiftdesk-pairing.md), không cần tài khoản hay tự triển khai server. Tài liệu bên dưới giữ mô tả đường API AMC riêng và kết quả kiểm thử trước đó; đường này nay là tùy chọn nâng cao.
+
 Cập nhật 26/10/2026. Đã triển khai Internet desktop và nền chạy chung trong AMC, kiểm thử với Worker cục bộ và macOS. Chưa triển khai lên Cloudflare production, chưa có TURN thật hoặc ma trận hai máy Windows/macOS. Theo lựa chọn của người dùng, đợt này chuẩn bị TURN mẫu và kiểm thử cục bộ.
 
 ## Đối chiếu SwiftDesk mới nhất

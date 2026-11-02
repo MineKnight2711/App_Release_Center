@@ -25,22 +25,27 @@ trong Cài đặt; các thiết lập release theo dự án vẫn ở bảng Tu�
 ## SwiftDesk · Điều khiển máy tính
 
 Mở **Công cụ dự án → SwiftDesk · Điều khiển máy tính**, hoặc tìm SwiftDesk
-trong command palette. Hai máy cùng LAN ghép qua mã/QR có thời hạn; máy đích
-phải chấp nhận từng phiên và chọn quyền xem, chuột/phím, clipboard. Có thiết bị
-đã lưu, sửa IP/cổng, thu hồi quyền, chọn màn hình và chất lượng. Rời trang vẫn
-giữ host; thanh trạng thái toàn AMC cho phép nhận/từ chối và ngắt phiên.
+trong command palette (⌘K/Ctrl+K). Màn hình đăng nhập cũng có nút **Mở SwiftDesk ·
+Không cần đăng nhập**. Đầu trang có **Mã máy này** 9 số, mật khẩu ghép tạm và ô
+**Mã máy đối tác hoặc mã kết nối**. Bật **Cho phép kết nối bằng mã**, sao chép mã
+gửi riêng cho máy kia; bên kia dán rồi bấm **Kết nối bằng mã**. Máy đích phải
+chấp nhận từng phiên và chọn quyền xem, chuột/phím, clipboard.
 
-Phase 1/2 và mã Phase 3/4 đã có trong AMC: Internet qua API tài khoản AMC,
-signaling mã hóa, ticket/thu hồi/TURN credential; tray/menu bar chung với
-reminders, khôi phục host opt-in và import metadata SwiftDesk cũ. Giữ P2P IPv6:
-chọn Tự động (P2P IPv6/IPv4, TURN dự phòng), Chỉ P2P IPv6 hoặc Bắt buộc TURN;
-lựa chọn được lưu cho lần mở sau. IPv6 trực tiếp không cần TURN.
-Đã kiểm thử Worker cục bộ + WebRTC trên macOS. Backend production mặc định chưa bật desktop;
-chưa có TURN thật, chưa nghiệm thu hai máy Windows/macOS, input thật, autostart
-và nâng cấp bộ cài. Không hỗ trợ unattended hoặc màn hình đăng nhập.
+Luồng ghép mã dùng broker công cộng sẵn có, không cần tài khoản AMC, không cần
+tự triển khai máy chủ. Mật khẩu ghép dùng một lần, tối đa 5 phút; signaling mã hóa
+đến máy đích, hình/input qua WebRTC P2P IPv6/IPv4. Máy đã nhớ vẫn cần chấp nhận.
+Giữ chọn **Tự động** hoặc **Chỉ P2P IPv6**. Mạng chặn P2P cần TURN riêng trong
+phần nâng cao; không chuyển frame qua broker công cộng.
+
+LAN/QR và API tài khoản AMC/TURN riêng là tùy chọn trong trang. Backend riêng
+mặc định chưa bật desktop; không ảnh hưởng ghép mã công cộng. Có tray/menu bar
+chung với reminders, khôi phục host opt-in và import metadata SwiftDesk cũ.
+Chưa nghiệm thu hai máy Windows/macOS khác mạng, input thật, autostart và nâng
+cấp bộ cài. Không hỗ trợ unattended hoặc màn hình đăng nhập.
 Chạy `--swiftdesk-lan` để mở riêng module; `--swiftdesk-spike` giữ trang thử
 engine. Cả hai bỏ qua relay lệnh/Telegram/reminders của AMC.
-Xem [hướng dẫn LAN và bằng chứng kiểm thử](docs/swiftdesk-lan.md),
+Xem [cách ghép bằng mã máy](docs/swiftdesk-pairing.md),
+[hướng dẫn LAN và bằng chứng kiểm thử](docs/swiftdesk-lan.md),
 [Phase 3/4, đối chiếu upstream và cấu hình TURN](docs/swiftdesk-phase34.md),
 [thử engine](docs/swiftdesk-engine-spike.md) và
 [kế hoạch tích hợp core](docs/swiftdesk-core-integration-plan.md).
