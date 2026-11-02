@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io';
+import '../modules/analytics/feature_analytics_service.dart';
 
+import 'package:app_management_center/app/models/ch_play_version_snapshot.dart';
 import 'package:app_management_center/app/models/release_fastlane_lane.dart';
 import 'package:app_management_center/app/models/release_project.dart';
 import 'package:app_management_center/app/models/release_script.dart';
@@ -21,6 +23,7 @@ class ReleaseWorkflowService extends GetxService {
     required this.chPlayInspector,
     required this.chPlayVersionChecker,
     required this.releaseNotesGenerator,
+    this.analytics,
     this.verificationInterval = const Duration(seconds: 15),
     this.verificationTimeout = const Duration(minutes: 5),
   });
@@ -30,6 +33,7 @@ class ReleaseWorkflowService extends GetxService {
   final ChPlayProjectInspectorService chPlayInspector;
   final ChPlayVersionCheckService chPlayVersionChecker;
   final ReleaseNoteGenerationService releaseNotesGenerator;
+  final FeatureAnalyticsService? analytics;
   final Duration verificationInterval;
   final Duration verificationTimeout;
 
@@ -163,9 +167,15 @@ class ReleaseWorkflowService extends GetxService {
         );
       }
 
-      final nextCode =
-          (localVersion.code > storeCode ? localVersion.code : storeCode) + 1;
-      final nextName = _bumpVersionName(localVersion.name);
+      final next = _nextVersion(
+        local: localVersion,
+        storeCode: storeCode,
+        lastRelease: await _lastAndroidRelease(config.project.path),
+        config: config,
+        track: normalizedTrack,
+      );
+      final nextName = next.name;
+      final nextCode = next.code;
       final statusResult = await _runGit(config.project.path, const [
         'status',
         '--porcelain',
@@ -193,7 +203,9 @@ class ReleaseWorkflowService extends GetxService {
             'Branch Git: $branch',
             'Track: $normalizedTrack',
             'Version hiện tại: ${localVersion.raw}',
+            'Version code trên CH Play ($normalizedTrack): $storeCode',
             'Version kế tiếp: $nextName+$nextCode',
+            next.reason,
             if (changedFiles.isEmpty)
               'Working tree sạch.'
             else
@@ -289,6 +301,8 @@ class ReleaseWorkflowService extends GetxService {
 
   Future<ReleaseWorkflowRun> start({
     ReleaseWorkflowPostProcessor? postProcessor,
+    bool trackUsage = true,
+    AnalyticsSource source = AnalyticsSource.module,
   }) async {
     final run = currentRun.value;
     final config = _config;
@@ -321,7 +335,10 @@ class ReleaseWorkflowService extends GetxService {
       startedAt: run.startedAt ?? DateTime.now(),
       clearFinishedAt: true,
     );
-    return _runPendingSteps();
+    final operation = trackUsage && pendingCount > 0
+        ? analytics?.begin(source, feature: AnalyticsFeature.releaseAndroid)
+        : null;
+    return _runPendingSteps(operation);
   }
 
   Future<void> cancel() async {
@@ -330,7 +347,7 @@ class ReleaseWorkflowService extends GetxService {
     await runner.stop();
   }
 
-  Future<ReleaseWorkflowRun> retryFailedStep() async {
+  Future<ReleaseWorkflowRun> retryFailedStep({bool trackUsage = true}) async {
     final run = currentRun.value;
     if (run == null || run.retryableStep == null) {
       throw const ReleaseWorkflowException('Không có bước nào để chạy lại.');
@@ -357,12 +374,18 @@ class ReleaseWorkflowService extends GetxService {
       );
     }
     currentRun.value = run.copyWith(steps: steps, clearFinishedAt: true);
-    return start(postProcessor: _postProcessor);
+    return start(
+      postProcessor: _postProcessor,
+      trackUsage: trackUsage,
+      source: AnalyticsSource.retry,
+    );
   }
 
   Future<ReleaseWorkflowRun> resume() => retryFailedStep();
 
-  Future<ReleaseWorkflowRun> _runPendingSteps() async {
+  Future<ReleaseWorkflowRun> _runPendingSteps(
+    AnalyticsOperation? operation,
+  ) async {
     var succeeded = true;
     final initialRun = currentRun.value!;
     try {
@@ -402,6 +425,18 @@ class ReleaseWorkflowService extends GetxService {
           );
       currentRun.value = next.copyWith(finishedAt: DateTime.now());
       runner.finishWorkflow(success: completed);
+      if (_cancelRequested) {
+        analytics?.cancel(operation);
+      } else if (completed) {
+        analytics?.succeed(
+          operation,
+          result: next.hasWarning
+              ? AnalyticsResult.warning
+              : AnalyticsResult.succeeded,
+        );
+      } else {
+        analytics?.fail(operation, AnalyticsFailure.workflow);
+      }
       // A release someone stopped on purpose needs no buzz.
       if (!_cancelRequested) {
         runner.notifyRelease(
@@ -857,6 +892,83 @@ class ReleaseWorkflowService extends GetxService {
         RegExp(r'(skip_build|SKIP_PLAY_BUILD)').hasMatch(source);
   }
 
+  /// Picks the version this release ships. A pubspec version whose code is
+  /// still unused (set by hand, or by an iOS release) ships as it is; only a
+  /// code CH Play or an earlier Android release already took gets bumped.
+  ({String name, int code, String reason}) _nextVersion({
+    required ChPlayLocalVersion local,
+    required int storeCode,
+    required ChPlayLocalVersion? lastRelease,
+    required ReleaseWorkflowConfig config,
+    required String track,
+  }) {
+    final manualName = config.versionName?.trim();
+    final manualCode = config.versionCode;
+    final releasedCode = lastRelease?.code ?? 0;
+    final usedCode = releasedCode > storeCode ? releasedCode : storeCode;
+    final unused = local.code > usedCode;
+    // The name already moved since the last Android release: someone set it.
+    final nameMoved = lastRelease != null && lastRelease.name != local.name;
+
+    final code = manualCode ?? (unused ? local.code : usedCode + 1);
+    final name = manualName != null && manualName.isNotEmpty
+        ? manualName
+        : unused || nameMoved
+        ? local.name
+        : _bumpVersionName(local.name);
+
+    if (code <= storeCode) {
+      throw ReleaseWorkflowException(
+        'Version code $code phải lớn hơn version code $storeCode đang có trên CH Play ($track).',
+      );
+    }
+    if (code > _maxPlayVersionCode) {
+      throw const ReleaseWorkflowException(
+        'Version code vượt quá giới hạn $_maxPlayVersionCode của CH Play.',
+      );
+    }
+    if (!RegExp(r'^[^\s+]+$').hasMatch(name)) {
+      throw ReleaseWorkflowException('Version name "$name" không hợp lệ.');
+    }
+
+    final String reason;
+    if (manualCode != null || (manualName != null && manualName.isNotEmpty)) {
+      reason = 'Version tự nhập.';
+    } else if (unused) {
+      reason =
+          'Giữ nguyên version trong pubspec: version code ${local.code} chưa được dùng.';
+    } else {
+      final usedBy = releasedCode > storeCode
+          ? 'bản Android gần nhất ${lastRelease!.display}'
+          : 'CH Play';
+      reason = [
+        'Version code ${local.code} đã dùng ($usedBy) nên tăng lên $code.',
+        if (nameMoved)
+          'Giữ version name ${local.name} vì đã khác bản Android gần nhất (${lastRelease.name}).',
+      ].join(' ');
+    }
+    return (name: name, code: code, reason: reason);
+  }
+
+  /// The version of the newest release commit this flow pushed, if any.
+  Future<ChPlayLocalVersion?> _lastAndroidRelease(String projectPath) async {
+    try {
+      final result = await _runGit(projectPath, const [
+        'log',
+        '-n',
+        '1',
+        '--format=%s',
+        '--grep=^chore(release): v',
+      ]);
+      final match = RegExp(
+        r'^chore\(release\): v(\S+)',
+      ).firstMatch(result.output.trim());
+      return match == null ? null : ChPlayLocalVersion.parse(match.group(1)!);
+    } on ReleaseWorkflowException {
+      return null;
+    }
+  }
+
   String _bumpVersionName(String current) {
     final match = RegExp(r'^(.*_)?([0-9]+(?:\.[0-9]+)*)$').firstMatch(current);
     if (match == null) {
@@ -1031,6 +1143,7 @@ class _GitResult {
 
 const _supportedTracks = {'internal', 'alpha', 'beta', 'production'};
 const _playReleaseNoteLimit = 500;
+const _maxPlayVersionCode = 2100000000;
 const _baseEnvironment = {
   'FASTLANE_SKIP_SCREEN': '1',
   'TTY_SCREEN_WIDTH': '120',

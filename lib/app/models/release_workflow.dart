@@ -35,6 +35,8 @@ class ReleaseWorkflowConfig {
     required this.uploadListingImages,
     required this.validateListingImages,
     this.postReleaseStepCount = 1,
+    this.versionName,
+    this.versionCode,
   });
 
   final ReleaseProject project;
@@ -46,6 +48,10 @@ class ReleaseWorkflowConfig {
   final bool uploadListingImages;
   final bool validateListingImages;
   final int postReleaseStepCount;
+
+  /// Version the user typed for this release; null lets the workflow pick.
+  final String? versionName;
+  final int? versionCode;
 }
 
 class ReleaseWorkflowStepRun {

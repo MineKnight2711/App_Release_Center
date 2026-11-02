@@ -114,7 +114,14 @@ class AppBinding extends Bindings {
       );
     }
     Get.put<ScriptCatalogService>(ScriptCatalogService(), permanent: true);
-    Get.put<ApiToolService>(ApiToolService(), permanent: true);
+    Get.put<ApiToolService>(
+      ApiToolService(
+        analytics: Get.isRegistered<FeatureAnalyticsService>()
+            ? Get.find<FeatureAnalyticsService>()
+            : null,
+      ),
+      permanent: true,
+    );
     Get.put<ApiMonitorService>(ApiMonitorService(), permanent: true);
     await Get.putAsync<ApiToolRepositoryService>(
       () => ApiToolRepositoryService(
@@ -290,6 +297,9 @@ class AppBinding extends Bindings {
     );
     Get.put<ReleaseWorkflowService>(
       ReleaseWorkflowService(
+        analytics: Get.isRegistered<FeatureAnalyticsService>()
+            ? Get.find<FeatureAnalyticsService>()
+            : null,
         runner: Get.find<ReleaseRunnerService>(),
         catalog: Get.find<ScriptCatalogService>(),
         chPlayInspector: Get.find<ChPlayProjectInspectorService>(),
@@ -388,6 +398,9 @@ class AppBinding extends Bindings {
         machineShutdown: Get.find<MachinePowerService>(),
       ),
     );
+    QaDeskRuntime.analytics = Get.isRegistered<FeatureAnalyticsService>()
+        ? Get.find<FeatureAnalyticsService>()
+        : null;
     QaDeskRuntime.host = AmcQaDeskHost(
       runner: Get.find<ReleaseRunnerService>(),
       home: () => Get.find<HomeController>(),

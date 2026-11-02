@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../analytics/feature_analytics_service.dart';
 
 import 'package:flutter/material.dart';
 
@@ -156,6 +157,7 @@ class _QaDeskViewState extends State<QaDeskView> {
   void initState() {
     super.initState();
     _controller.addListener(_onControllerChanged);
+    _controller.analytics?.opened(feature: AnalyticsFeature.qaRun);
     if (widget.intent != QaDeskIntent.open) {
       WidgetsBinding.instance.addPostFrameCallback(
         (_) => unawaited(_carryOut(widget.intent)),

@@ -99,8 +99,8 @@ class _StoreVersionsPanel extends GetView<HomeController> {
           'Chưa chọn dự án',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: AppCyberTheme.dataTextStyle(
-            size: compact ? 10.8 : 11.5,
+          style: AppCyberTheme.uiTextStyle(
+            size: compact ? 11.2 : 12.0,
             color: AppCyberTheme.textMuted,
             weight: FontWeight.w600,
           ),
@@ -115,7 +115,9 @@ class _StoreVersionsPanel extends GetView<HomeController> {
           Icon(
             Icons.inventory_2_outlined,
             size: 16,
-            color: AppCyberTheme.textMuted,
+            color: count > 0
+                ? AppCyberTheme.electricBlue
+                : AppCyberTheme.textMuted,
           ),
           const SizedBox(width: 7),
           Expanded(
@@ -125,9 +127,11 @@ class _StoreVersionsPanel extends GetView<HomeController> {
                   : '${selectedProject.name} - $count store',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: AppCyberTheme.dataTextStyle(
-                size: compact ? 10.8 : 11.5,
-                color: AppCyberTheme.textMuted,
+              style: AppCyberTheme.uiTextStyle(
+                size: compact ? 11.2 : 12.0,
+                color: count > 0
+                    ? AppCyberTheme.textPrimary
+                    : AppCyberTheme.textMuted,
                 weight: FontWeight.w700,
               ),
             ),
@@ -239,7 +243,7 @@ class _StoreVersionsSetupPrompt extends StatelessWidget {
     }
 
     return _HudCardShell(
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.all(12),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -247,17 +251,29 @@ class _StoreVersionsSetupPrompt extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(Icons.add_task_outlined, size: 18),
-              const SizedBox(width: 8),
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: AppCyberTheme.electricBlue.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(7),
+                ),
+                child: Icon(
+                  Icons.add_task_outlined,
+                  size: 16,
+                  color: AppCyberTheme.electricBlue,
+                ),
+              ),
+              const SizedBox(width: 9),
               Expanded(
                 child: Text(
                   '${project.name} chưa thiết lập store nào',
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: AppCyberTheme.dataTextStyle(
-                    size: 11.5,
+                  style: AppCyberTheme.uiTextStyle(
+                    size: 12.2,
                     color: AppCyberTheme.textPrimary,
-                    weight: FontWeight.w800,
+                    weight: FontWeight.w700,
                   ),
                 ),
               ),
@@ -266,10 +282,10 @@ class _StoreVersionsSetupPrompt extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             'Dùng trình thiết lập dự án để thêm CH Play hoặc App Store rồi kiểm tra phiên bản.',
-            style: AppCyberTheme.dataTextStyle(
-              size: 10.5,
+            style: AppCyberTheme.uiTextStyle(
+              size: 11.2,
               color: AppCyberTheme.textMuted,
-              weight: FontWeight.w600,
+              weight: FontWeight.w500,
             ),
           ),
           const SizedBox(height: 10),
@@ -306,7 +322,8 @@ class _StoreVersionsEmptyState extends StatelessWidget {
             child: Text(
               message,
               textAlign: TextAlign.center,
-              style: AppCyberTheme.dataTextStyle(
+              style: AppCyberTheme.uiTextStyle(
+                size: 12.0,
                 color: AppCyberTheme.textMuted,
                 weight: FontWeight.w600,
               ),

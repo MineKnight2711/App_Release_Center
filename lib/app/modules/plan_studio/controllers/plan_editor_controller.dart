@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import '../../analytics/feature_analytics_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 import '../models/work_item.dart';
@@ -7,11 +8,30 @@ import '../repositories/plan_repository.dart';
 import '../services/ollama_plan_service.dart';
 
 class PlanEditorController extends ChangeNotifier {
-  PlanEditorController(this.repository, WorkItem snapshot, {Ollama? ai})
-    : item = snapshot.clone(),
-      ai = ai ?? Ollama();
+  PlanEditorController(
+    this.repository,
+    WorkItem snapshot, {
+    Ollama? ai,
+    this.analytics,
+  }) : item = snapshot.clone(),
+       ai = ai ?? Ollama();
   final PlanRepository repository;
   final Ollama ai;
+  final FeatureAnalyticsService? analytics;
+  AnalyticsOperation? _aiOperation;
+
+  Future<List<WorkItem>> createTasks(List<String> titles) {
+    if (titles.isEmpty) return Future.value([]);
+    Future<List<WorkItem>> write() =>
+        repository.createTasks(item.id, item.revision, titles);
+    return analytics?.track(
+          AnalyticsFeature.planBulkCreate,
+          write,
+          source: AnalyticsSource.editor,
+        ) ??
+        write();
+  }
+
   WorkItem item;
   bool dirty = false, saving = false, busy = false;
   String? error;
@@ -141,23 +161,41 @@ class PlanEditorController extends ChangeNotifier {
         },
     ];
     if (!await flush() || !_valid(token)) return;
-    final body = await ai.plan(
-      snapshot['model'] as String,
-      snapshot['source'] as String,
-      snapshot['context'] as String,
-      confirmed,
+    final operation = analytics?.begin(
+      AnalyticsSource.editor,
+      feature: AnalyticsFeature.planAiGenerate,
     );
-    if (!_valid(token)) return;
-    change((i) {
-      if (i.body.isNotEmpty &&
-          (i.versions.isEmpty || i.versions.last['body'] != i.body)) {
-        _version(i, 'Trước khi tạo lại');
+    _aiOperation = operation;
+    try {
+      final body = await ai.plan(
+        snapshot['model'] as String,
+        snapshot['source'] as String,
+        snapshot['context'] as String,
+        confirmed,
+      );
+      if (!_valid(token)) return;
+      change((i) {
+        if (i.body.isNotEmpty &&
+            (i.versions.isEmpty || i.versions.last['body'] != i.body)) {
+          _version(i, 'Trước khi tạo lại');
+        }
+        i.body = body;
+        i.draft['step'] = 2;
+        _version(i, 'Ollama / ${snapshot['model']}');
+      });
+      final saved = await flush();
+      if (!_valid(token)) return;
+      if (saved) {
+        analytics?.succeed(operation, result: AnalyticsResult.generated);
+      } else {
+        analytics?.fail(operation, AnalyticsFailure.storage);
       }
-      i.body = body;
-      i.draft['step'] = 2;
-      _version(i, 'Ollama / ${snapshot['model']}');
-    });
-    await flush();
+    } catch (_) {
+      if (_valid(token)) analytics?.fail(operation, AnalyticsFailure.tool);
+      rethrow;
+    } finally {
+      if (identical(_aiOperation, operation)) _aiOperation = null;
+    }
   }
 
   void _version(WorkItem i, String label) => i.versions.add({
@@ -188,6 +226,8 @@ class PlanEditorController extends ChangeNotifier {
   }
 
   void cancel() {
+    analytics?.cancel(_aiOperation);
+    _aiOperation = null;
     _generation++;
     ai.cancel();
     busy = false;

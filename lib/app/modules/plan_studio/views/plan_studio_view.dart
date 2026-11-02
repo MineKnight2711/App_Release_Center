@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:get/get.dart';
+import '../../analytics/feature_analytics_service.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -82,6 +84,11 @@ class _PlanStudioViewState extends State<PlanStudioView> {
   @override
   void initState() {
     super.initState();
+    if (Get.isRegistered<FeatureAnalyticsService>()) {
+      Get.find<FeatureAnalyticsService>().opened(
+        feature: AnalyticsFeature.planCreate,
+      );
+    }
     _init();
     _loadCollapsed();
     clockTicker = Timer.periodic(const Duration(minutes: 1), (_) {
@@ -101,7 +108,12 @@ class _PlanStudioViewState extends State<PlanStudioView> {
           widget.initialProjectPath!,
         )).id;
       }
-      final controller = PlanBoardController(repository);
+      final controller = PlanBoardController(
+        repository,
+        analytics: Get.isRegistered<FeatureAnalyticsService>()
+            ? Get.find<FeatureAnalyticsService>()
+            : null,
+      );
       await controller.load();
       if (!mounted) {
         controller.dispose();
@@ -226,6 +238,7 @@ class _PlanStudioViewState extends State<PlanStudioView> {
     DuePick? due,
     String? priority,
     List<String> labels = const [],
+    AnalyticsSource source = AnalyticsSource.module,
   }) async {
     if (projectId == null) {
       _message('Chọn một dự án trước khi tạo ticket.');
@@ -253,7 +266,7 @@ class _PlanStudioViewState extends State<PlanStudioView> {
       if (reason == null) return null;
       item.blockedReason = reason;
     }
-    final saved = await board!.commit(() => board!.repository.save(item));
+    final saved = await board!.create(item, source: source);
     if (due != null && due.offsets.isNotEmpty) {
       final errors = await board!.commit(
         () => addDueReminders(board!.repository, saved, due.offsets),
@@ -298,6 +311,7 @@ class _PlanStudioViewState extends State<PlanStudioView> {
         parsed.title,
         WorkType.task,
         status,
+        source: AnalyticsSource.quickAdd,
         priority: parsed.priority,
         labels: parsed.labels,
         due: parsed.due == null
@@ -323,9 +337,7 @@ class _PlanStudioViewState extends State<PlanStudioView> {
           status: status,
         );
         if (drafts == null || drafts.isEmpty) return;
-        final created = await board!.commit(
-          () => board!.repository.createMany(drafts),
-        );
+        final created = await board!.createMany(drafts);
         _message('Đã tạo ${created.length} task.');
       });
 

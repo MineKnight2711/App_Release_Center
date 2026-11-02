@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import '../../analytics/feature_analytics_service.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
@@ -28,6 +29,7 @@ import '../services/source_registry.dart';
 import 'network_test_controller.dart';
 
 class QaWorkspaceController extends ChangeNotifier {
+  FeatureAnalyticsService? analytics;
   final network = NetworkTestController();
   QaWorkspaceController(
     this._registry, [
@@ -1017,6 +1019,36 @@ class QaWorkspaceController extends ChangeNotifier {
 
   Future<void> runSelected() async {
     if (_isRunning || network.busy || selectedRunCount == 0) return;
+    final operation = analytics?.begin(
+      AnalyticsSource.module,
+      feature: AnalyticsFeature.qaRun,
+    );
+    try {
+      await _runSelected();
+      if (_runs.any((run) => run.status == RunStatus.cancelled)) {
+        analytics?.cancel(operation);
+      } else if (_runs.any(
+        (run) => run.status == RunStatus.failed && run.exitCode == null,
+      )) {
+        analytics?.fail(operation, AnalyticsFailure.tool);
+      } else {
+        analytics?.succeed(
+          operation,
+          result: _runs.any((run) => run.status == RunStatus.failed)
+              ? AnalyticsResult.issuesFound
+              : AnalyticsResult.passed,
+        );
+      }
+    } catch (_) {
+      analytics?.fail(operation, AnalyticsFailure.unexpected);
+      rethrow;
+    } finally {
+      _isRunning = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> _runSelected() async {
     automation?.beginBatch();
 
     _runs.clear();
@@ -1080,8 +1112,6 @@ class QaWorkspaceController extends ChangeNotifier {
     );
     await refreshHistory(notify: false);
     await refreshReports(notify: false);
-    _isRunning = false;
-    notifyListeners();
   }
 
   /// The suites a run of [source] executes: its ticked suites, then its

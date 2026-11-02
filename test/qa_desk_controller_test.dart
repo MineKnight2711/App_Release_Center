@@ -10,6 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 
 import 'qa_desk_fakes.dart';
+import 'analytics_test_recorder.dart';
 
 void main() {
   late Directory sandbox;
@@ -74,6 +75,8 @@ void main() {
   test('stopping ends the running suite and skips the rest', () async {
     // analyze never exits on its own.
     await open({'unit': 0});
+    final analytics = AnalyticsRecorder();
+    controller.analytics = analytics;
 
     final run = controller.runSelected();
     await untilStarted('analyze');
@@ -91,6 +94,7 @@ void main() {
     expect(batch.status, RunStatus.cancelled);
     expect(batch.cancelled, 2);
     expect(controller.isRunning, isFalse);
+    expect(analytics.events.map((e) => e['name']), ['started', 'cancelled']);
   });
 
   test('shutdown stops a run in progress', () async {

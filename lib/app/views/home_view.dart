@@ -168,6 +168,12 @@ class _HomeScaffoldState extends State<_HomeScaffold> {
                                   _resizeLeft(delta, usableWidth),
                               onRightResize: (delta) =>
                                   _resizeRight(delta, usableWidth),
+                              onLeftReset: () => setState(
+                                () => _leftPanelWidth = _defaultSidePanelWidth,
+                              ),
+                              onRightReset: () => setState(
+                                () => _rightPanelWidth = _defaultSidePanelWidth,
+                              ),
                             )
                           : SingleChildScrollView(
                               child: Column(
@@ -194,8 +200,6 @@ class _HomeScaffoldState extends State<_HomeScaffold> {
                     },
                   ),
                 ),
-                if (Get.isRegistered<AuthService>())
-                  const Positioned(top: 24, right: 24, child: _AccountHud()),
                 Obx(
                   () => shell.isPaletteOpen.value
                       ? const _CommandPalette()
@@ -393,14 +397,18 @@ class _AccountHud extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (!Get.isRegistered<AuthService>()) return const SizedBox.shrink();
     final auth = Get.find<AuthService>();
     return Obx(() {
       final profile = auth.profile.value;
       if (profile == null) return const SizedBox.shrink();
+      final palette = AppCyberTheme.palette;
       return Material(
         color: Colors.transparent,
         child: PopupMenuButton<String>(
           tooltip: 'Tài khoản',
+          position: PopupMenuPosition.under,
+          offset: const Offset(0, 6),
           onSelected: (value) {
             if (value == 'team') {
               unawaited(showTeamManagementDialog(context));
@@ -432,31 +440,41 @@ class _AccountHud extends StatelessWidget {
             ),
           ],
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
-              color: AppCyberTheme.panelBackgroundStrong.withValues(alpha: 0.9),
-              borderRadius: BorderRadius.circular(8),
+              color: palette.surfaceHighest.withValues(alpha: 0.72),
+              borderRadius: BorderRadius.circular(999),
               border: Border.all(
-                color: AppCyberTheme.electricBlue.withValues(alpha: 0.42),
+                color: palette.accent.withValues(alpha: 0.38),
               ),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.account_circle_outlined, size: 18),
-                const SizedBox(width: 7),
+                Icon(
+                  Icons.account_circle_outlined,
+                  size: 16,
+                  color: palette.accent,
+                ),
+                const SizedBox(width: 6),
                 ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 160),
+                  constraints: const BoxConstraints(maxWidth: 132),
                   child: Text(
                     profile.teamName.isEmpty ? profile.email : profile.teamName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: AppCyberTheme.dataTextStyle(
-                      size: 10.8,
+                    style: AppCyberTheme.uiTextStyle(
+                      size: 11.5,
                       color: AppCyberTheme.textPrimary,
-                      weight: FontWeight.w800,
+                      weight: FontWeight.w700,
                     ),
                   ),
+                ),
+                const SizedBox(width: 3),
+                Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  size: 15,
+                  color: AppCyberTheme.textMuted,
                 ),
               ],
             ),
@@ -474,6 +492,8 @@ class _WideHomeLayout extends StatelessWidget {
     required this.splitterThickness,
     required this.onLeftResize,
     required this.onRightResize,
+    this.onLeftReset,
+    this.onRightReset,
   });
 
   final double leftPanelWidth;
@@ -481,6 +501,8 @@ class _WideHomeLayout extends StatelessWidget {
   final double splitterThickness;
   final ValueChanged<double> onLeftResize;
   final ValueChanged<double> onRightResize;
+  final VoidCallback? onLeftReset;
+  final VoidCallback? onRightReset;
 
   @override
   Widget build(BuildContext context) {
@@ -490,12 +512,20 @@ class _WideHomeLayout extends StatelessWidget {
         SizedBox(width: leftPanelWidth, child: const _ProjectPanel()),
         SizedBox(
           width: splitterThickness,
-          child: _PanelSplitter(axis: Axis.horizontal, onDelta: onLeftResize),
+          child: _PanelSplitter(
+            axis: Axis.horizontal,
+            onDelta: onLeftResize,
+            onDoubleTap: onLeftReset,
+          ),
         ),
         const Expanded(child: _MainPanel()),
         SizedBox(
           width: splitterThickness,
-          child: _PanelSplitter(axis: Axis.horizontal, onDelta: onRightResize),
+          child: _PanelSplitter(
+            axis: Axis.horizontal,
+            onDelta: onRightResize,
+            onDoubleTap: onRightReset,
+          ),
         ),
         SizedBox(width: rightPanelWidth, child: const _OptionsPanel()),
       ],

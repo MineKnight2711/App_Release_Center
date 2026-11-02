@@ -1,5 +1,7 @@
 part of '../home_view.dart';
 
+const _recentProjectsMinHeight = 180.0;
+
 class _ProjectPanel extends GetView<HomeController> {
   const _ProjectPanel();
 
@@ -10,93 +12,154 @@ class _ProjectPanel extends GetView<HomeController> {
         final hasBoundedHeight =
             constraints.hasBoundedHeight && constraints.maxHeight.isFinite;
 
-        return _Panel(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const _PanelTitle(
-                icon: Icons.folder_open_outlined,
-                title: 'Dự án',
+        final header = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const _PanelTitle(icon: Icons.folder_open_outlined, title: 'Dự án'),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: () => _chooseProjectAndSetup(context),
+                icon: const Icon(Icons.drive_folder_upload_outlined),
+                label: const Text('Chọn thư mục'),
               ),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: () => _chooseProjectAndSetup(context),
-                  icon: const Icon(Icons.drive_folder_upload_outlined),
-                  label: const Text('Chọn thư mục'),
+            ),
+            const SizedBox(height: 16),
+            const _PanelTitle(
+              icon: Icons.handyman_outlined,
+              title: 'Công cụ dự án',
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                key: const Key('project-tool-plan-studio'),
+                onPressed: () => showPlanStudio(
+                  context,
+                  projectPath: controller.project.value?.path,
                 ),
+                icon: const Icon(Icons.view_kanban_outlined),
+                label: const Text('Plan Studio · Công việc'),
               ),
-              const SizedBox(height: 16),
-              const _PanelTitle(
-                icon: Icons.handyman_outlined,
-                title: 'Công cụ dự án',
-              ),
-              const SizedBox(height: 8),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  key: const Key('project-tool-plan-studio'),
-                  onPressed: () => showPlanStudio(
-                    context,
-                    projectPath: controller.project.value?.path,
-                  ),
-                  icon: const Icon(Icons.view_kanban_outlined),
-                  label: const Text('Plan Studio · Công việc'),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                key: const Key('project-tool-qa-desk'),
+                onPressed: () => showQaDesk(
+                  context,
+                  projectPath: controller.project.value?.path,
                 ),
+                icon: const Icon(Icons.science_outlined),
+                label: const Text('QA Desk · Kiểm thử'),
               ),
-              const SizedBox(height: 8),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  key: const Key('project-tool-qa-desk'),
-                  onPressed: () => showQaDesk(
-                    context,
-                    projectPath: controller.project.value?.path,
-                  ),
-                  icon: const Icon(Icons.science_outlined),
-                  label: const Text('QA Desk · Kiểm thử'),
-                ),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                key: const Key('project-tool-swift-desk'),
+                onPressed: () => showSwiftDesk(context),
+                icon: const Icon(Icons.connected_tv_outlined),
+                label: const Text('SwiftDesk · Điều khiển máy tính'),
               ),
-              const SizedBox(height: 8),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  key: const Key('project-tool-swift-desk'),
-                  onPressed: () => showSwiftDesk(context),
-                  icon: const Icon(Icons.connected_tv_outlined),
-                  label: const Text('SwiftDesk · Điều khiển máy tính'),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Obx(() {
-                final project = controller.project.value;
-                final error = controller.projectError.value;
+            ),
+            const SizedBox(height: 12),
+            Obx(() {
+              final project = controller.project.value;
+              final error = controller.projectError.value;
 
-                if (controller.isLoadingProject.value) {
-                  return const LinearProgressIndicator();
-                }
+              if (controller.isLoadingProject.value) {
+                return const LinearProgressIndicator();
+              }
 
-                if (project == null) {
-                  return Text(
-                    error.isEmpty ? 'Chưa chọn dự án' : error,
-                    style: TextStyle(
-                      color: error.isEmpty
-                          ? Theme.of(context).colorScheme.onSurfaceVariant
-                          : Theme.of(context).colorScheme.error,
+              if (project == null) {
+                return Text(
+                  error.isEmpty ? 'Chưa chọn dự án' : error,
+                  style: TextStyle(
+                    color: error.isEmpty
+                        ? Theme.of(context).colorScheme.onSurfaceVariant
+                        : Theme.of(context).colorScheme.error,
+                  ),
+                );
+              }
+
+              return _ProjectSummary(project: project);
+            }),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                const Expanded(
+                  child: _PanelTitle(
+                    icon: Icons.history_outlined,
+                    title: 'Gần đây',
+                  ),
+                ),
+                Obx(() {
+                  final count = controller.recentPaths.length;
+                  if (count == 0) return const SizedBox.shrink();
+                  return Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 7,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppCyberTheme.palette.surfaceHighest.withValues(
+                        alpha: 0.7,
+                      ),
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(color: AppCyberTheme.palette.line),
+                    ),
+                    child: Text(
+                      '$count',
+                      style: AppCyberTheme.dataTextStyle(
+                        size: 10.2,
+                        color: AppCyberTheme.textMuted,
+                        weight: FontWeight.w700,
+                      ),
                     ),
                   );
-                }
+                }),
+              ],
+            ),
+            const SizedBox(height: 8),
+          ],
+        );
 
-                return _ProjectSummary(project: project);
-              }),
-              const SizedBox(height: 20),
-              const _PanelTitle(icon: Icons.history_outlined, title: 'Gần đây'),
-              const SizedBox(height: 8),
-              if (hasBoundedHeight)
-                const Expanded(child: _RecentProjectsList())
-              else
+        if (!hasBoundedHeight) {
+          return _Panel(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                header,
                 const SizedBox(height: 420, child: _RecentProjectsList()),
+              ],
+            ),
+          );
+        }
+
+        // The recent list takes whatever height the header leaves. A large
+        // display scale or a busy project summary can leave almost nothing,
+        // so the list keeps a minimum height and the whole panel scrolls.
+        return _Panel(
+          child: CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(child: header),
+              SliverLayoutBuilder(
+                builder: (context, constraints) {
+                  final remaining =
+                      constraints.viewportMainAxisExtent -
+                      constraints.precedingScrollExtent;
+                  return SliverToBoxAdapter(
+                    child: SizedBox(
+                      height: math.max(remaining, _recentProjectsMinHeight),
+                      child: const _RecentProjectsList(),
+                    ),
+                  );
+                },
+              ),
             ],
           ),
         );
@@ -120,41 +183,114 @@ class _RecentProjectsList extends StatefulWidget {
 
 class _RecentProjectsListState extends State<_RecentProjectsList> {
   final _scrollController = ScrollController();
+  final _filterController = TextEditingController();
+  String _query = '';
 
   HomeController get controller => Get.find<HomeController>();
 
   @override
   void dispose() {
     _scrollController.dispose();
+    _filterController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Obx(() {
-      if (controller.recentPaths.isEmpty) {
-        return const Center(child: Text('Chưa lưu dự án nào'));
+      final allPaths = controller.recentPaths;
+      if (allPaths.isEmpty) {
+        return Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.folder_off_outlined,
+                size: 24,
+                color: AppCyberTheme.textMuted.withValues(alpha: 0.6),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Chưa lưu dự án nào',
+                style: AppCyberTheme.uiTextStyle(
+                  size: 12,
+                  color: AppCyberTheme.textMuted,
+                ),
+              ),
+            ],
+          ),
+        );
       }
 
-      return Scrollbar(
-        controller: _scrollController,
-        thumbVisibility: true,
-        child: ListView.separated(
-          controller: _scrollController,
-          padding: const EdgeInsets.only(right: 10, bottom: 4),
-          itemCount: controller.recentPaths.length,
-          separatorBuilder: (context, index) => const SizedBox(height: 8),
-          itemBuilder: (context, index) {
-            final path = controller.recentPaths[index];
-            return _RecentProjectTile(path: path);
-          },
-        ),
+      final q = _query.trim().toLowerCase();
+      final filteredPaths = q.isEmpty
+          ? allPaths
+          : allPaths
+                .where((path) => path.toLowerCase().contains(q))
+                .toList(growable: false);
+
+      return Column(
+        children: [
+          if (allPaths.length > 3) ...[
+            TextField(
+              controller: _filterController,
+              onChanged: (value) => setState(() => _query = value),
+              decoration: InputDecoration(
+                hintText: 'Lọc dự án gần đây\u2026',
+                prefixIcon: const Icon(Icons.search_outlined, size: 16),
+                suffixIcon: _query.isEmpty
+                    ? null
+                    : IconButton(
+                        tooltip: 'Xoá bộ lọc',
+                        visualDensity: VisualDensity.compact,
+                        onPressed: () {
+                          _filterController.clear();
+                          setState(() => _query = '');
+                        },
+                        icon: const Icon(Icons.close, size: 15),
+                      ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+          Expanded(
+            child: filteredPaths.isEmpty
+                ? Center(
+                    child: Text(
+                      'Không khớp dự án nào',
+                      style: AppCyberTheme.uiTextStyle(
+                        size: 12,
+                        color: AppCyberTheme.textMuted,
+                      ),
+                    ),
+                  )
+                : Scrollbar(
+                    controller: _scrollController,
+                    thumbVisibility: true,
+                    child: ListView.separated(
+                      controller: _scrollController,
+                      padding: const EdgeInsets.only(right: 10, bottom: 4),
+                      itemCount: filteredPaths.length,
+                      separatorBuilder: (context, index) =>
+                          const SizedBox(height: 8),
+                      itemBuilder: (context, index) {
+                        final path = filteredPaths[index];
+                        return _RecentProjectTile(path: path);
+                      },
+                    ),
+                  ),
+          ),
+        ],
       );
     });
   }
 }
 
-enum _RecentProjectAction { remove }
+enum _RecentProjectAction { copyPath, remove }
 
 class _RecentProjectTile extends GetView<HomeController> {
   const _RecentProjectTile({required this.path});
@@ -166,25 +302,49 @@ class _RecentProjectTile extends GetView<HomeController> {
     return Obx(() {
       final selected =
           controller.project.value?.path.toLowerCase() == path.toLowerCase();
+      final palette = AppCyberTheme.palette;
 
       return GestureDetector(
         onSecondaryTapDown: (details) => _showContextMenu(context, details),
         child: Material(
           color: Colors.transparent,
           child: InkWell(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(9),
             onTap: () => controller.loadProject(path),
             child: _HudCardShell(
               active: selected,
               pulse: false,
+              padding: const EdgeInsets.fromLTRB(10, 8, 4, 8),
               child: Row(
                 children: [
-                  Icon(
-                    selected ? Icons.check_circle : Icons.folder,
-                    size: 20,
-                    color: selected
-                        ? AppCyberTheme.neonGreen
-                        : AppCyberTheme.electricBlue.withValues(alpha: 0.82),
+                  Container(
+                    width: 30,
+                    height: 30,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color:
+                          (selected
+                                  ? AppCyberTheme.neonGreen
+                                  : AppCyberTheme.electricBlue)
+                              .withValues(alpha: 0.14),
+                      borderRadius: BorderRadius.circular(7),
+                      border: Border.all(
+                        color:
+                            (selected
+                                    ? AppCyberTheme.neonGreen
+                                    : AppCyberTheme.electricBlue)
+                                .withValues(alpha: 0.36),
+                      ),
+                    ),
+                    child: Icon(
+                      selected
+                          ? Icons.check_circle_rounded
+                          : Icons.folder_outlined,
+                      size: 17,
+                      color: selected
+                          ? AppCyberTheme.neonGreen
+                          : AppCyberTheme.electricBlue,
+                    ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -197,23 +357,38 @@ class _RecentProjectTile extends GetView<HomeController> {
                           overflow: TextOverflow.ellipsis,
                           style: Theme.of(context).textTheme.labelLarge,
                         ),
+                        const SizedBox(height: 1),
                         Text(
                           path,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: AppCyberTheme.dataTextStyle(
-                            size: 10.8,
+                            size: 10.6,
                             color: AppCyberTheme.textMuted,
                           ),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(width: 6),
-                  Icon(
-                    Icons.more_vert,
-                    size: 16,
-                    color: AppCyberTheme.textMuted.withValues(alpha: 0.72),
+                  PopupMenuButton<_RecentProjectAction>(
+                    tooltip: 'Tác vụ dự án',
+                    padding: EdgeInsets.zero,
+                    iconSize: 16,
+                    color: AppCyberTheme.panelBackgroundStrong.withValues(
+                      alpha: 0.98,
+                    ),
+                    surfaceTintColor: Colors.transparent,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      side: BorderSide(color: palette.cardBorder),
+                    ),
+                    onSelected: _handleAction,
+                    itemBuilder: (_) => _menuItems,
+                    icon: Icon(
+                      Icons.more_vert,
+                      size: 16,
+                      color: AppCyberTheme.textMuted.withValues(alpha: 0.8),
+                    ),
                   ),
                 ],
               ),
@@ -222,6 +397,38 @@ class _RecentProjectTile extends GetView<HomeController> {
         ),
       );
     });
+  }
+
+  static const _menuItems = <PopupMenuEntry<_RecentProjectAction>>[
+    PopupMenuItem(
+      value: _RecentProjectAction.copyPath,
+      child: Row(
+        children: [
+          Icon(Icons.content_copy_outlined, size: 17),
+          SizedBox(width: 10),
+          Text('Sao chép đường dẫn'),
+        ],
+      ),
+    ),
+    PopupMenuItem(
+      value: _RecentProjectAction.remove,
+      child: Row(
+        children: [
+          Icon(Icons.remove_circle_outline, size: 17),
+          SizedBox(width: 10),
+          Text('Bỏ khỏi danh sách gần đây'),
+        ],
+      ),
+    ),
+  ];
+
+  Future<void> _handleAction(_RecentProjectAction action) async {
+    switch (action) {
+      case _RecentProjectAction.copyPath:
+        await Clipboard.setData(ClipboardData(text: path));
+      case _RecentProjectAction.remove:
+        await controller.removeRecentProject(path);
+    }
   }
 
   Future<void> _showContextMenu(
@@ -235,30 +442,17 @@ class _RecentProjectTile extends GetView<HomeController> {
         Rect.fromPoints(details.globalPosition, details.globalPosition),
         Offset.zero & overlay.size,
       ),
-      color: AppCyberTheme.panelBackgroundStrong.withValues(alpha: 0.96),
+      color: AppCyberTheme.panelBackgroundStrong.withValues(alpha: 0.98),
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
-        side: BorderSide(
-          color: AppCyberTheme.palette.cardBorder,
-        ),
+        side: BorderSide(color: AppCyberTheme.palette.cardBorder),
       ),
-      items: const [
-        PopupMenuItem(
-          value: _RecentProjectAction.remove,
-          child: Row(
-            children: [
-              Icon(Icons.remove_circle_outline, size: 18),
-              SizedBox(width: 10),
-              Text('Bỏ khỏi danh sách gần đây'),
-            ],
-          ),
-        ),
-      ],
+      items: _menuItems,
     );
 
-    if (action == _RecentProjectAction.remove) {
-      await controller.removeRecentProject(path);
+    if (action != null) {
+      await _handleAction(action);
     }
   }
 }
@@ -270,31 +464,69 @@ class _ProjectSummary extends GetView<HomeController> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = AppCyberTheme.palette;
     return _HudCardShell(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            project.name,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.titleMedium,
+          Row(
+            children: [
+              Container(
+                width: 28,
+                height: 28,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: palette.accent.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(7),
+                  border: Border.all(
+                    color: palette.accent.withValues(alpha: 0.36),
+                  ),
+                ),
+                child: Icon(
+                  Icons.widgets_outlined,
+                  size: 16,
+                  color: palette.accent,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  project.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ),
+              IconButton(
+                tooltip: 'Sao chép đường dẫn dự án',
+                visualDensity: VisualDensity.compact,
+                onPressed: () =>
+                    Clipboard.setData(ClipboardData(text: project.path)),
+                icon: const Icon(Icons.content_copy_outlined, size: 15),
+              ),
+            ],
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 5),
           Text(
             project.path,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: AppCyberTheme.dataTextStyle(
-              size: 11.2,
+              size: 11,
               color: AppCyberTheme.textMuted,
             ),
           ),
           const SizedBox(height: 10),
           Wrap(
-            spacing: 8,
-            runSpacing: 8,
+            spacing: 6,
+            runSpacing: 6,
             children: [
+              if (project.pubspecVersion != null)
+                _MetaChip(
+                  icon: Icons.sell_outlined,
+                  label: project.pubspecVersion!,
+                  highlighted: true,
+                ),
               _MetaChip(
                 icon: Icons.terminal_outlined,
                 label: '${project.scripts.length} auto tools',
@@ -303,11 +535,6 @@ class _ProjectSummary extends GetView<HomeController> {
                 _MetaChip(
                   icon: Icons.alt_route_outlined,
                   label: '${project.fastlaneLanes.length} lane Fastlane',
-                ),
-              if (project.pubspecVersion != null)
-                _MetaChip(
-                  icon: Icons.sell_outlined,
-                  label: project.pubspecVersion!,
                 ),
               if (project.hasPlayReleaseTools)
                 const _MetaChip(icon: Icons.android_outlined, label: 'CH Play'),
@@ -404,9 +631,7 @@ Future<_ProjectStoreSetupSelection?> _showProjectSetupSelectionDialog(
             surfaceTintColor: Colors.transparent,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),
-              side: BorderSide(
-                color: AppCyberTheme.palette.cardBorder,
-              ),
+              side: BorderSide(color: AppCyberTheme.palette.cardBorder),
             ),
             title: const _PanelTitle(
               icon: Icons.add_task_outlined,

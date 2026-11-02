@@ -1,6 +1,6 @@
 # AMC — Kế hoạch Feature Analytics
 
-Ngày: 20/10/2026. Trạng thái: đã triển khai lát cắt pilot `bundle.check` trong code; xem [phạm vi, giới hạn và cách chạy pilot](feature-analytics-pilot.md). Các phần còn lại bên dưới là kế hoạch tổng thể, chưa phải toàn bộ đã hoàn thành.
+Ngày: 20/10/2026. Trạng thái: đã triển khai pilot `bundle.check` và mở rộng tracking phase 2 sang Release, Plan Studio, QA Desk, API Tools trong code; xem [phạm vi phase 2 và thứ tự phát hành](feature-analytics-phase2.md). Chưa triển khai production. Các phần bên dưới là kế hoạch tổng thể, chưa phải toàn bộ đã hoàn thành.
 
 ## 1. Mục tiêu và phạm vi đề xuất
 
@@ -214,6 +214,6 @@ Không tự động loại bỏ theo ngưỡng. Đọc thêm giá trị nghiệp
 - Instrument navigation tại shell/command palette và màn hình module; instrument operation ở controller/service sở hữu kết quả. Không thêm logging ở mọi widget/button một cách máy móc.
 - Thêm `cloudflare/amc-api/src/analytics.ts`, routes, migration tiếp theo còn trống và test tương ứng; không cố định migration number khi đang có thay đổi khác trong workspace.
 - Tách policy xử lý lỗi telemetry khỏi callback logout của client HTTP hiện tại; reuse transport/auth có kiểm soát.
-- Thêm test cho event semantics, outbox, đồng bộ, auth scope và phép tính dashboard. Kế hoạch này chưa triển khai các thay đổi trên.
+- Thêm test cho event semantics, outbox, đồng bộ, auth scope và phép tính dashboard. Phạm vi thực tế đã triển khai được cập nhật trong tài liệu pilot và phase 2.
 
 **Điểm khởi đầu đề xuất:** hoàn thành đường đo `bundle.check` từ thao tác đến dashboard, kiểm chứng offline/retry/duplicate, rồi nhân rộng cùng mẫu cho các tính năng khác.

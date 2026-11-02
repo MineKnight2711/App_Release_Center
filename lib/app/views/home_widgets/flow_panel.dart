@@ -77,20 +77,74 @@ class _FlowPanelState extends State<_FlowPanel>
 
   @override
   Widget build(BuildContext context) {
+    final controller = Get.find<HomeController>();
     return _Panel(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const _FlowPanelHeader(),
-          const SizedBox(height: 8),
-          TabBar(
-            controller: _tabs,
-            tabs: const [
-              Tab(icon: Icon(Icons.shop_two_outlined), text: 'Bản trên store'),
-              Tab(icon: Icon(Icons.schema_outlined), text: 'Luồng Fastlane'),
-              Tab(icon: Icon(Icons.alt_route_outlined), text: 'Lệnh Fastlane'),
-            ],
-          ),
+          const SizedBox(height: 10),
+          Obx(() {
+            final selected = controller.project.value;
+            final storeCount = selected == null
+                ? 0
+                : controller.chPlayProjects
+                          .where(
+                            (item) =>
+                                _sameStoreProjectPath(item.path, selected.path),
+                          )
+                          .length +
+                      controller.appStoreProjects
+                          .where(
+                            (item) =>
+                                _sameStoreProjectPath(item.path, selected.path),
+                          )
+                          .length;
+            final scriptCount = selected?.scripts.length ?? 0;
+            final laneCount = selected?.fastlaneLanes.length ?? 0;
+
+            return Container(
+              padding: const EdgeInsets.all(3),
+              decoration: BoxDecoration(
+                color: AppCyberTheme.palette.base.withValues(
+                  alpha: AppCyberTheme.palette.isDark ? 0.48 : 0.72,
+                ),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: AppCyberTheme.palette.line.withValues(alpha: 0.7),
+                ),
+              ),
+              child: TabBar(
+                controller: _tabs,
+                tabs: [
+                  Tab(
+                    height: 36,
+                    child: _FlowTabHeader(
+                      icon: Icons.shop_two_outlined,
+                      label: 'Bản trên store',
+                      count: storeCount,
+                    ),
+                  ),
+                  Tab(
+                    height: 36,
+                    child: _FlowTabHeader(
+                      icon: Icons.schema_outlined,
+                      label: 'Luồng Fastlane',
+                      count: scriptCount,
+                    ),
+                  ),
+                  Tab(
+                    height: 36,
+                    child: _FlowTabHeader(
+                      icon: Icons.alt_route_outlined,
+                      label: 'Lệnh Fastlane',
+                      count: laneCount,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
           const SizedBox(height: 10),
           Expanded(
             child: TabBarView(
@@ -104,6 +158,59 @@ class _FlowPanelState extends State<_FlowPanel>
           ),
         ],
       ),
+    );
+  }
+}
+
+class _FlowTabHeader extends StatelessWidget {
+  const _FlowTabHeader({
+    required this.icon,
+    required this.label,
+    required this.count,
+  });
+
+  final IconData icon;
+  final String label;
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = AppCyberTheme.palette;
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 16),
+        const SizedBox(width: 6),
+        Flexible(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        if (count > 0) ...[
+          const SizedBox(width: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+            decoration: BoxDecoration(
+              color: palette.accent.withValues(alpha: 0.16),
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(
+                color: palette.accent.withValues(alpha: 0.36),
+              ),
+            ),
+            child: Text(
+              '$count',
+              style: AppCyberTheme.dataTextStyle(
+                size: 10,
+                color: palette.isDark ? palette.accent : palette.textPrimary,
+                weight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ],
     );
   }
 }
@@ -795,14 +902,19 @@ class _AutomationMenuButton extends GetView<HomeController> {
         onSelected: onSelected,
         position: PopupMenuPosition.under,
         offset: const Offset(0, 8),
-        color: AppCyberTheme.panelBackgroundStrong.withValues(alpha: 0.96),
+        color: AppCyberTheme.panelBackgroundStrong.withValues(alpha: 0.98),
         surfaceTintColor: Colors.transparent,
-        constraints: const BoxConstraints(minWidth: 280, maxWidth: 360),
+        constraints: const BoxConstraints(minWidth: 296, maxWidth: 368),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-          side: BorderSide(color: AppCyberTheme.palette.cardBorder),
+          borderRadius: BorderRadius.circular(10),
+          side: BorderSide(color: AppCyberTheme.palette.dialogBorder),
         ),
         itemBuilder: (context) => [
+          const PopupMenuItem(
+            enabled: false,
+            height: 28,
+            child: _MenuSectionHeader(title: 'CÔNG CỤ & MODULE'),
+          ),
           const PopupMenuItem(
             value: _AutomationMenuAction.apiTool,
             child: _ExtendedMenuItem(
@@ -860,6 +972,11 @@ class _AutomationMenuButton extends GetView<HomeController> {
             ),
           ),
           const PopupMenuDivider(),
+          const PopupMenuItem(
+            enabled: false,
+            height: 28,
+            child: _MenuSectionHeader(title: 'TÁC VỤ KỸ THUẬT & GIT'),
+          ),
           PopupMenuItem(
             value: _AutomationMenuAction.cloneAndroidCicd,
             enabled: projectActionsEnabled,
@@ -929,15 +1046,34 @@ class _AutomationMenuButton extends GetView<HomeController> {
           width: 36,
           alignment: Alignment.center,
           decoration: BoxDecoration(
+            color: AppCyberTheme.palette.surfaceHighest.withValues(alpha: 0.45),
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
-              color: AppCyberTheme.lineBlue.withValues(alpha: 0.5),
+              color: AppCyberTheme.palette.lineStrong.withValues(alpha: 0.75),
             ),
           ),
-          child: const Icon(Icons.more_horiz, size: 18),
+          child: const Icon(Icons.apps_rounded, size: 18),
         ),
       );
     });
+  }
+}
+
+class _MenuSectionHeader extends StatelessWidget {
+  const _MenuSectionHeader({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      title,
+      style: AppCyberTheme.uiTextStyle(
+        size: 10.2,
+        color: AppCyberTheme.palette.accent,
+        weight: FontWeight.w800,
+      ).copyWith(letterSpacing: 0.7),
+    );
   }
 }
 
@@ -1056,39 +1192,53 @@ class _ExtendedMenuItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(top: 1),
-          child: Icon(icon, size: 18),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                title,
-                style: AppCyberTheme.dataTextStyle(
-                  size: 11.8,
-                  color: AppCyberTheme.textPrimary,
-                  weight: FontWeight.w700,
-                ),
+    final palette = AppCyberTheme.palette;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            width: 30,
+            height: 30,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: palette.accent.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(7),
+              border: Border.all(
+                color: palette.accent.withValues(alpha: 0.28),
               ),
-              const SizedBox(height: 2),
-              Text(
-                subtitle,
-                style: AppCyberTheme.dataTextStyle(
-                  size: 10.5,
-                  color: AppCyberTheme.textMuted,
-                ),
-              ),
-            ],
+            ),
+            child: Icon(icon, size: 16, color: palette.accent),
           ),
-        ),
-      ],
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  title,
+                  style: AppCyberTheme.uiTextStyle(
+                    size: 12.2,
+                    color: AppCyberTheme.textPrimary,
+                    weight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 1),
+                Text(
+                  subtitle,
+                  style: AppCyberTheme.uiTextStyle(
+                    size: 11,
+                    color: AppCyberTheme.textMuted,
+                    weight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1101,19 +1251,25 @@ class _CicdFlowGrid extends GetView<HomeController> {
     return Obx(() {
       final project = controller.project.value;
       if (project == null) {
-        return const Center(child: Text('Chọn một dự án'));
+        return const _StoreVersionsEmptyState(
+          icon: Icons.folder_open_outlined,
+          message: 'Chọn một dự án',
+        );
       }
 
       if (project.scripts.isEmpty) {
-        return const Center(child: Text('Không tìm thấy auto tool nào'));
+        return const _StoreVersionsEmptyState(
+          icon: Icons.terminal_outlined,
+          message: 'Không tìm thấy auto tool nào',
+        );
       }
 
       return GridView.builder(
         padding: EdgeInsets.zero,
         itemCount: project.scripts.length,
         gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-          maxCrossAxisExtent: 220,
-          mainAxisExtent: 148,
+          maxCrossAxisExtent: 235,
+          mainAxisExtent: 152,
           crossAxisSpacing: 10,
           mainAxisSpacing: 10,
         ),
@@ -1135,6 +1291,7 @@ class _ScriptCard extends GetView<HomeController> {
     return Obx(() {
       final isRunning = controller.runner.isBusy;
       final isActive = controller.runner.activeScriptPath.value == script.path;
+      final accent = _colorFor(script.kind);
 
       return _HudCardShell(
         active: isActive,
@@ -1143,8 +1300,20 @@ class _ScriptCard extends GetView<HomeController> {
           children: [
             Row(
               children: [
-                Icon(_iconFor(script.kind), size: 20),
-                const SizedBox(width: 8),
+                Container(
+                  width: 30,
+                  height: 30,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: accent.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(7),
+                    border: Border.all(
+                      color: accent.withValues(alpha: 0.35),
+                    ),
+                  ),
+                  child: Icon(_iconFor(script.kind), size: 17, color: accent),
+                ),
+                const SizedBox(width: 9),
                 Expanded(
                   child: Text(
                     script.label,
@@ -1160,20 +1329,35 @@ class _ScriptCard extends GetView<HomeController> {
               script.description,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.bodySmall,
+              style: AppCyberTheme.uiTextStyle(
+                size: 11.8,
+                color: AppCyberTheme.textMuted,
+              ),
             ),
             const Spacer(),
             Row(
               children: [
                 Expanded(
-                  child: Text(
-                    script.fileName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppCyberTheme.dataTextStyle(
-                      size: 10.8,
-                      color: AppCyberTheme.textMuted,
-                      weight: FontWeight.w600,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 7,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppCyberTheme.palette.base.withValues(
+                        alpha: AppCyberTheme.palette.isDark ? 0.42 : 0.65,
+                      ),
+                      borderRadius: BorderRadius.circular(5),
+                    ),
+                    child: Text(
+                      script.fileName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppCyberTheme.dataTextStyle(
+                        size: 10.6,
+                        color: AppCyberTheme.textMuted,
+                        weight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ),
@@ -1196,7 +1380,7 @@ class _ScriptCard extends GetView<HomeController> {
                           height: 18,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Icon(Icons.play_arrow),
+                      : const Icon(Icons.play_arrow_rounded),
                 ),
               ],
             ),
@@ -1204,6 +1388,19 @@ class _ScriptCard extends GetView<HomeController> {
         ),
       );
     });
+  }
+
+  Color _colorFor(ReleaseScriptKind kind) {
+    final palette = AppCyberTheme.palette;
+    return switch (kind) {
+      ReleaseScriptKind.release => palette.accent,
+      ReleaseScriptKind.deploy => palette.success,
+      ReleaseScriptKind.versionCode ||
+      ReleaseScriptKind.versionName => palette.warning,
+      ReleaseScriptKind.commit || ReleaseScriptKind.merge => palette.info,
+      ReleaseScriptKind.imageValidation => palette.accentAlt,
+      ReleaseScriptKind.shell || ReleaseScriptKind.dartTool => palette.accent,
+    };
   }
 
   IconData _iconFor(ReleaseScriptKind kind) {

@@ -8,19 +8,25 @@ class _FastlanePanel extends GetView<HomeController> {
     return Obx(() {
       final project = controller.project.value;
       if (project == null) {
-        return const Center(child: Text('Chọn một dự án'));
+        return const _StoreVersionsEmptyState(
+          icon: Icons.folder_open_outlined,
+          message: 'Chọn một dự án',
+        );
       }
 
       if (project.fastlaneLanes.isEmpty) {
-        return const Center(child: Text('Không tìm thấy lane Fastlane nào'));
+        return const _StoreVersionsEmptyState(
+          icon: Icons.alt_route_outlined,
+          message: 'Không tìm thấy lane Fastlane nào',
+        );
       }
 
       return GridView.builder(
         padding: EdgeInsets.zero,
         itemCount: project.fastlaneLanes.length,
         gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-          maxCrossAxisExtent: 240,
-          mainAxisExtent: 148,
+          maxCrossAxisExtent: 245,
+          mainAxisExtent: 152,
           crossAxisSpacing: 10,
           mainAxisSpacing: 10,
         ),
@@ -42,6 +48,12 @@ class _FastlaneLaneCard extends GetView<HomeController> {
     return Obx(() {
       final isRunning = controller.runner.isBusy;
       final isActive = controller.runner.activeScriptPath.value == lane.key;
+      final palette = AppCyberTheme.palette;
+      final accent = lane.platform == 'ios'
+          ? palette.info
+          : lane.platform == 'android'
+          ? palette.success
+          : palette.accent;
 
       return _HudCardShell(
         active: isActive,
@@ -50,8 +62,26 @@ class _FastlaneLaneCard extends GetView<HomeController> {
           children: [
             Row(
               children: [
-                const Icon(Icons.alt_route_outlined, size: 20),
-                const SizedBox(width: 8),
+                Container(
+                  width: 30,
+                  height: 30,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: accent.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(7),
+                    border: Border.all(color: accent.withValues(alpha: 0.35)),
+                  ),
+                  child: Icon(
+                    lane.platform == 'ios'
+                        ? Icons.apple
+                        : lane.platform == 'android'
+                        ? Icons.android_outlined
+                        : Icons.alt_route_outlined,
+                    size: 17,
+                    color: accent,
+                  ),
+                ),
+                const SizedBox(width: 9),
                 Expanded(
                   child: Text(
                     lane.label,
@@ -67,20 +97,35 @@ class _FastlaneLaneCard extends GetView<HomeController> {
               lane.summary,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.bodySmall,
+              style: AppCyberTheme.uiTextStyle(
+                size: 11.8,
+                color: AppCyberTheme.textMuted,
+              ),
             ),
             const Spacer(),
             Row(
               children: [
                 Expanded(
-                  child: Text(
-                    lane.command,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppCyberTheme.dataTextStyle(
-                      size: 10.8,
-                      color: AppCyberTheme.textMuted,
-                      weight: FontWeight.w600,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 7,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: palette.base.withValues(
+                        alpha: palette.isDark ? 0.42 : 0.65,
+                      ),
+                      borderRadius: BorderRadius.circular(5),
+                    ),
+                    child: Text(
+                      lane.command,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppCyberTheme.dataTextStyle(
+                        size: 10.6,
+                        color: AppCyberTheme.textMuted,
+                        weight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ),
@@ -97,7 +142,7 @@ class _FastlaneLaneCard extends GetView<HomeController> {
                           height: 18,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Icon(Icons.play_arrow),
+                      : const Icon(Icons.play_arrow_rounded),
                 ),
               ],
             ),

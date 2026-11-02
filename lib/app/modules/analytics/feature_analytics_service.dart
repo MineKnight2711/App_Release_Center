@@ -11,14 +11,37 @@ import '../../services/app_settings_service.dart';
 import '../../services/auth_service.dart';
 import 'analytics_outbox.dart';
 import 'analytics_transport.dart';
+import 'analytics_feature.dart';
+export 'analytics_feature.dart';
 
-enum AnalyticsSource { module, filePicker, drop, recheck }
-
-extension on AnalyticsSource {
-  String get wire => this == AnalyticsSource.filePicker ? 'file_picker' : name;
+enum AnalyticsSource {
+  module,
+  filePicker,
+  drop,
+  recheck,
+  retry,
+  quickAdd,
+  bulk,
+  editor,
 }
 
-enum AnalyticsFailure { inspection, tool, file, unexpected }
+extension on AnalyticsSource {
+  String get wire => switch (this) {
+    AnalyticsSource.filePicker => 'file_picker',
+    AnalyticsSource.quickAdd => 'quick_add',
+    _ => name,
+  };
+}
+
+enum AnalyticsFailure {
+  inspection,
+  tool,
+  file,
+  unexpected,
+  workflow,
+  storage,
+  network,
+}
 
 class AnalyticsOperation {
   AnalyticsOperation(
@@ -27,10 +50,12 @@ class AnalyticsOperation {
     this.team,
     this.source,
     this.generation,
+    this.feature,
   );
   final String id, owner, team;
   final AnalyticsSource source;
   final int generation;
+  final AnalyticsFeature feature;
   final watch = Stopwatch()..start();
   bool finished = false;
 }
@@ -179,20 +204,37 @@ class FeatureAnalyticsService extends GetxService {
     if (_activeDay == day) return;
     _activeDay = day;
     _record('app.active_day', profile, AnalyticsSource.module, feature: 'app');
-    _record('feature.eligible_day', profile, AnalyticsSource.module);
-  }
-
-  void opened() {
-    active();
-    final profile = auth.profile.value;
-    if (collecting && profile != null) {
-      _record('feature.opened', profile, AnalyticsSource.module);
+    for (final feature in AnalyticsFeature.values.where(
+      (f) => f.platforms.contains(platform),
+    )) {
+      _record(
+        'feature.eligible_day',
+        profile,
+        AnalyticsSource.module,
+        feature: feature.id,
+      );
     }
   }
 
-  AnalyticsOperation? begin(AnalyticsSource source) {
+  void opened({AnalyticsFeature feature = AnalyticsFeature.bundleCheck}) {
     active();
-    if (!collecting) return null;
+    final profile = auth.profile.value;
+    if (collecting && profile != null && feature.platforms.contains(platform)) {
+      _record(
+        'feature.opened',
+        profile,
+        AnalyticsSource.module,
+        feature: feature.id,
+      );
+    }
+  }
+
+  AnalyticsOperation? begin(
+    AnalyticsSource source, {
+    AnalyticsFeature feature = AnalyticsFeature.bundleCheck,
+  }) {
+    active();
+    if (!collecting || !feature.platforms.contains(platform)) return null;
     final profile = auth.profile.value!;
     final operation = AnalyticsOperation(
       _uuid.v4(),
@@ -200,8 +242,15 @@ class FeatureAnalyticsService extends GetxService {
       profile.teamId,
       source,
       _generation,
+      feature,
     );
-    _record('action.started', profile, source, operation: operation);
+    _record(
+      'action.started',
+      profile,
+      source,
+      operation: operation,
+      feature: feature.id,
+    );
     return operation;
   }
 
@@ -209,11 +258,37 @@ class FeatureAnalyticsService extends GetxService {
       _finish(operation, result: issuesFound ? 'issues_found' : 'passed');
   void fail(AnalyticsOperation? operation, AnalyticsFailure failure) =>
       _finish(operation, failure: failure);
+  void succeed(
+    AnalyticsOperation? operation, {
+    AnalyticsResult result = AnalyticsResult.succeeded,
+  }) => _finish(operation, result: result.wire);
+  void cancel(AnalyticsOperation? operation) =>
+      _finish(operation, cancelled: true);
+
+  /// Use at explicit business operations, never around autosave or polling.
+  Future<T> track<T>(
+    AnalyticsFeature feature,
+    Future<T> Function() action, {
+    AnalyticsSource source = AnalyticsSource.module,
+    AnalyticsResult result = AnalyticsResult.saved,
+    AnalyticsFailure failure = AnalyticsFailure.storage,
+  }) async {
+    final operation = begin(source, feature: feature);
+    try {
+      final value = await action();
+      succeed(operation, result: result);
+      return value;
+    } catch (_) {
+      fail(operation, failure);
+      rethrow;
+    }
+  }
 
   void _finish(
     AnalyticsOperation? operation, {
     String? result,
     AnalyticsFailure? failure,
+    bool cancelled = false,
   }) {
     if (operation == null || operation.finished) return;
     operation.finished = true;
@@ -227,12 +302,17 @@ class FeatureAnalyticsService extends GetxService {
       return;
     }
     _record(
-      failure == null ? 'action.completed' : 'action.failed',
+      cancelled
+          ? 'action.cancelled'
+          : failure == null
+          ? 'action.completed'
+          : 'action.failed',
       profile,
       operation.source,
       operation: operation,
       result: result,
       failure: failure,
+      feature: operation.feature.id,
     );
   }
 
@@ -248,7 +328,7 @@ class FeatureAnalyticsService extends GetxService {
     final generation = _generation;
     final now = _now().toUtc();
     final event = <String, Object?>{
-      'schema_version': 1,
+      'schema_version': 2,
       'event_id': _uuid.v4(),
       'team_id': profile.teamId,
       'occurred_at': now.toIso8601String(),
@@ -260,7 +340,7 @@ class FeatureAnalyticsService extends GetxService {
           : 'unknown',
       'source': source.wire,
       if (operation != null) 'operation_id': operation.id,
-      if (result != null || failure != null)
+      if (result != null || failure != null || name == 'action.cancelled')
         'duration_ms': operation!.watch.elapsedMilliseconds.clamp(0, 86400000),
       'result_category': ?result,
       if (failure != null) 'error_code': failure.name,

@@ -102,7 +102,9 @@ class _AnalyticsViewState extends State<AnalyticsView> {
           ? _number(a, 'uses').compareTo(_number(b, 'uses'))
           : _number(b, 'uses').compareTo(_number(a, 'uses'));
     });
-    final measured = rows.where((r) => r['tracked'] == true).length;
+    final measured = rows
+        .where((r) => r['tracked'] == true && r['applicable'] != false)
+        .length;
     final uses = rows.fold<int>(0, (n, r) => n + _number(r, 'uses'));
     return Scaffold(
       appBar: AppBar(
@@ -124,7 +126,7 @@ class _AnalyticsViewState extends State<AnalyticsView> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Pilot · Chỉ đo tài khoản đã bật chia sẻ thống kê. Ngày thống kê theo UTC.',
+            'Chỉ đo tài khoản đã bật chia sẻ thống kê trên phiên bản hỗ trợ. Ngày thống kê theo UTC.',
           ),
           const SizedBox(height: 20),
           Wrap(
@@ -256,7 +258,8 @@ class _AnalyticsViewState extends State<AnalyticsView> {
                   DataColumn(label: Text('Lượt dùng')),
                   DataColumn(label: Text('Thành công')),
                   DataColumn(label: Text('Lỗi')),
-                  DataColumn(label: Text('Chưa có kết quả')),
+                  DataColumn(label: Text('Đã hủy')),
+                  DataColumn(label: Text('Chờ kết quả / xác minh')),
                   DataColumn(label: Text('Quay lại')),
                 ],
                 rows: [
@@ -266,7 +269,9 @@ class _AnalyticsViewState extends State<AnalyticsView> {
                         DataCell(Text('${row['name']}')),
                         DataCell(
                           Text(
-                            row['tracked'] != true
+                            row['applicable'] == false
+                                ? 'Không áp dụng'
+                                : row['tracked'] != true
                                 ? 'Chưa gắn tracking'
                                 : _number(row, 'eligible_users') == 0
                                 ? 'Chưa đủ dữ liệu'
@@ -275,7 +280,7 @@ class _AnalyticsViewState extends State<AnalyticsView> {
                         ),
                         DataCell(
                           Text(
-                            row['tracked'] != true
+                            row['tracked'] != true || row['applicable'] == false
                                 ? '—'
                                 : '${row['users']} / ${row['eligible_users']}',
                           ),
@@ -293,11 +298,13 @@ class _AnalyticsViewState extends State<AnalyticsView> {
                           'uses',
                           'completed',
                           'failed',
+                          'cancelled',
                           'unresolved',
                         ])
                           DataCell(
                             Text(
-                              row['tracked'] == true
+                              row['tracked'] == true &&
+                                      row['applicable'] != false
                                   ? '${_number(row, field)}'
                                   : '—',
                             ),
@@ -317,11 +324,11 @@ class _AnalyticsViewState extends State<AnalyticsView> {
             ),
             const SizedBox(height: 20),
             const Text(
-              'Quay lại = thao tác trong ít nhất 2 ngày khác nhau. Chưa có kết quả gồm tác vụ đang chạy hoặc thiếu sự kiện kết thúc; không được coi là lỗi.',
+              'Quay lại = thao tác trong ít nhất 2 ngày khác nhau. Chờ kết quả gồm tác vụ đang chạy, thiếu sự kiện kết thúc hoặc upload iOS cần xác minh; không được coi là lỗi.',
             ),
             const SizedBox(height: 8),
             const Text(
-              'Kiểm tra AAB phát hiện vấn đề vẫn tính là công cụ chạy thành công. Chưa nên quyết định ngừng tính năng từ dữ liệu pilot.',
+              'AAB/QA phát hiện vấn đề và API nhận HTTP 4xx/5xx vẫn là thao tác công cụ hoàn thành. Lỗi chạy công cụ, hủy và chờ xác minh được thống kê riêng. Một batch QA hoặc tạo nhiều task được tính một lượt.',
             ),
             const SizedBox(height: 12),
             Text(

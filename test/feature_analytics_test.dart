@@ -23,6 +23,38 @@ import 'package:app_management_center/app/modules/bundle_check/models/bundle_che
 import 'package:app_management_center/app/modules/bundle_check/services/bundle_check_service.dart';
 import 'package:app_management_center/app/modules/bundle_check/services/bundle_check_store.dart';
 import 'package:app_management_center/app/modules/bundle_check/services/android_toolchain.dart';
+import 'package:app_management_center/app/modules/plan_studio/controllers/plan_board_controller.dart';
+import 'package:app_management_center/app/modules/plan_studio/controllers/plan_editor_controller.dart';
+import 'package:app_management_center/app/modules/plan_studio/repositories/local_plan_repository.dart';
+import 'package:app_management_center/app/modules/plan_studio/models/work_item.dart';
+import 'package:app_management_center/app/services/api_tool_service.dart';
+import 'package:app_management_center/app/models/api_tool.dart';
+import 'qa_desk_fakes.dart';
+
+class _ApiClient implements ApiToolHttpClient {
+  int status = 500;
+  bool fails = false;
+  bool cancel = false;
+  @override
+  Future<ApiToolResponse> send(
+    ApiToolRequest request, {
+    required Duration timeout,
+    ApiToolCancellationToken? cancelToken,
+  }) async {
+    if (cancel) cancelToken?.cancel();
+    if (fails || cancel) {
+      throw const ApiToolException('private request failure');
+    }
+    return ApiToolResponse(
+      statusCode: status,
+      reasonPhrase: 'Test',
+      headers: {},
+      body: 'private response',
+      bodyTruncated: false,
+      durationMs: 2,
+    );
+  }
+}
 
 class _NoProjects implements BundleProjectSource {
   @override
@@ -164,13 +196,22 @@ void main() {
       ); // second result ignored
       await service.settled;
       final before = await box.batch('user-a', now);
-      expect(before.map((e) => e['event_name']), [
-        'app.active_day',
-        'feature.eligible_day',
-        'feature.opened',
-        'action.started',
-        'action.completed',
-      ]);
+      expect(
+        before
+            .where(
+              (e) =>
+                  e['event_name'] != 'feature.eligible_day' ||
+                  e['feature_id'] == 'bundle.check',
+            )
+            .map((e) => e['event_name']),
+        [
+          'app.active_day',
+          'feature.eligible_day',
+          'feature.opened',
+          'action.started',
+          'action.completed',
+        ],
+      );
       final success = respond;
       respond = (r) => r.url.path.endsWith('/events')
           ? throw const SocketException('offline')
@@ -246,7 +287,8 @@ void main() {
           : success(r);
       await service.flush();
       expect(auth.profile.value!.uid, 'user-a');
-      expect(await box.batch('user-a', now), hasLength(3));
+      final queued = (await box.batch('user-a', now)).length;
+      expect(queued, greaterThanOrEqualTo(3));
       auth.profile.value = profile('user-a'); // reauthentication resumes
       respond = (r) {
         if (!r.url.path.endsWith('/events')) return success(r);
@@ -263,7 +305,7 @@ void main() {
         );
       };
       await service.flush();
-      expect(await box.batch('user-a', now), hasLength(1));
+      expect(await box.batch('user-a', now), hasLength(queued - 2));
       expect(service.rejected.value, 1);
     },
   );
@@ -351,6 +393,184 @@ void main() {
   });
 
   test(
+    'v2 eligibility follows platform and each operation keeps its feature',
+    () async {
+      service.start();
+      service.active();
+      service.active();
+      final first = service.begin(
+        AnalyticsSource.module,
+        feature: AnalyticsFeature.apiSend,
+      );
+      final second = service.begin(
+        AnalyticsSource.editor,
+        feature: AnalyticsFeature.planAiGenerate,
+      );
+      service.cancel(second);
+      service.succeed(first, result: AnalyticsResult.responseReceived);
+      service.fail(second, AnalyticsFailure.unexpected);
+      expect(
+        service.begin(
+          AnalyticsSource.module,
+          feature: AnalyticsFeature.iosBuild,
+        ),
+        isNull,
+      );
+      await service.settled;
+      final events = await box.batch('user-a', now);
+      final eligible = events.where(
+        (e) => e['event_name'] == 'feature.eligible_day',
+      );
+      expect(
+        eligible.map((e) => e['feature_id']).toSet(),
+        AnalyticsFeature.values
+            .where((f) => f.platforms.contains('windows'))
+            .map((f) => f.id)
+            .toSet(),
+      );
+      expect(
+        eligible.length,
+        eligible.map((e) => e['feature_id']).toSet().length,
+      );
+      expect(events.every((e) => e['schema_version'] == 2), isTrue);
+      expect(
+        events.singleWhere(
+          (e) => e['event_name'] == 'action.cancelled',
+        )['feature_id'],
+        'plan.ai_generate',
+      );
+      expect(
+        events.singleWhere(
+          (e) => e['event_name'] == 'action.completed',
+        )['feature_id'],
+        'api.send',
+      );
+      expect(events.where((e) => e['event_name'] == 'action.failed'), isEmpty);
+    },
+  );
+
+  test(
+    'Plan creates count explicit commits, not autosave or each item of a batch',
+    () async {
+      service.start();
+      final repository = await LocalPlanRepository.open(
+        path: '${temp.path}/plans.sqlite',
+      );
+      addTearDown(repository.close);
+      final project = await repository.ensureProject(temp.path);
+      final board = PlanBoardController(repository, analytics: service);
+      addTearDown(board.dispose);
+      final item = await board.create(
+        WorkItem(id: 'ticket', projectId: project.id, title: 'private ticket'),
+      );
+      final editor = PlanEditorController(repository, item, analytics: service);
+      addTearDown(editor.dispose);
+      editor.change((i) => i.body = 'private body');
+      expect(await editor.flush(), isTrue);
+      await board.createMany(
+        List.generate(
+          100,
+          (i) => WorkItem(
+            id: 'bulk-$i',
+            projectId: project.id,
+            title: 'private $i',
+          ),
+        ),
+      );
+      await board.createMany([]);
+      await service.settled;
+      final events = await box.batch('user-a', now);
+      expect(
+        events
+            .where((e) => e['event_name'] == 'action.started')
+            .map((e) => e['feature_id']),
+        ['plan.create', 'plan.bulk_create'],
+      );
+      expect(
+        events.where((e) => e['event_name'] == 'action.completed'),
+        hasLength(2),
+      );
+      expect(jsonEncode(events), isNot(contains('private')));
+    },
+  );
+
+  test(
+    'API tracks HTTP errors as responses, cancellation separately, and skips background sends',
+    () async {
+      service.start();
+      final client = _ApiClient();
+      final api = ApiToolService(httpClient: client, analytics: service);
+      final request = ApiToolRequest(
+        id: 'request',
+        name: 'private',
+        method: ApiToolMethod.get,
+        url: 'https://private.invalid',
+        updatedAt: now,
+      );
+      await api.send(request);
+      await api.sendInteractive(request);
+      client.fails = true;
+      await expectLater(
+        api.sendInteractive(request),
+        throwsA(isA<ApiToolException>()),
+      );
+      client.cancel = true;
+      await expectLater(
+        api.sendInteractive(request, cancelToken: ApiToolCancellationToken()),
+        throwsA(isA<ApiToolException>()),
+      );
+      await service.settled;
+      final events = await box.batch('user-a', now);
+      expect(
+        events.where((e) => e['event_name'] == 'action.started'),
+        hasLength(3),
+      );
+      expect(
+        events.singleWhere(
+          (e) => e['event_name'] == 'action.completed',
+        )['result_category'],
+        'response_received',
+      );
+      expect(
+        events.where((e) => e['event_name'] == 'action.failed'),
+        hasLength(1),
+      );
+      expect(
+        events.where((e) => e['event_name'] == 'action.cancelled'),
+        hasLength(1),
+      );
+      expect(jsonEncode(events), isNot(contains('private')));
+    },
+  );
+
+  test(
+    'QA counts a multi-suite batch once and reports test failures as results',
+    () async {
+      service.start();
+      final qa = fakeController(
+        runner: FakeRunner({'analyze': 0, 'unit': 1}),
+        sources: [appSource(path: temp.path)],
+      )..analytics = service;
+      addTearDown(qa.dispose);
+      await qa.initialize();
+      await qa.runSelected();
+      await service.settled;
+      final events = await box.batch('user-a', now);
+      expect(
+        events.where((e) => e['event_name'] == 'action.started'),
+        hasLength(1),
+      );
+      expect(
+        events.singleWhere(
+          (e) => e['event_name'] == 'action.completed',
+        )['result_category'],
+        'issues_found',
+      );
+      expect(events.where((e) => e['event_name'] == 'action.failed'), isEmpty);
+    },
+  );
+
+  test(
     'AAB controller records business outcomes without private report or file data',
     () async {
       service.start();
@@ -402,7 +622,7 @@ void main() {
         return http.Response(
           jsonEncode({
             'active_users': 1,
-            'coverage': 'Pilot coverage',
+            'coverage': 'AAB, Release, Plan Studio, QA Desk và API Tools.',
             'features': [
               {
                 'id': 'bundle.check',
@@ -417,7 +637,27 @@ void main() {
                 'unresolved': 0,
                 'returning_users': 0,
               },
-              {'id': 'qa.run', 'name': 'QA Desk', 'tracked': false},
+              {
+                'id': 'qa.run',
+                'name': 'QA Desk · chạy batch',
+                'tracked': true,
+                'users': 1,
+                'eligible_users': 3,
+                'uses': 3,
+                'opens': 2,
+                'completed': 1,
+                'failed': 0,
+                'cancelled': 1,
+                'unresolved': 1,
+                'returning_users': 0,
+              },
+              {
+                'id': 'release.ios.build',
+                'name': 'iOS · build IPA trên Mac',
+                'tracked': true,
+                'applicable': false,
+              },
+              {'id': 'safe.item_save', 'name': 'Safe', 'tracked': false},
             ],
           }),
           200,
@@ -458,6 +698,8 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.text('Chưa gắn tracking'), findsOneWidget);
+      expect(find.text('Không áp dụng'), findsOneWidget);
+      expect(find.text('Đã hủy'), findsOneWidget);
       expect(find.text('50.0%'), findsOneWidget);
       expect(queries.last, contains('team=team-a'));
       if (screenshotPath != null) {

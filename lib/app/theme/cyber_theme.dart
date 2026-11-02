@@ -177,27 +177,32 @@ class AppCyberTheme {
         elevation: 0,
         margin: EdgeInsets.zero,
         color: palette.panelStrong,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
       iconTheme: IconThemeData(
         color: palette.hasGlow ? palette.accent : palette.textMuted,
         size: 18,
       ),
       tabBarTheme: TabBarThemeData(
-        labelStyle: _uiText(scheme, size: 12, weight: FontWeight.w700),
-        unselectedLabelStyle: _uiText(scheme, size: 12, color: palette.textMuted),
+        labelStyle: _uiText(scheme, size: 12.2, weight: FontWeight.w700),
+        unselectedLabelStyle: _uiText(
+          scheme,
+          size: 12.2,
+          weight: FontWeight.w600,
+          color: palette.textMuted,
+        ),
         labelColor: palette.isDark ? palette.accent : palette.textPrimary,
         unselectedLabelColor: palette.textMuted,
         indicatorSize: TabBarIndicatorSize.tab,
         indicator: BoxDecoration(
-          borderRadius: BorderRadius.circular(6),
+          borderRadius: BorderRadius.circular(8),
           color: palette.isDark
-              ? palette.accent.withValues(alpha: 0.14)
-              : const Color(0xFFF1F3F6),
+              ? palette.accent.withValues(alpha: 0.15)
+              : const Color(0xFFEEF2F6),
           border: Border.all(
             color: palette.isDark
-                ? palette.accent.withValues(alpha: 0.45)
-                : palette.line,
+                ? palette.accent.withValues(alpha: 0.48)
+                : palette.lineStrong,
           ),
           boxShadow: palette.hasGlow
               ? [
@@ -342,7 +347,7 @@ class AppCyberTheme {
           ],
         },
       ),
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(10),
       border: Border.all(color: borderColor, width: 1),
       boxShadow: palette.hasGlow
           ? [
@@ -352,7 +357,15 @@ class AppCyberTheme {
                 spreadRadius: active ? -4 : -8,
               ),
             ]
-          : const [],
+          : [
+              BoxShadow(
+                color: Colors.black.withValues(
+                  alpha: palette.isDark ? 0.22 : 0.04,
+                ),
+                blurRadius: 12,
+                offset: const Offset(0, 3),
+              ),
+            ],
     );
   }
 
@@ -371,24 +384,26 @@ class AppCyberTheme {
               const Color(0xB3172433),
           ],
           AppThemeChoice.console => [
-            palette.panelStrong,
-            active ? palette.surfaceHighest : palette.panel,
+            active ? palette.surfaceHighest : palette.panelStrong,
+            active
+                ? palette.surfaceHighest.withValues(alpha: 0.92)
+                : palette.panel,
           ],
-          AppThemeChoice.defaultTheme => const [
-            Colors.white,
-            Colors.white,
+          AppThemeChoice.defaultTheme => [
+            active ? palette.accentSoft : const Color(0xFFFAFBFC),
+            active ? Colors.white : Colors.white,
           ],
         },
       ),
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(9),
       border: Border.all(
         color: active
             ? (palette.hasGlow
                 ? palette.accent.withValues(alpha: 0.88)
                 : palette.accent)
             : (palette.hasGlow
-                ? palette.accent.withValues(alpha: 0.3)
-                : palette.line),
+                ? palette.accent.withValues(alpha: 0.26)
+                : palette.line.withValues(alpha: palette.isDark ? 0.72 : 0.85)),
       ),
       boxShadow: [
         if (palette.hasGlow)
@@ -396,8 +411,31 @@ class AppCyberTheme {
             color: palette.accent.withValues(alpha: active ? 0.24 : 0.1),
             blurRadius: active ? 24 : 14,
             spreadRadius: active ? -3 : -8,
+          )
+        else if (active)
+          BoxShadow(
+            color: palette.accent.withValues(alpha: 0.12),
+            blurRadius: 10,
+            spreadRadius: -2,
           ),
       ],
+    );
+  }
+
+  static TextStyle uiTextStyle({
+    double size = 12.5,
+    Color? color,
+    FontWeight weight = FontWeight.w500,
+    double height = 1.35,
+  }) {
+    return TextStyle(
+      fontSize: size,
+      height: height,
+      letterSpacing: 0.15,
+      fontWeight: weight,
+      color: color ?? _activePalette.textPrimary,
+      fontFamily: 'Segoe UI Variable',
+      fontFamilyFallback: const ['Inter', 'Segoe UI', 'Roboto'],
     );
   }
 
@@ -453,7 +491,7 @@ class AppCyberTheme {
 
   static OutlineInputBorder _inputBorder(Color color) {
     return OutlineInputBorder(
-      borderRadius: BorderRadius.circular(6),
+      borderRadius: BorderRadius.circular(8),
       borderSide: BorderSide(color: color, width: 1),
     );
   }
@@ -474,7 +512,7 @@ class AppCyberTheme {
       minimumSize: WidgetStateProperty.all(minSize),
       padding: WidgetStateProperty.all(padding),
       shape: WidgetStateProperty.all(
-        RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+        RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
       foregroundColor: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.disabled)) {

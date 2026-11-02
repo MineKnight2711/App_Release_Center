@@ -30,7 +30,7 @@ function event(team: string, overrides: Record<string, unknown> = {}) {
 }
 const ingest = (p: Awaited<ReturnType<typeof principal>>, events: unknown[]) => call('POST', 'events', p.token, { expected_user_id: p.uid, events });
 
-describe('feature analytics pilot', () => {
+describe('feature analytics', () => {
   it('deduplicates retries and conflicting terminal events, including results arriving first', async () => {
     const p = await principal();
     const started = event(p.team);
@@ -42,7 +42,7 @@ describe('feature analytics pilot', () => {
     const report = await call('GET', `features?team=${p.team}&days=30`, p.token);
     expect(report.status).toBe(200);
     expect(report.body.features[0]).toMatchObject({ users: 1, uses: 1, completed: 1, failed: 0, unresolved: 0 });
-    expect(report.body.features[1]).toMatchObject({ tracked: false, uses: 0 });
+    expect(report.body.features.find((f: any) => f.id === 'safe.item_save')).toMatchObject({ tracked: false, uses: 0 });
   });
 
   it('rejects sensitive fields, invalid timestamps, scopes, and account switches without poisoning a batch', async () => {
@@ -92,5 +92,45 @@ describe('feature analytics pilot', () => {
     await env.DB.prepare('UPDATE analytics_events SET occurred_at=? WHERE event_id=?').bind(new Date(Date.now() - 100 * 86400000).toISOString(), started.event_id).run();
     await cleanupAnalytics(env);
     expect(await env.DB.prepare('SELECT 1 FROM analytics_events WHERE event_id=?').bind(started.event_id).first()).toBeNull();
+  });
+
+  it('validates phase 2 features, results and platforms while accepting pilot events', async () => {
+    const p = await principal();
+    const v2 = { schema_version: 2, feature_id: 'api.send', source: 'module' };
+    const response = await ingest(p, [
+      event(p.team),
+      event(p.team, v2),
+      event(p.team, { ...v2, schema_version: 1 }),
+      event(p.team, { ...v2, event_name: 'action.completed', duration_ms: 2, result_category: 'passed' }),
+      event(p.team, { ...v2, event_name: 'action.completed', duration_ms: 2, result_category: 'response_received' }),
+      event(p.team, { ...v2, feature_id: 'release.ios.build' }),
+      event(p.team, { ...v2, feature_id: 'release.ios.build', platform: 'macos' }),
+      event(p.team, { ...v2, feature_id: 'safe.item_save' }),
+    ]);
+    expect(response.body.ack.map((a: any) => a.status)).toEqual([
+      'accepted', 'accepted', 'rejected', 'rejected', 'accepted', 'rejected', 'accepted', 'rejected',
+    ]);
+    const features = (await call('GET', `features?team=${p.team}&platform=windows`, p.token)).body.features;
+    expect(features.find((f: any) => f.id === 'release.ios.build')).toMatchObject({ applicable: false, uses: 0 });
+    expect(features.find((f: any) => f.id === 'api.send')).toMatchObject({ tracking_version: 2, uses: 1 });
+  });
+
+  it('counts cancellations separately and rejects cross-feature or conflicting terminals', async () => {
+    const p = await principal();
+    const started = event(p.team, { schema_version: 2, feature_id: 'qa.run' });
+    const cancelled = { ...started, event_id: crypto.randomUUID(), event_name: 'action.cancelled', duration_ms: 15 };
+    expect((await ingest(p, [started, cancelled, cancelled])).body.ack.map((a: any) => a.status)).toEqual(['accepted', 'accepted', 'duplicate']);
+    const conflict = { ...cancelled, event_id: crypto.randomUUID(), event_name: 'action.completed', result_category: 'passed' };
+    expect((await ingest(p, [conflict, { ...started, event_id: crypto.randomUUID(), feature_id: 'api.send' }])).body.ack.map((a: any) => a.status)).toEqual(['rejected', 'rejected']);
+    const features = (await call('GET', `features?team=${p.team}`, p.token)).body.features;
+    expect(features.find((f: any) => f.id === 'qa.run')).toMatchObject({ uses: 1, completed: 0, failed: 0, cancelled: 1, unresolved: 0 });
+  });
+
+  it('keeps ambiguous iOS upload results unresolved instead of counting success', async () => {
+    const p = await principal();
+    const started = event(p.team, { schema_version: 2, feature_id: 'release.ios.upload', platform: 'macos' });
+    await ingest(p, [started, { ...started, event_id: crypto.randomUUID(), event_name: 'action.completed', duration_ms: 20, result_category: 'verification_required' }]);
+    const features = (await call('GET', `features?team=${p.team}`, p.token)).body.features;
+    expect(features.find((f: any) => f.id === 'release.ios.upload')).toMatchObject({ uses: 1, completed: 0, failed: 0, cancelled: 0, unresolved: 1 });
   });
 });

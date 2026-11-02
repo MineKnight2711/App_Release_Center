@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'analytics_test_recorder.dart';
 
 import 'package:app_management_center/app/models/ch_play_credentials.dart';
 import 'package:app_management_center/app/models/ch_play_project.dart';
@@ -21,7 +22,7 @@ void main() {
   test(
     'runs split release steps with monotonic version and existing AAB upload',
     () async {
-      final harness = await _WorkflowHarness.create();
+      final harness = await _WorkflowHarness.create(storeCode: 11);
       addTearDown(harness.dispose);
 
       final prepared = await harness.prepare();
@@ -72,7 +73,11 @@ void main() {
   test(
     'retry resumes at deploy without repeating version, notes, commit, or build',
     () async {
-      final harness = await _WorkflowHarness.create(failDeployOnce: true);
+      final analytics = AnalyticsRecorder();
+      final harness = await _WorkflowHarness.create(
+        failDeployOnce: true,
+        analytics: analytics,
+      );
       addTearDown(harness.dispose);
       await harness.prepare();
 
@@ -92,6 +97,17 @@ void main() {
       expect(harness.runner.versionNameRuns, 1);
       expect(harness.runner.commitRuns, 1);
       expect(harness.runner.buildRuns, 1);
+      expect(analytics.events.map((e) => e['name']), [
+        'started',
+        'failed',
+        'started',
+        'completed',
+      ]);
+      expect(analytics.events[2]['source'], 'retry');
+      expect(
+        analytics.events.every((e) => e['feature'] == 'release.android'),
+        isTrue,
+      );
     },
   );
 
@@ -158,6 +174,79 @@ void main() {
     },
   );
 
+  group('version pick', () {
+    test(
+      'keeps a pubspec version whose code CH Play has not seen yet',
+      () async {
+        // An iOS release (or a hand edit) already moved pubspec past the store.
+        final harness = await _WorkflowHarness.create(storeCode: 9);
+        addTearDown(harness.dispose);
+
+        final prepared = await harness.prepare();
+        expect(prepared.proposedVersion, '1.2.3+11');
+        expect(
+          prepared.steps.first.logLines,
+          contains(contains('Giữ nguyên version trong pubspec')),
+        );
+
+        await harness.service.start();
+        expect(harness.pubspecVersion, '1.2.3+11');
+      },
+    );
+
+    test('uses the version typed by hand', () async {
+      final harness = await _WorkflowHarness.create(storeCode: 11);
+      addTearDown(harness.dispose);
+
+      final prepared = await harness.prepare(
+        versionName: '2.0.0',
+        versionCode: 30,
+      );
+      expect(prepared.proposedVersion, '2.0.0+30');
+      expect(prepared.steps.first.logLines, contains('Version tự nhập.'));
+
+      await harness.service.start();
+      expect(harness.pubspecVersion, '2.0.0+30');
+    });
+
+    test('rejects a typed version code CH Play already has', () async {
+      final harness = await _WorkflowHarness.create(storeCode: 11);
+      addTearDown(harness.dispose);
+
+      await expectLater(
+        harness.prepare(versionName: '1.2.3', versionCode: 11),
+        throwsA(
+          isA<ReleaseWorkflowException>().having(
+            (error) => error.message,
+            'message',
+            contains('phải lớn hơn version code 11'),
+          ),
+        ),
+      );
+    });
+
+    test(
+      'bumps only the code when the name moved since the last release',
+      () async {
+        final harness = await _WorkflowHarness.create(storeCode: 11);
+        addTearDown(harness.dispose);
+        await harness.commit('chore(release): v1.2.2+10');
+
+        final prepared = await harness.prepare();
+        expect(prepared.proposedVersion, '1.2.3+12');
+      },
+    );
+
+    test('bumps a version an earlier release used on another track', () async {
+      final harness = await _WorkflowHarness.create(storeCode: 9);
+      addTearDown(harness.dispose);
+      await harness.commit('chore(release): v1.2.3+11');
+
+      final prepared = await harness.prepare();
+      expect(prepared.proposedVersion, '1.2.4+12');
+    });
+  });
+
   test('legacy deploy answers no to the distribution prompt', () async {
     final harness = await _WorkflowHarness.create(
       splitContract: false,
@@ -182,7 +271,11 @@ void main() {
   });
 
   test('cancel marks the active step and does not start later steps', () async {
-    final harness = await _WorkflowHarness.create(blockVersionCode: true);
+    final analytics = AnalyticsRecorder();
+    final harness = await _WorkflowHarness.create(
+      blockVersionCode: true,
+      analytics: analytics,
+    );
     addTearDown(harness.dispose);
     await harness.prepare();
 
@@ -203,7 +296,25 @@ void main() {
     expect(harness.runner.versionNameRuns, 0);
     expect(harness.runner.commitRuns, 0);
     expect(harness.runner.buildRuns, 0);
+    expect(analytics.events.map((e) => e['name']), ['started', 'cancelled']);
   });
+
+  test(
+    'remote execution and rejected preflight do not count as local user usage',
+    () async {
+      final analytics = AnalyticsRecorder();
+      final harness = await _WorkflowHarness.create(analytics: analytics);
+      addTearDown(harness.dispose);
+      await expectLater(
+        harness.service.start(),
+        throwsA(isA<ReleaseWorkflowException>()),
+      );
+      expect(analytics.events, isEmpty);
+      await harness.prepare();
+      await harness.service.start(trackUsage: false);
+      expect(analytics.events, isEmpty);
+    },
+  );
 }
 
 class _WorkflowHarness {
@@ -224,7 +335,9 @@ class _WorkflowHarness {
   final ReleaseProject releaseProject;
 
   static Future<_WorkflowHarness> create({
+    FeatureAnalyticsService? analytics,
     bool failDeployOnce = false,
+    int storeCode = 9,
     int verificationCode = 12,
     bool splitContract = true,
     bool legacyDistributionPrompt = false,
@@ -293,11 +406,13 @@ end
     final versionChecker = _FakeChPlayVersionChecker(
       inspector: inspector,
       runner: runner,
+      storeCode: storeCode,
       verificationCode: verificationCode,
     );
     final catalog = ScriptCatalogService();
     final releaseProject = await catalog.inspect(project.path);
     final service = ReleaseWorkflowService(
+      analytics: analytics,
       runner: runner,
       catalog: catalog,
       chPlayInspector: inspector,
@@ -316,7 +431,16 @@ end
     );
   }
 
-  Future<ReleaseWorkflowRun> prepare() {
+  String get pubspecVersion => RegExp(r'^version:\s*(\S+)', multiLine: true)
+      .firstMatch(
+        File(p.join(project.path, 'pubspec.yaml')).readAsStringSync(),
+      )!
+      .group(1)!;
+
+  Future<void> commit(String message) =>
+      _git(project.path, ['commit', '--allow-empty', '-m', message]);
+
+  Future<ReleaseWorkflowRun> prepare({String? versionName, int? versionCode}) {
     return service.prepare(
       ReleaseWorkflowConfig(
         project: releaseProject,
@@ -333,6 +457,8 @@ end
         releaseNotePrompt: '',
         uploadListingImages: false,
         validateListingImages: false,
+        versionName: versionName,
+        versionCode: versionCode,
       ),
     );
   }
@@ -475,9 +601,11 @@ class _FakeChPlayVersionChecker extends ChPlayVersionCheckService {
   _FakeChPlayVersionChecker({
     required super.inspector,
     required super.runner,
+    required this.storeCode,
     required this.verificationCode,
   });
 
+  final int storeCode;
   final int verificationCode;
   int calls = 0;
 
@@ -491,11 +619,11 @@ class _FakeChPlayVersionChecker extends ChPlayVersionCheckService {
   }) async {
     calls++;
     final local = await inspector.readLocalVersion(project.path);
-    final storeCode = calls == 1 ? 9 : verificationCode;
+    final code = calls == 1 ? storeCode : verificationCode;
     return ChPlayVersionSnapshot(
       localVersion: local,
-      storeVersionCode: storeCode,
-      status: ChPlayVersionCheckService.compare(local!.code, storeCode),
+      storeVersionCode: code,
+      status: ChPlayVersionCheckService.compare(local!.code, code),
       message: 'Đã kiểm tra ${project.track}.',
     );
   }

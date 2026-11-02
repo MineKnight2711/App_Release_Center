@@ -171,9 +171,17 @@ class RemoteReleaseBridge implements RemoteReleaseHandler {
             'lại.',
           );
         }
-        return {'androidRun': (await home.startAutomatedRelease()).toJson()};
+        return {
+          'androidRun': (await home.startAutomatedRelease(
+            trackUsage: false,
+          )).toJson(),
+        };
       case 'retry':
-        return {'androidRun': (await home.retryAutomatedRelease()).toJson()};
+        return {
+          'androidRun': (await home.retryAutomatedRelease(
+            trackUsage: false,
+          )).toJson(),
+        };
       default:
         throw StateError('Bước release Android không hỗ trợ.');
     }

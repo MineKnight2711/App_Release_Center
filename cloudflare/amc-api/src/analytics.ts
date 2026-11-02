@@ -4,18 +4,27 @@ import { requireMember } from './teams';
 
 const DAY = 86_400_000;
 const registry = [
-  { id: 'bundle.check', name: 'Kiểm tra AAB', tracked: true },
-  { id: 'release.android', name: 'Release Android', tracked: false },
-  { id: 'release.ios', name: 'Release iOS', tracked: false },
-  { id: 'plan.create', name: 'Plan Studio', tracked: false },
-  { id: 'qa.run', name: 'QA Desk', tracked: false },
-  { id: 'api.send', name: 'API Tools', tracked: false },
+  { id: 'bundle.check', name: 'Kiểm tra AAB', tracked: true, version: 1 },
+  { id: 'release.android', name: 'Release Android · workflow', tracked: true, version: 2 },
+  { id: 'release.ios.build', name: 'iOS · build IPA trên Mac', tracked: true, version: 2 },
+  { id: 'release.ios.upload', name: 'iOS · upload IPA trên Mac', tracked: true, version: 2 },
+  { id: 'plan.create', name: 'Plan Studio · tạo ticket', tracked: true, version: 2 },
+  { id: 'plan.bulk_create', name: 'Plan Studio · tạo hàng loạt', tracked: true, version: 2 },
+  { id: 'plan.ai_generate', name: 'Plan Studio · tạo bằng AI', tracked: true, version: 2 },
+  { id: 'qa.run', name: 'QA Desk · chạy batch', tracked: true, version: 2 },
+  { id: 'api.send', name: 'API Tools · gửi request', tracked: true, version: 2 },
   { id: 'safe.item_save', name: 'Safe', tracked: false },
   { id: 'mail.scan', name: 'Mail Cleaner', tracked: false },
   { id: 'flowfin.import', name: 'FlowFin', tracked: false },
   { id: 'remote.release', name: 'Remote Release', tracked: false },
 ];
-const names = ['app.active_day', 'feature.eligible_day', 'feature.opened', 'action.started', 'action.completed', 'action.failed'];
+const names = ['app.active_day', 'feature.eligible_day', 'feature.opened', 'action.started', 'action.completed', 'action.failed', 'action.cancelled'];
+const results: Record<string, readonly string[]> = {
+  'bundle.check': ['passed', 'issues_found'], 'release.android': ['succeeded', 'warning'],
+  'release.ios.build': ['succeeded'], 'release.ios.upload': ['submitted', 'verification_required'],
+  'plan.create': ['saved'], 'plan.bulk_create': ['saved'], 'plan.ai_generate': ['generated'],
+  'qa.run': ['passed', 'issues_found'], 'api.send': ['response_received'],
+};
 const fields = new Set(['schema_version', 'event_id', 'team_id', 'occurred_at', 'feature_id', 'event_name', 'operation_id', 'platform', 'build_id', 'source', 'duration_ms', 'result_category', 'error_code']);
 const identifier = /^[a-zA-Z0-9_-]{1,80}$/;
 interface Event {
@@ -26,26 +35,30 @@ interface Event {
 function parseEvent(input: unknown, now: number): Event | null {
   if (!input || typeof input !== 'object' || Array.isArray(input)) return null;
   const v = input as Record<string, unknown>;
-  if (Object.keys(v).some(k => !fields.has(k)) || v.schema_version !== 1) return null;
+  if (Object.keys(v).some(k => !fields.has(k)) || ![1, 2].includes(v.schema_version as number)) return null;
   if (![v.event_id, v.team_id, v.build_id].every(x => typeof x === 'string' && identifier.test(x))) return null;
   if (!names.includes(v.event_name as string)) return null;
-  if (v.feature_id !== (v.event_name === 'app.active_day' ? 'app' : 'bundle.check')) return null;
+  if (v.event_name === 'app.active_day') { if (v.feature_id !== 'app') return null; }
+  else if (v.schema_version === 1 ? v.feature_id !== 'bundle.check' : !Object.hasOwn(results, v.feature_id as string)) return null;
+  if (v.schema_version === 1 && v.event_name === 'action.cancelled') return null;
   if (!['windows', 'macos', 'linux'].includes(v.platform as string)) return null;
-  if (!['module', 'file_picker', 'drop', 'recheck'].includes(v.source as string)) return null;
+  if (typeof v.feature_id === 'string' && v.feature_id.startsWith('release.ios.') && v.platform !== 'macos') return null;
+  if (!['module', 'file_picker', 'drop', 'recheck', 'retry', 'quick_add', 'bulk', 'editor'].includes(v.source as string)) return null;
   const at = typeof v.occurred_at === 'string' ? Date.parse(v.occurred_at) : NaN;
   if (!Number.isFinite(at) || at < now - 7 * DAY || at > now + 5 * 60_000) return null;
   const action = (v.event_name as string).startsWith('action.');
-  const terminal = v.event_name === 'action.completed' || v.event_name === 'action.failed';
+  const terminal = ['action.completed','action.failed','action.cancelled'].includes(v.event_name as string);
   if (action ? typeof v.operation_id !== 'string' || !identifier.test(v.operation_id) : v.operation_id !== undefined) return null;
   if (terminal) {
     if (!Number.isInteger(v.duration_ms) || (v.duration_ms as number) < 0 || (v.duration_ms as number) > DAY) return null;
   } else if (v.duration_ms !== undefined || v.result_category !== undefined || v.error_code !== undefined) return null;
   if (v.event_name === 'action.completed') {
-    if (!['passed', 'issues_found'].includes(v.result_category as string) || v.error_code !== undefined) return null;
+    if (!results[v.feature_id as string]?.includes(v.result_category as string) || v.error_code !== undefined) return null;
   }
   if (v.event_name === 'action.failed') {
-    if (!['inspection', 'tool', 'file', 'unexpected'].includes(v.error_code as string) || v.result_category !== undefined) return null;
+    if (!['inspection', 'tool', 'file', 'unexpected', 'workflow', 'storage', 'network'].includes(v.error_code as string) || v.result_category !== undefined) return null;
   }
+  if (v.event_name === 'action.cancelled' && (v.result_category !== undefined || v.error_code !== undefined)) return null;
   return { ...v, occurred_at: new Date(at).toISOString() } as unknown as Event;
 }
 
@@ -135,23 +148,25 @@ export async function analyticsFeatures(request: Request, env: Env, auth: AuthCo
       COUNT(DISTINCT CASE WHEN event_name IN ('feature.eligible_day','action.started') THEN subject_id END) AS eligible_users,
       COUNT(DISTINCT CASE WHEN event_name='action.started' THEN subject_id END) AS users,
       SUM(event_name='feature.opened') AS opens, SUM(event_name='action.started') AS uses,
-      SUM(event_name='action.started' AND EXISTS(SELECT 1 FROM analytics_events e WHERE e.subject_id=selected.subject_id AND e.operation_id=selected.operation_id AND e.event_name='action.completed' AND e.occurred_at<=?2)) AS completed,
+      SUM(event_name='action.started' AND EXISTS(SELECT 1 FROM analytics_events e WHERE e.subject_id=selected.subject_id AND e.operation_id=selected.operation_id AND e.event_name='action.completed' AND e.result_category!='verification_required' AND e.occurred_at<=?2)) AS completed,
       SUM(event_name='action.started' AND EXISTS(SELECT 1 FROM analytics_events e WHERE e.subject_id=selected.subject_id AND e.operation_id=selected.operation_id AND e.event_name='action.failed' AND e.occurred_at<=?2)) AS failed,
+      SUM(event_name='action.started' AND EXISTS(SELECT 1 FROM analytics_events e WHERE e.subject_id=selected.subject_id AND e.operation_id=selected.operation_id AND e.event_name='action.cancelled' AND e.occurred_at<=?2)) AS cancelled,
       (SELECT COUNT(*) FROM per_user u WHERE u.feature_id=selected.feature_id AND active_days>=2) AS returning_users,
       MAX(received_at) AS last_received_at
       FROM selected GROUP BY feature_id`).bind(...bindings).all<Record<string, unknown>>();
   // Match outcomes across the window boundary; never infer failures from missing events.
   const pending = await env.DB.prepare(`SELECT s.feature_id,COUNT(*) AS unresolved FROM analytics_events s
     WHERE s.event_name='action.started' AND s.occurred_at>=?1 AND s.occurred_at<=?2 AND (?3 IS NULL OR s.team_id=?3) AND (?4 IS NULL OR s.platform=?4)
-    AND NOT EXISTS(SELECT 1 FROM analytics_events e WHERE e.subject_id=s.subject_id AND e.operation_id=s.operation_id AND e.phase='terminal' AND e.occurred_at<=?2)
+    AND NOT EXISTS(SELECT 1 FROM analytics_events e WHERE e.subject_id=s.subject_id AND e.operation_id=s.operation_id AND e.phase='terminal' AND (e.result_category IS NULL OR e.result_category!='verification_required') AND e.occurred_at<=?2)
     GROUP BY s.feature_id`).bind(...bindings).all<{ feature_id: string; unresolved: number }>();
   const activeCount = await env.DB.prepare(`SELECT COUNT(DISTINCT subject_id) AS count FROM analytics_events WHERE event_name='app.active_day'
     AND occurred_at>=?1 AND occurred_at<=?2 AND (?3 IS NULL OR team_id=?3) AND (?4 IS NULL OR platform=?4)`).bind(...bindings).first<{ count: number }>();
   return json({ days, timezone: 'UTC', generated_at: now, active_users: activeCount?.count ?? 0,
-    coverage: 'Pilot: chỉ bundle.check có tracking; chỉ quan sát tài khoản bật thống kê. Chưa biết độ phủ toàn bộ cài đặt.',
+    coverage: 'Phase 2: AAB, workflow Android, build/upload iOS local, Plan Studio, QA và API Tools. Chỉ quan sát tài khoản bật thống kê; các tính năng mới cần client schema v2. Chưa đo remote hoặc lịch tự động; chưa biết độ phủ toàn bộ cài đặt.',
     features: registry.map(f => {
       const r = rows.results.find(r => r.feature_id === f.id);
-      return { ...f, eligible_users: 0, users: 0, opens: 0, uses: 0, completed: 0, failed: 0, returning_users: 0,
+      const applicable = !f.id.startsWith('release.ios.') || !platform || platform === 'macos';
+      return { ...f, applicable, tracking_version: f.version ?? null, eligible_users: 0, users: 0, opens: 0, uses: 0, completed: 0, failed: 0, cancelled: 0, returning_users: 0,
         last_received_at: null, ...r, unresolved: pending.results.find(p => p.feature_id === f.id)?.unresolved ?? 0 };
     }), last_received_at: rows.results.reduce<string | null>((latest, r) => typeof r.last_received_at === 'string' && (!latest || r.last_received_at > latest) ? r.last_received_at : latest, null) });
 }

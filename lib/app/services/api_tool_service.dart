@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
+import '../modules/analytics/feature_analytics_service.dart';
 
 import 'package:app_management_center/app/models/api_tool.dart';
 import 'package:get/get.dart';
@@ -61,22 +62,56 @@ class ApiToolService extends GetxService {
   ApiToolService({
     ApiToolHttpClient? httpClient,
     Duration timeout = defaultApiToolRequestTimeout,
+    this.analytics,
   }) : _httpClient = httpClient ?? DartApiToolHttpClient(),
        _timeout = timeout;
 
   final ApiToolHttpClient _httpClient;
   final Duration _timeout;
+  final FeatureAnalyticsService? analytics;
 
   Future<ApiToolResponse> send(
     ApiToolRequest request, {
     Duration? timeout,
     ApiToolCancellationToken? cancelToken,
-  }) {
-    return _httpClient.send(
-      request,
-      timeout: timeout ?? _timeout,
-      cancelToken: cancelToken,
-    );
+  }) => _httpClient.send(
+    request,
+    timeout: timeout ?? _timeout,
+    cancelToken: cancelToken,
+  );
+
+  /// Explicit user sends only. Background monitors keep using [send].
+  Future<ApiToolResponse> sendInteractive(
+    ApiToolRequest request, {
+    Duration? timeout,
+    ApiToolCancellationToken? cancelToken,
+  }) async {
+    final operation = !(cancelToken?.isCanceled ?? false)
+        ? analytics?.begin(
+            AnalyticsSource.module,
+            feature: AnalyticsFeature.apiSend,
+          )
+        : null;
+    try {
+      final response = await send(
+        request,
+        timeout: timeout ?? _timeout,
+        cancelToken: cancelToken,
+      );
+      if (cancelToken?.isCanceled ?? false) {
+        analytics?.cancel(operation);
+      } else {
+        analytics?.succeed(operation, result: AnalyticsResult.responseReceived);
+      }
+      return response;
+    } catch (_) {
+      if (cancelToken?.isCanceled ?? false) {
+        analytics?.cancel(operation);
+      } else {
+        analytics?.fail(operation, AnalyticsFailure.network);
+      }
+      rethrow;
+    }
   }
 }
 

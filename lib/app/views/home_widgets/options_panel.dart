@@ -55,8 +55,18 @@ class _OptionsPanelState extends State<_OptionsPanel>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _PanelTitle(icon: Icons.tune_outlined, title: 'Tuỳ chọn'),
-          const SizedBox(height: 10),
+          const Row(
+            children: [
+              Expanded(
+                child: _PanelTitle(
+                  icon: Icons.tune_outlined,
+                  title: 'Tuỳ chọn',
+                ),
+              ),
+              _AccountHud(),
+            ],
+          ),
+          const SizedBox(height: 8),
           _OptionsTabSelector(controller: _tabs),
           const SizedBox(height: 10),
           Expanded(
@@ -81,7 +91,7 @@ class _OptionsPanelState extends State<_OptionsPanel>
               ],
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           const _CommandInputDock(),
         ],
       ),
@@ -150,7 +160,7 @@ class _OptionsTabSelectorState extends State<_OptionsTabSelector> {
   @override
   Widget build(BuildContext context) {
     final selectedIndex = widget.controller.index;
-    const spacing = 8.0;
+    const spacing = 5.0;
     final rows = <Widget>[];
     final tabs = ShellOptionsTab.values;
 
@@ -188,7 +198,15 @@ class _OptionsTabSelectorState extends State<_OptionsTabSelector> {
       }
     }
 
-    return Column(children: rows);
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: AppCyberTheme.panelBackgroundStrong.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppCyberTheme.palette.cardBorder),
+      ),
+      child: Column(children: rows),
+    );
   }
 
   void _select(ShellOptionsTab tab) => widget.controller.animateTo(tab.index);
@@ -208,13 +226,11 @@ class _OptionsTabButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final borderColor = selected
-        ? AppCyberTheme.electricBlue.withValues(alpha: 0.72)
-        : AppCyberTheme.lineBlue.withValues(alpha: 0.25);
+        ? AppCyberTheme.electricBlue.withValues(alpha: 0.65)
+        : Colors.transparent;
     final backgroundColor = selected
-        ? AppCyberTheme.electricBlue.withValues(alpha: 0.14)
-        : AppCyberTheme.panelBackgroundStrong.withValues(
-            alpha: AppCyberTheme.palette.panelAlphaMuted,
-          );
+        ? AppCyberTheme.electricBlue.withValues(alpha: 0.16)
+        : Colors.transparent;
     final foregroundColor = selected
         ? AppCyberTheme.electricBlue
         : AppCyberTheme.textMuted;
@@ -225,24 +241,24 @@ class _OptionsTabButton extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           key: Key('options-tab-${tab.name}'),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(7),
           onTap: () => onTap(tab),
           child: AnimatedContainer(
-            height: 42,
+            height: 34,
             duration: const Duration(milliseconds: 160),
             curve: Curves.easeOutCubic,
-            padding: const EdgeInsets.symmetric(horizontal: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 8),
             decoration: BoxDecoration(
               color: backgroundColor,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(7),
               border: Border.all(color: borderColor),
               boxShadow: selected && AppCyberTheme.palette.hasGlow
                   ? [
                       BoxShadow(
                         color: AppCyberTheme.electricBlue.withValues(
-                          alpha: 0.18,
+                          alpha: 0.16,
                         ),
-                        blurRadius: 12,
+                        blurRadius: 10,
                         spreadRadius: -4,
                       ),
                     ]
@@ -251,17 +267,17 @@ class _OptionsTabButton extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(tab.icon, size: 17, color: foregroundColor),
-                const SizedBox(width: 7),
+                Icon(tab.icon, size: 15, color: foregroundColor),
+                const SizedBox(width: 6),
                 Flexible(
                   child: Text(
                     tab.label,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: AppCyberTheme.dataTextStyle(
-                      size: 11.5,
+                    style: AppCyberTheme.uiTextStyle(
+                      size: 11.6,
                       color: foregroundColor,
-                      weight: selected ? FontWeight.w800 : FontWeight.w700,
+                      weight: selected ? FontWeight.w700 : FontWeight.w600,
                     ),
                   ),
                 ),
@@ -1318,13 +1334,34 @@ class _CommandInputDockState extends State<_CommandInputDock> {
 
       return _HudCardShell(
         active: isRunning || prompt != null,
-        padding: const EdgeInsets.all(10),
+        padding: const EdgeInsets.all(9),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            const _PanelTitle(icon: Icons.keyboard_outlined, title: 'Nhập'),
-            const SizedBox(height: 10),
+            Row(
+              children: [
+                const Expanded(
+                  child: _PanelTitle(
+                    icon: Icons.keyboard_outlined,
+                    title: 'Nhập',
+                  ),
+                ),
+                if (prompt != null)
+                  const _MetaChip(
+                    icon: Icons.help_outline_rounded,
+                    label: 'Chờ xác nhận',
+                    highlighted: true,
+                  )
+                else if (isRunning)
+                  const _MetaChip(
+                    icon: Icons.terminal_rounded,
+                    label: 'Stdin mở',
+                    highlighted: true,
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
             if (prompt != null)
               _YesNoPromptActions(prompt: prompt)
             else
@@ -1343,6 +1380,7 @@ class _CommandInputDockState extends State<_CommandInputDock> {
                       ),
                       decoration: const InputDecoration(
                         labelText: 'Gửi cho script',
+                        prefixIcon: Icon(Icons.chevron_right_rounded, size: 18),
                       ),
                     ),
                   ),
@@ -1350,12 +1388,12 @@ class _CommandInputDockState extends State<_CommandInputDock> {
                   FilledButton.icon(
                     key: const Key('command-input-send'),
                     onPressed: isRunning ? _sendInput : null,
-                    icon: const Icon(Icons.send),
+                    icon: const Icon(Icons.send_rounded, size: 18),
                     label: const Text('Gửi'),
                   ),
                 ],
               ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
             Row(
               children: [
                 Expanded(

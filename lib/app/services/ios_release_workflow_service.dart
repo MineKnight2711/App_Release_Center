@@ -14,6 +14,7 @@ import 'package:app_management_center/app/services/release_push_messages.dart';
 import 'package:app_management_center/app/services/release_runner_service.dart';
 import 'package:cryptography/cryptography.dart';
 import 'package:get/get.dart';
+import '../modules/analytics/feature_analytics_service.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
@@ -21,6 +22,7 @@ class IosReleaseWorkflowService implements IosReleaseBackend {
   IosReleaseWorkflowService({
     required this.runner,
     required this.credentials,
+    this.analytics,
     Directory? root,
     bool Function()? isMacOS,
     this.pollInterval = const Duration(seconds: 20),
@@ -29,6 +31,7 @@ class IosReleaseWorkflowService implements IosReleaseBackend {
        _customRoot = root != null,
        _isMacOS = isMacOS ?? (() => Platform.isMacOS);
   final ReleaseRunnerService runner;
+  final FeatureAnalyticsService? analytics;
   final Future<AppStoreCredentials> Function(String) credentials;
   Directory? _root;
   final bool _customRoot;
@@ -842,8 +845,7 @@ class IosReleaseWorkflowService implements IosReleaseBackend {
       var latest = build;
       if (_shouldDeclareCompliance(run, build)) {
         run.store = await _apple(run, 'compliance');
-        latest =
-            run.store.findBuild(run.version, run.buildNumber) ?? latest;
+        latest = run.store.findBuild(run.version, run.buildNumber) ?? latest;
       }
       final version = run.store.versions
           .where((v) => v['version'] == run.version)
@@ -953,6 +955,14 @@ class IosReleaseWorkflowService implements IosReleaseBackend {
     bool succeeded = false;
     bool ownsLock = false;
     RandomAccessFile? lock;
+    final feature = switch (action) {
+      'build' => AnalyticsFeature.iosBuild,
+      'upload' => AnalyticsFeature.iosUpload,
+      _ => null,
+    };
+    final operation = feature == null
+        ? null
+        : analytics?.begin(AnalyticsSource.module, feature: feature);
     try {
       if (run != null) {
         final lockRoot = !_customRoot
@@ -1014,6 +1024,24 @@ class IosReleaseWorkflowService implements IosReleaseBackend {
       }
       rethrow;
     } finally {
+      if (_canceled) {
+        analytics?.cancel(operation);
+      } else if (action == 'upload' &&
+          run?.status == IosReleaseStatus.verificationRequired) {
+        analytics?.succeed(
+          operation,
+          result: AnalyticsResult.verificationRequired,
+        );
+      } else if (!succeeded || run?.status == IosReleaseStatus.failed) {
+        analytics?.fail(operation, AnalyticsFailure.workflow);
+      } else {
+        analytics?.succeed(
+          operation,
+          result: action == 'upload'
+              ? AnalyticsResult.submitted
+              : AnalyticsResult.succeeded,
+        );
+      }
       await lock?.close();
       runner.finishWorkflow(success: succeeded);
       busy.value = false;

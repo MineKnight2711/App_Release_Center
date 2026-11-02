@@ -1,5 +1,9 @@
 # Feature Analytics — pilot đầu tiên
 
+Tài liệu này mô tả mốc pilot AAB. Code hiện đã có [phase 2](feature-analytics-phase2.md)
+mở rộng sang Release, Plan Studio, QA Desk và API Tools; xem tài liệu đó để biết
+schema 2 và thứ tự cập nhật Worker/client. Các bước thiết lập quyền và migration dưới đây vẫn áp dụng.
+
 ## Đã triển khai trong code
 
 - Dashboard **Thống kê sử dụng** ở Cài đặt và command palette, chỉ hiện khi API xác nhận quyền.
@@ -99,6 +103,6 @@ Không xóa hoặc sửa các bảng relay/QA/Safe dùng chung database.
 
 ## Đợt kế tiếp
 
-Sau khi pilot xác nhận dữ liệu đúng: mở rộng registry và instrumentation sang Release,
-Plan Studio, QA Desk và API Tools; sau đó bổ sung chart/chi tiết/export, build segmentation,
+Registry và instrumentation sang Release, Plan Studio, QA Desk và API Tools đã được
+mở rộng trong [phase 2](feature-analytics-phase2.md). Tiếp theo: chart/chi tiết/export, build segmentation,
 báo cáo chất lượng dữ liệu và kiểm thử tải trước khi mở rộng tới toàn bộ người dùng.
