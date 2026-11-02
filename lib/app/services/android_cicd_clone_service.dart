@@ -1182,8 +1182,14 @@ if [[ "$do_update" == true ]]; then
     echo "$output" | tr -d '\r' | sed -n "s/.*${marker}:\([0-9][0-9]*\).*/\1/p" | tail -n1
   }
 
-  store_output=$(run_fastlane_lane android fetch_version_code_from_play_store track:"$TRACK" --capture_output 2>&1 || true)
-  local_output=$(run_fastlane_lane android get_local_version_code --capture_output 2>&1 || true)
+  if ! store_output=$(run_fastlane_lane android fetch_version_code_from_play_store track:"$TRACK" 2>&1); then
+    printf '%s\n' "Failed to fetch Play Store version code (track: $TRACK)." "$store_output" >&2
+    exit 1
+  fi
+  if ! local_output=$(run_fastlane_lane android get_local_version_code 2>&1); then
+    printf '%s\n' "Failed to read local version code." "$local_output" >&2
+    exit 1
+  fi
 
   store_code=$(extract_code_from_output "STORE_CODE_ONLY" "$store_output")
   local_code=$(extract_code_from_output "LOCAL_CODE_ONLY" "$local_output")
@@ -1326,7 +1332,7 @@ if [[ "$update_name" == true ]]; then
 
   extract_version_name_from_output() {
     local output="$1"
-    echo "$output" | tr -d '\r' | sed -n 's/.*VERSION_NAME_ONLY:\([^[:space:]]\+\).*/\1/p' | tail -n1
+    echo "$output" | tr -d '\r' | sed -n 's/.*VERSION_NAME_ONLY:\([^[:space:]][^[:space:]]*\).*/\1/p' | tail -n1
   }
 
   bump_version_name() {
@@ -1356,7 +1362,10 @@ if [[ "$update_name" == true ]]; then
   }
 
   echo "Fetching current version name..."
-  output=$(run_fastlane_lane android get_version_name --capture_output 2>&1 || true)
+  if ! output=$(run_fastlane_lane android get_version_name 2>&1); then
+    printf '%s\n' "Failed to retrieve version name." "$output" >&2
+    exit 1
+  fi
   CURRENT_VERSION_NAME=$(extract_version_name_from_output "$output")
 
   if [[ -z "$CURRENT_VERSION_NAME" ]]; then

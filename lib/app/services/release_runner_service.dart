@@ -69,6 +69,7 @@ class ReleaseRunnerService extends GetxService {
       activePath: script.path,
       projectName: project.name,
       environment: environment,
+      useBashEnvironment: Platform.isMacOS && script.isShellScript,
       clearLog: clearLog,
       allowDuringWorkflow: allowDuringWorkflow,
     );
@@ -90,6 +91,7 @@ class ReleaseRunnerService extends GetxService {
       activePath: script.path,
       projectName: project.name,
       environment: environment,
+      useBashEnvironment: Platform.isMacOS && script.isShellScript,
       clearLog: clearLog,
       captureOutput: true,
       allowDuringWorkflow: allowDuringWorkflow,
@@ -341,6 +343,7 @@ class ReleaseRunnerService extends GetxService {
     required String? projectName,
     required Map<String, String> environment,
     required bool clearLog,
+    bool useBashEnvironment = false,
     bool captureOutput = false,
     bool allowDuringWorkflow = false,
     bool trackWorkflowStep = true,
@@ -387,7 +390,20 @@ class ReleaseRunnerService extends GetxService {
     );
     unawaited(_notifyCommandEvent(baseEvent));
 
+    Directory? bashEnvironmentDirectory;
     try {
+      if (useBashEnvironment) {
+        bashEnvironmentDirectory = await Directory.systemTemp.createTemp(
+          'amc_bash_env_',
+        );
+        final startup = File(
+          p.join(bashEnvironmentDirectory.path, 'prompt.sh'),
+        );
+        await startup.writeAsString(_macOSBashEnvironment);
+        mergedEnvironment['AMC_ORIGINAL_BASH_ENV'] =
+            mergedEnvironment['BASH_ENV'] ?? '';
+        mergedEnvironment['BASH_ENV'] = startup.path;
+      }
       final process = await Process.start(
         plan.executable,
         plan.arguments,
@@ -448,13 +464,17 @@ class ReleaseRunnerService extends GetxService {
         exitCode: code,
         output: capturedOutput.toString(),
       );
-    } on ProcessException catch (error) {
+    } catch (error) {
+      if (error is! ProcessException && error is! FileSystemException) rethrow;
+      final message = error is ProcessException
+          ? error.message
+          : (error as FileSystemException).message;
       exitCode.value = -1;
       runState.value = ReleaseRunnerState.failed;
       status.value = 'Không khởi động được';
-      _append('Không khởi động được $statusLabel: ${error.message}');
+      _append('Không khởi động được $statusLabel: $message');
       notificationLogTail.addLine(
-        'Không khởi động được $statusLabel: ${error.message}',
+        'Không khởi động được $statusLabel: $message',
       );
       final finishedAt = DateTime.now();
       unawaited(
@@ -482,6 +502,13 @@ class ReleaseRunnerService extends GetxService {
       yesNoPrompt.value = null;
       isRunning.value = false;
       activeScriptPath.value = '';
+      if (bashEnvironmentDirectory != null) {
+        try {
+          await bashEnvironmentDirectory.delete(recursive: true);
+        } on FileSystemException catch (error) {
+          _append('Không xoá được file hỗ trợ Bash: ${error.message}');
+        }
+      }
     }
   }
 
@@ -535,6 +562,12 @@ class ReleaseRunnerService extends GetxService {
   CommandPlan _commandPlan(ReleaseScript script, List<String> args) {
     if (script.isShellScript) {
       final executable = _bashExecutable();
+      if (Platform.isMacOS) {
+        return CommandPlan(
+          executable: executable,
+          arguments: [script.fileName, ...args],
+        );
+      }
       return CommandPlan(
         executable: executable,
         arguments: [
@@ -957,7 +990,17 @@ String _redactNotificationLogLine(String value) {
   return result;
 }
 
-const _promptShim = r'''
+// Define read in each shell's startup file on macOS. Importing an exported read
+// function in Apple's Bash 3.2 clears BASH_SOURCE after the first call.
+const _macOSBashEnvironment =
+    r'''
+if [[ -n "${AMC_ORIGINAL_BASH_ENV:-}" ]]; then
+  source "$AMC_ORIGINAL_BASH_ENV"
+fi
+''' +
+    _readPromptFunction;
+
+const _readPromptFunction = r'''
 exec 9<&0
 
 read() {
@@ -979,12 +1022,16 @@ read() {
 
   if [[ -n "$prompt" ]]; then
     printf "%s" "$prompt" >&2
-    builtin read "${args[@]}" <&9
+    builtin read ${args[@]+"${args[@]}"} <&9
   else
-    builtin read "${args[@]}"
+    builtin read ${args[@]+"${args[@]}"}
   fi
 }
+''';
 
+const _promptShim =
+    _readPromptFunction +
+    r'''
 export -f read
 exec "$BASH" "$@"
 ''';
