@@ -49,6 +49,97 @@ void main() {
     });
 
     test(
+      'generated Fastfile keeps root dotenv flow for other projects',
+      () async {
+        final project = _createProject(tempDir, _groovyGradle());
+        File(
+          p.join(project.path, '.env'),
+        ).writeAsStringSync('API=production\n');
+        File(p.join(project.path, 'env', 'env.json'))
+          ..createSync(recursive: true)
+          ..writeAsStringSync('{}');
+        final preview = await service.preview(project.path);
+
+        final result = await _runGeneratedBuildHelper(
+          preview,
+          environment: {'ENV_FILE': 'env/env.json'},
+        );
+
+        expect(result.exitCode, 0, reason: '${result.stderr}');
+        expect(result.stdout, contains('flutter build appbundle --release'));
+        expect(result.stdout, isNot(contains('--dart-define-from-file')));
+        expect(result.stdout, isNot(contains('check_release_config.dart')));
+      },
+      skip: Platform.isWindows,
+    );
+
+    test(
+      'generated CCCD Fastfile validates JSON before Flutter and preserves flavor',
+      () async {
+        final project = _createProject(tempDir, _groovyGradle());
+        File(
+          p.join(project.path, 'pubspec.yaml'),
+        ).writeAsStringSync('name: kysocccd\nversion: 1.2.0+6\n');
+        File(p.join(project.path, 'env', 'prod.json'))
+          ..createSync(recursive: true)
+          ..writeAsStringSync('{}');
+        File(p.join(project.path, 'scripts', 'check_release_config.dart'))
+          ..createSync(recursive: true)
+          ..writeAsStringSync('// Validator is executed through the stub.\n');
+        final preview = await service.preview(project.path);
+        final result = await _runGeneratedBuildHelper(preview);
+        expect(result.exitCode, 0, reason: '${result.stderr}');
+        final command = result.stdout.toString().trim();
+        final bin = Directory(p.join(tempDir.path, 'mock bin'))..createSync();
+        for (final name in ['dart', 'flutter']) {
+          final stub = File(p.join(bin.path, name))
+            ..writeAsStringSync(
+              name == 'dart'
+                  ? r'''#!/bin/sh
+echo VALIDATE:"$@"
+exit "${FAIL_VALIDATION:-0}"
+'''
+                  : r'''#!/bin/sh
+printf "FLUTTER_ARG:%s\n" "$@"
+''',
+            );
+          expect((await Process.run('chmod', ['+x', stub.path])).exitCode, 0);
+        }
+        Future<ProcessResult> build(String failure) => Process.run(
+          'sh',
+          ['-c', command],
+          environment: {
+            'PATH': '${bin.path}:${Platform.environment['PATH']}',
+            'FAIL_VALIDATION': failure,
+          },
+        );
+        final success = await build('0');
+        expect(success.exitCode, 0, reason: '${success.stderr}');
+        expect(
+          success.stdout,
+          contains(
+            'VALIDATE:run scripts/check_release_config.dart env/prod.json',
+          ),
+        );
+        expect(
+          success.stdout,
+          contains('FLUTTER_ARG:--dart-define-from-file=env/prod.json'),
+        );
+        expect(success.stdout, contains('FLUTTER_ARG:flavor with spaces'));
+
+        final failure = await build('7');
+        expect(failure.exitCode, 7);
+        expect(failure.stdout, isNot(contains('FLUTTER_ARG:')));
+
+        File(p.join(project.path, 'env', 'prod.json')).deleteSync();
+        final missing = await _runGeneratedBuildHelper(preview);
+        expect(missing.exitCode, isNot(0));
+        expect(missing.stderr, contains('Missing release environment file'));
+      },
+      skip: Platform.isWindows,
+    );
+
+    test(
       'version templates read Fastlane markers and surface lane failures',
       () async {
         final project = _createProject(tempDir, _groovyGradle());
@@ -371,6 +462,39 @@ esac
       },
     );
   });
+}
+
+Future<ProcessResult> _runGeneratedBuildHelper(
+  AndroidCicdClonePreview preview, {
+  Map<String, String> environment = const {},
+}) async {
+  final fastfile =
+      File(p.join(preview.projectPath, 'android', 'fastlane', 'Fastfile'))
+        ..createSync(recursive: true)
+        ..writeAsStringSync(
+          _draft(preview, 'android/fastlane/Fastfile').content,
+        );
+  return Process.run(
+    'ruby',
+    [
+      '-e',
+      r'''
+module UI
+  def self.user_error!(message); abort(message); end
+end
+require 'shellwords'
+source = File.read(ARGV[0])
+%w[project_root flutter_build_command].each do |name|
+  method = source[/^def #{name}\b.*?^end$/m]
+  abort("Missing helper: #{name}") unless method
+  eval(method, TOPLEVEL_BINDING, ARGV[0])
+end
+puts flutter_build_command(artifact: 'appbundle', flavor: 'flavor with spaces')
+''',
+      fastfile.path,
+    ],
+    environment: {'ENV_FILE': '', ...environment},
+  );
 }
 
 Directory _createProject(

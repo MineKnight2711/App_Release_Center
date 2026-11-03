@@ -16,6 +16,7 @@ class FakeMacRunner extends ReleaseRunnerService {
   String buildNumber = '';
   bool uploaded = false;
   int buildCalls = 0;
+  List<String> configurationArguments = [], buildArguments = [];
 
   @override
   String resolveFlutterExecutable() => 'flutter';
@@ -56,6 +57,8 @@ class FakeMacRunner extends ReleaseRunnerService {
     appendSystemLog('\$ $executable ${arguments.join(' ')}');
     var output = '';
     switch (executable) {
+      case 'flutter' when arguments.contains('--config-only'):
+        configurationArguments = arguments;
       case '/usr/bin/security':
         output = '1) ABC "Apple Distribution: Demo (TEAM)"\n1 valid identities';
       case '/usr/bin/xcodebuild' when arguments.contains('-showBuildSettings'):
@@ -70,6 +73,7 @@ class FakeMacRunner extends ReleaseRunnerService {
           },
         ]);
       case 'flutter' when arguments.take(2).join(' ') == 'build ipa':
+        buildArguments = arguments;
         buildCalls++;
         buildName = _flag(arguments, '--build-name');
         buildNumber = _flag(arguments, '--build-number');

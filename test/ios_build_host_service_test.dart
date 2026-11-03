@@ -149,6 +149,56 @@ void main() {
     expect(runner.appleActions.last, 'draft');
   });
 
+  test(
+    'Mac builds CCCD with the pinned encrypted JSON instead of stale env',
+    () async {
+      await File(
+        p.join(repository.clone, 'pubspec.yaml'),
+      ).writeAsString('name: kysocccd\nversion: 1.2.3+10\n');
+      await File(
+        p.join(repository.clone, '.gitignore'),
+      ).writeAsString('.env\nenv/\n/build/\n');
+      await git(['commit', '-qam', 'CCCD fixture'], repository.clone);
+      await git(['push', '-q', 'origin', 'main'], repository.clone);
+      final commit = await git(['rev-parse', 'HEAD'], repository.clone);
+      const flag = '--dart-define-from-file=env/prod.json';
+      final content = body(
+        commit: commit,
+        files: [
+          {
+            'path': 'env/prod.json',
+            'data': base64.encode(utf8.encode('{"API":"production"}')),
+          },
+          {
+            'path': 'env/env.json',
+            'data': base64.encode(utf8.encode('{"API":"stale"}')),
+          },
+        ],
+        extra: {
+          'settings': const IosReleaseSettings(
+            teamId: 'TEAM',
+            extraBuildArguments: [flag],
+            remoteFiles: ['env/prod.json'],
+          ).toJson(),
+        },
+      );
+      final prepared = await run('prepare', content);
+      final built = await run('build', content, runId: prepared.id);
+      expect(built.status, IosReleaseStatus.built);
+      expect(runner.configurationArguments, contains(flag));
+      expect(
+        runner.buildArguments.where(
+          (arg) => arg.startsWith('--dart-define-from-file='),
+        ),
+        [flag],
+      );
+      expect(
+        await File(p.join(built.project.path, 'env/prod.json')).readAsString(),
+        '{"API":"production"}',
+      );
+    },
+  );
+
   test('refuses an envelope it has already run', () async {
     final sent = await payload('prepare', body());
     await host.execute(desktopId: desktopId, payload: sent);

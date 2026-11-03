@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:app_management_center/app/data/release_center_connect.dart';
 import 'package:app_management_center/app/models/app_store_credentials.dart';
@@ -7,15 +8,115 @@ import 'package:app_management_center/app/models/ios_build_host.dart';
 import 'package:app_management_center/app/models/ios_release.dart';
 import 'package:app_management_center/app/models/release_workflow.dart';
 import 'package:app_management_center/app/services/project_store_service.dart';
+import 'package:app_management_center/app/services/ios_build_envelope.dart';
 import 'package:app_management_center/app/services/remote_ios_release_service.dart';
 import 'package:cryptography/cryptography.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:path/path.dart' as p;
 
 import 'ios_build_host_fakes.dart';
 
 void main() {
+  for (final package in ['kysocccd', 'another_app']) {
+    test(
+      'remote prepare sends the correct encrypted env for $package',
+      () async {
+        final root = await Directory.systemTemp.createTemp('ios remote env ');
+        addTearDown(() => root.delete(recursive: true));
+        await File(
+          p.join(root.path, 'pubspec.yaml'),
+        ).writeAsString('name: $package\n');
+        await File(
+          p.join(root.path, '.env'),
+        ).writeAsString('API=dotenv-production');
+        final json = File(p.join(root.path, 'env', 'prod.json'));
+        await json.parent.create();
+        await json.writeAsString('{"API":"json-production"}');
+        SharedPreferences.setMockInitialValues({});
+        final store = await ProjectStoreService().init();
+        final key = await X25519().newKeyPair();
+        await store.saveIosBuildHostLink(
+          IosBuildHostLink(
+            endpointBaseUrl: 'https://relay.test/api',
+            desktopId: 'mac',
+            publicKey: base64.encode((await key.extractPublicKey()).bytes),
+          ),
+        );
+        final secrets = MemorySecureStore();
+        await secrets.write(
+          key: 'ios_build_host.control_token',
+          value: 'token',
+        );
+        final relay = _CaptureRelay();
+        final service = RemoteIosReleaseService(
+          store: store,
+          connect: relay,
+          secureStore: secrets,
+          credentials: (_) async => const AppStoreCredentials(
+            p8PrivateKey: 'TEST',
+            keyId: 'KEY',
+            issuerId: 'ISSUER',
+          ),
+          git: (args, _) async => ProcessResult(
+            1,
+            0,
+            args.first == 'remote'
+                ? 'https://example.com/app.git'
+                : args.first == 'status'
+                ? ''
+                : 'abc123',
+            '',
+          ),
+        );
+        await expectLater(
+          service.prepare(
+            project: AppStoreProject(
+              id: 'app',
+              path: root.path,
+              displayName: 'App',
+              bundleId: 'com.example.app',
+            ),
+            settings: const IosReleaseSettings(
+              teamId: 'TEAM',
+              remoteFiles: ['.env'],
+            ),
+          ),
+          throwsStateError,
+        );
+        final sent = relay.sent!;
+        expect(jsonEncode(sent), isNot(contains('json-production')));
+        expect(jsonEncode(sent), isNot(contains('dotenv-production')));
+        final payload = sent['payload'] as Map;
+        final body = await IosBuildEnvelope.open(
+          hostKeyPair: key,
+          envelope: payload['envelope'] as String,
+          associatedData: IosBuildEnvelope.associatedData(
+            desktopId: 'mac',
+            action: 'prepare',
+            runId: '',
+            projectId: 'app',
+          ),
+        );
+        final expectedPath = package == 'kysocccd' ? 'env/prod.json' : '.env';
+        final files = body['files'] as List;
+        expect(files.map((file) => (file as Map)['path']), [expectedPath]);
+        expect(
+          utf8.decode(base64.decode((files.single as Map)['data'] as String)),
+          await File(p.join(root.path, expectedPath)).readAsString(),
+        );
+        final settings = body['settings'] as Map;
+        expect(
+          settings['extraBuildArguments'],
+          package == 'kysocccd'
+              ? ['--dart-define-from-file=env/prod.json']
+              : isEmpty,
+        );
+      },
+    );
+  }
+
   test(
     'the controlling desktop leaves Xcode build and shows the Mac failure',
     () async {
@@ -321,6 +422,24 @@ class _StuckRelay extends ReleaseCenterConnect {
               }
               as T,
     );
+  }
+}
+
+class _CaptureRelay extends ReleaseCenterConnect {
+  Map<String, Object?>? sent;
+
+  @override
+  Future<Response<T>> post<T>(
+    String? url,
+    dynamic body, {
+    String? contentType,
+    Map<String, String>? headers,
+    Map<String, dynamic>? query,
+    Decoder<T>? decoder,
+    Progress? uploadProgress,
+  }) async {
+    sent = Map<String, Object?>.from(body as Map);
+    throw StateError('Request captured before relay delivery.');
   }
 }
 

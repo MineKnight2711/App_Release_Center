@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:app_management_center/app/models/release_project.dart';
+import 'package:app_management_center/app/services/release_build_environment.dart';
 import 'package:app_management_center/app/services/release_runner_service.dart';
 import 'package:get/get.dart';
 import 'package:path/path.dart' as p;
@@ -21,7 +22,12 @@ class RunnerReleaseApkBuildExecutor implements ReleaseApkBuildExecutor {
       statusLabel: 'flutter build apk --release',
       activePath: 'deploy:build-release-apk',
       executable: runner.resolveFlutterExecutable(),
-      arguments: const ['build', 'apk', '--release'],
+      arguments: [
+        'build',
+        'apk',
+        '--release',
+        ...ReleaseBuildEnvironment.flutterArguments(project.path),
+      ],
       clearLog: false,
       projectName: project.name,
       allowDuringWorkflow: true,

@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:app_management_center/app/services/ch_play_project_inspector_service.dart';
+import 'package:app_management_center/app/services/release_build_environment.dart';
 import 'package:get/get.dart';
 import 'package:path/path.dart' as p;
 
@@ -151,6 +153,7 @@ class AndroidCicdCloneService extends GetxService {
         content: _fastfile(
           applicationId: packageName,
           selectedFlavor: selectedFlavor,
+          jsonEnvFile: ReleaseBuildEnvironment.jsonFileFor(root.path),
         ),
       ),
       AndroidCicdFileDraft(
@@ -523,11 +526,16 @@ class AndroidCicdCloneService extends GetxService {
   static String _fastfile({
     required String applicationId,
     required String? selectedFlavor,
+    required String? jsonEnvFile,
   }) {
     final defaultFlavor = selectedFlavor == null ? 'nil' : '"$selectedFlavor"';
     return _fastlaneTemplate
         .replaceAll('__ANDROID_PACKAGE_NAME__', applicationId)
-        .replaceAll('__DEFAULT_ANDROID_FLAVOR__', defaultFlavor);
+        .replaceAll('__DEFAULT_ANDROID_FLAVOR__', defaultFlavor)
+        .replaceAll(
+          '__JSON_ENV_FILE__',
+          jsonEnvFile == null ? 'nil' : jsonEncode(jsonEnvFile),
+        );
   }
 
   static String _envPropertiesExample({
@@ -803,7 +811,19 @@ def project_root
 end
 
 def flutter_build_command(artifact:, flavor:)
-  command = "cd #{Shellwords.escape(project_root)} && flutter build #{artifact} --release"
+  command = "cd #{Shellwords.escape(project_root)}"
+  # All other projects retain their root .env / flutter_dotenv build flow.
+  env_file = __JSON_ENV_FILE__
+  if env_file
+    override = ENV["ENV_FILE"].to_s.strip
+    env_file = override unless override.empty?
+    UI.user_error!("Missing release environment file: #{env_file}") unless File.file?(File.expand_path(env_file, project_root))
+    if File.file?(File.join(project_root, "scripts/check_release_config.dart"))
+      command += " && dart run scripts/check_release_config.dart #{Shellwords.escape(env_file)}"
+    end
+  end
+  command += " && flutter build #{artifact} --release"
+  command += " #{Shellwords.escape("--dart-define-from-file=#{env_file}")}" if env_file
   command += " --flavor #{Shellwords.escape(flavor)}" if flavor
   command
 end

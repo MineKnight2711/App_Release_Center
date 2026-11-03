@@ -411,6 +411,149 @@ void main() {
     expect(runner.buildCalls, 0);
   });
 
+  for (final envName in ['env.json', 'prod.json']) {
+    test('CCCD iOS configuration and IPA both receive env/$envName', () async {
+      await File(
+        p.join(project.path, 'pubspec.yaml'),
+      ).writeAsString('name: kysocccd\nversion: 1.2.3+10\n');
+      final env = File(p.join(project.path, 'env', envName));
+      await env.parent.create();
+      await env.writeAsString('{"API":"production"}');
+
+      final run = await service.prepare(project: project, settings: settings);
+      final flag = '--dart-define-from-file=env/$envName';
+      expect(runner.configurationArguments, contains(flag));
+      expect(run.settings.remoteFiles, contains('env/$envName'));
+      await service.build(run);
+      expect(runner.buildArguments, contains(flag));
+      expect(run.status, IosReleaseStatus.built);
+    });
+  }
+
+  test(
+    'other iOS projects retain .env without automatic JSON arguments',
+    () async {
+      final env = File(p.join(project.path, 'env', 'env.json'));
+      await env.parent.create();
+      await env.writeAsString('{}');
+      await File(p.join(project.path, '.env')).writeAsString('API=production');
+      const custom = IosReleaseSettings(teamId: 'TEAM', remoteFiles: ['.env']);
+
+      final run = await service.prepare(project: project, settings: custom);
+      await service.build(run);
+      expect(run.settings.remoteFiles, ['.env']);
+      for (final arguments in [
+        runner.configurationArguments,
+        runner.buildArguments,
+      ]) {
+        expect(
+          arguments.where((arg) => arg.startsWith('--dart-define-from-file=')),
+          isEmpty,
+        );
+      }
+    },
+  );
+
+  test(
+    'CCCD rejects missing JSON before configuring or building iOS',
+    () async {
+      await File(
+        p.join(project.path, 'pubspec.yaml'),
+      ).writeAsString('name: kysocccd\nversion: 1.2.3+10\n');
+      await expectLater(
+        service.prepare(project: project, settings: settings),
+        throwsA(isA<FileSystemException>()),
+      );
+      expect(runner.configurationArguments, isEmpty);
+      expect(runner.buildCalls, 0);
+    },
+  );
+
+  test('CCCD detects ignored env changes after release preview', () async {
+    await File(
+      p.join(project.path, 'pubspec.yaml'),
+    ).writeAsString('name: kysocccd\nversion: 1.2.3+10\n');
+    final env = File(p.join(project.path, 'env', 'prod.json'));
+    await env.parent.create();
+    await env.writeAsString('{"API":"production"}');
+    final run = await service.prepare(project: project, settings: settings);
+    await env.writeAsString('{"API":"changed"}');
+
+    await expectLater(service.build(run), throwsStateError);
+    expect(runner.buildCalls, 0);
+    expect(run.message, contains('Source đã thay đổi'));
+  });
+
+  test(
+    'CCCD pins an explicit JSON path instead of selecting stale host files',
+    () async {
+      await File(
+        p.join(project.path, 'pubspec.yaml'),
+      ).writeAsString('name: kysocccd\nversion: 1.2.3+10\n');
+      final env = File(p.join(project.path, 'env', 'custom.json'));
+      await env.parent.create();
+      await env.writeAsString('{}');
+      await File(p.join(env.parent.path, 'env.json')).writeAsString('{}');
+      const flag = '--dart-define-from-file=env/custom.json';
+      final run = await service.prepare(
+        project: project,
+        settings: const IosReleaseSettings(
+          teamId: 'TEAM',
+          extraBuildArguments: [flag],
+          remoteFiles: ['.env'],
+        ),
+      );
+      await service.build(run);
+      expect(run.settings.remoteFiles, ['env/custom.json']);
+      expect(
+        runner.buildArguments.where(
+          (arg) => arg.startsWith('--dart-define-from-file='),
+        ),
+        [flag],
+      );
+    },
+  );
+
+  test(
+    'exported CCCD scripts retain JSON and hash its ignored contents',
+    () async {
+      await File(
+        p.join(project.path, 'pubspec.yaml'),
+      ).writeAsString('name: kysocccd\nversion: 1.2.3+10\n');
+      final env = File(p.join(project.path, 'env', 'prod.json'));
+      await env.parent.create();
+      await env.writeAsString('{"API":"production"}');
+      final folder = await service.exportScripts(project, settings, temp.path);
+      final config =
+          jsonDecode(await File(p.join(folder, 'config.json')).readAsString())
+              as Map;
+      expect(
+        config['settings']['extraBuildArguments'],
+        contains('--dart-define-from-file=env/prod.json'),
+      );
+      expect(jsonEncode(config), isNot(contains('"API"')));
+      if (Platform.isMacOS || Platform.isLinux) {
+        final python = r'''
+import importlib.util, pathlib, subprocess, sys
+spec = importlib.util.spec_from_file_location('release', sys.argv[1])
+release = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(release)
+release.subprocess.run = lambda *a, **k: subprocess.CompletedProcess(a, 0, stdout=b'pubspec.yaml\0')
+first = release.source_digest()
+env = pathlib.Path(release.CONFIG['project_path'])/'env/prod.json'
+env.write_text('{"API":"changed"}')
+assert first != release.source_digest(), 'Ignored env was omitted from source digest'
+''';
+        final result = await Process.run('python3', [
+          '-c',
+          python,
+          p.join(folder, 'release_ios.py'),
+        ]);
+        expect(result.exitCode, 0, reason: '${result.stderr}');
+      }
+    },
+  );
+
   test(
     'configures Flutter migrations before freezing release source',
     () async {

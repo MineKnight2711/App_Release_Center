@@ -736,6 +736,19 @@ và `cloudflare/amc-api/src/sharePage.html`; một vector thử chung ghim hai b
 
 ## Telegram Release Notes
 
+Android release environment files are project-specific. Only the Flutter
+package `kysocccd` uses JSON from its root `env/` folder: `env/env.json` when
+present, otherwise its existing `env/prod.json`. AMC's generated Fastfile and
+release APK build pass that file with `--dart-define-from-file`. The generated
+Fastfile validates it with `scripts/check_release_config.dart` when available;
+`ENV_FILE` can override the JSON path for this project only. All other projects
+keep their existing root `.env` / `flutter_dotenv` flow, without JSON arguments.
+
+The same rule applies to iOS configuration, IPA builds and exported iOS release
+scripts. A remote CCCD build automatically sends the selected JSON through the
+existing encrypted file transfer; the selected path is saved with the run.
+Changes to compiled env files after the release preview require preparing again.
+
 1. Create a bot with `@BotFather` by running `/newbot` and keep its token
    private.
 2. Add the bot to the target Telegram group and allow it to send messages.
@@ -818,6 +831,24 @@ API document limit are uploaded directly. Larger installers are uploaded with
 the existing Google Drive connection and sent to Telegram as a Drive link.
 
 ## macOS Installer
+
+To build and install on this Mac without a DMG:
+
+```bash
+installer/macos/install_local.sh
+```
+
+It builds the release, signs it ad-hoc and replaces `App Management Center.app`
+in `/Applications` (`~/Applications` when that is not writable, or
+`AMC_INSTALL_DIR`), then opens it. Like the Windows installer it first stops
+every running AMC, a debug run from `build/` included: release builds allow one
+instance, so any other copy would keep the new one closed. Each is asked to
+quit, then killed after 20 seconds. The previous version stays if
+the install fails. `--skip-build` reuses the last release build and
+`--no-launch` leaves the app closed. Starting with the Mac
+(Options > Điều khiển) needs AMC to run from Applications.
+
+To package a DMG for other Macs:
 
 ```bash
 installer/macos/build_installer.sh

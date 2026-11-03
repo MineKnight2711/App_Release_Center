@@ -10,6 +10,7 @@ import 'package:app_management_center/app/services/app_store_project_inspector_s
 import 'package:app_management_center/app/services/ios_release_backend.dart';
 import 'package:app_management_center/app/services/ios_release_fastfile.dart';
 import 'package:app_management_center/app/services/ios_release_script.dart';
+import 'package:app_management_center/app/services/release_build_environment.dart';
 import 'package:app_management_center/app/services/release_push_messages.dart';
 import 'package:app_management_center/app/services/release_runner_service.dart';
 import 'package:cryptography/cryptography.dart';
@@ -192,6 +193,38 @@ class IosReleaseWorkflowService implements IosReleaseBackend {
     }
   }
 
+  /// Pin the selected JSON path in the run so a remote Mac uses the same
+  /// configuration even when its checkout contains older ignored env files.
+  static IosReleaseSettings settingsForProject(
+    String projectPath,
+    IosReleaseSettings settings,
+  ) {
+    if (ReleaseBuildEnvironment.jsonFileFor(projectPath) == null) {
+      return settings;
+    }
+    final arguments = [
+      ...settings.extraBuildArguments,
+      if (_defineFiles(settings.extraBuildArguments).isEmpty)
+        ...ReleaseBuildEnvironment.flutterArguments(projectPath),
+    ];
+    return IosReleaseSettings.fromJson({
+      ...settings.toJson(),
+      'extraBuildArguments': arguments,
+      'remoteFiles': {
+        ...settings.remoteFiles.where((file) => file != '.env'),
+        ..._defineFiles(
+          arguments,
+        ).where((file) => remoteFilePath(file) != null),
+      }.toList(),
+    });
+  }
+
+  static List<String> _defineFiles(List<String> arguments) => [
+    for (final argument in arguments)
+      if (argument.startsWith('--dart-define-from-file='))
+        ...argument.substring('--dart-define-from-file='.length).split(','),
+  ];
+
   /// [path] as a forward-slash path inside the project, or null when it could
   /// land outside it or inside `.git`. Checked on both ends of a remote build:
   /// the host writes whatever it is sent, so it cannot trust the sender's check.
@@ -309,7 +342,10 @@ class IosReleaseWorkflowService implements IosReleaseBackend {
         throw StateError('Phải cấu hình Team ID cho release iOS.');
       }
       final effective = IosReleaseSettings.fromJson({
-        ...settings.toJson(),
+        ...(existingBuild == null
+                ? settingsForProject(project.path, settings)
+                : settings)
+            .toJson(),
         'teamId': team,
       });
       final git = await _command(project.path, 'git', ['rev-parse', 'HEAD']);
@@ -681,7 +717,7 @@ class IosReleaseWorkflowService implements IosReleaseBackend {
     '--build-number=${run.buildNumber}',
     '--target=${run.settings.entrypoint}',
     if (run.settings.flavor.isNotEmpty) '--flavor=${run.settings.flavor}',
-    ...run.settings.extraBuildArguments,
+    ...settingsForProject(run.project.path, run.settings).extraBuildArguments,
   ];
 
   Future<void> _verifyIpa(IosReleaseRun run) async {
@@ -1128,6 +1164,7 @@ class IosReleaseWorkflowService implements IosReleaseBackend {
             .split('\u0000')
             .where((name) => name.isNotEmpty)
             .toSet()
+            .union(_defineFiles(_flutterBuildArguments(run)).toSet())
             .toList()
           ..sort();
     final sink = Sha256().newHashSink();
@@ -1181,7 +1218,7 @@ class IosReleaseWorkflowService implements IosReleaseBackend {
     validateSettings(settings);
     final credential = await _credential(project);
     final effective = IosReleaseSettings.fromJson({
-      ...settings.toJson(),
+      ...settingsForProject(project.path, settings).toJson(),
       'teamId': settings.teamId.isEmpty
           ? credential.teamId ?? ''
           : settings.teamId,

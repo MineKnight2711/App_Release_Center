@@ -285,6 +285,10 @@ class RemoteIosReleaseService implements IosReleaseBackend {
     IosStoreBuild? existingBuild,
   }) async {
     IosReleaseWorkflowService.validateSettings(settings);
+    final effective = existingBuild == null
+        ? IosReleaseWorkflowService.settingsForProject(project.path, settings)
+        : settings;
+    IosReleaseWorkflowService.validateSettings(effective);
     _projects[project.id] = project;
     final source = await inspectSource(project.path);
     if (source.commit.isEmpty || source.remote.isEmpty) {
@@ -298,11 +302,11 @@ class RemoteIosReleaseService implements IosReleaseBackend {
       runId: '',
       body: {
         ...await _baseBody(project),
-        'settings': settings.toJson(),
+        'settings': effective.toJson(),
         'git': source.toJson(),
         'version': version,
         'existingBuild': existingBuild?.toJson(),
-        'files': await _files(project.path, settings.remoteFiles),
+        'files': await _files(project.path, effective.remoteFiles),
       },
     );
     return _runFrom(result) ??
@@ -416,7 +420,13 @@ class RemoteIosReleaseService implements IosReleaseBackend {
       body: {
         ...await _baseBody(local ?? run.project),
         if (withFiles)
-          'files': await _files(local!.path, run.settings.remoteFiles),
+          'files': await _files(
+            local!.path,
+            IosReleaseWorkflowService.settingsForProject(
+              local.path,
+              run.settings,
+            ).remoteFiles,
+          ),
         ...extra,
       },
     );

@@ -60,7 +60,11 @@ def source_digest():
     result = subprocess.run(['git','ls-files','-z','--cached','--others','--exclude-standard'], cwd=project, capture_output=True)
     if result.returncode: raise RuntimeError('Cannot inspect release source')
     h = hashlib.sha256()
-    for name in sorted(set(result.stdout.decode().split('\0')) - {''}):
+    names = set(result.stdout.decode().split('\0')) - {''}
+    for argument in SETTINGS['extraBuildArguments']:
+        if argument.startswith('--dart-define-from-file='):
+            names.update(argument.split('=', 1)[1].split(','))
+    for name in sorted(names):
         path = project/name
         value = os.readlink(path) if path.is_symlink() else digest(path) if path.is_file() else 'missing'
         h.update(json.dumps([name, value]).encode())
